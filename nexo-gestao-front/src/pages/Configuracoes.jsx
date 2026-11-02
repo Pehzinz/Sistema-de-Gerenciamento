@@ -1,0 +1,228 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Navbar from '../components/Navbar';
+import { BASE_URL } from '../services/api';
+
+function Configuracoes() {
+  const [empresa, setEmpresa] = useState({
+    nome: '', cnpj: '', telefone: '', email: '', endereco: ''
+  });
+  const [mensagem, setMensagem] = useState(null);
+  const [modalExclusaoAberto, setModalExclusaoAberto] = useState(false);
+  const [confirmacaoExclusao, setConfirmacaoExclusao] = useState('');
+  
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const perfil = localStorage.getItem('perfil');
+    if (perfil !== 'ADMIN') {
+      navigate('/caixa');
+      return;
+    }
+    buscarConfiguracoes();
+  }, []);
+
+  const buscarConfiguracoes = async () => {
+    const token = localStorage.getItem('token');
+    try {
+      const resposta = await fetch(BASE_URL + '/api/empresas/minha-empresa', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (resposta.ok) {
+        const dados = await resposta.json();
+        setEmpresa(dados);
+      }
+    } catch (erro) {
+      console.error('Erro ao buscar empresa', erro);
+    }
+  };
+
+  const salvarConfiguracoes = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem('token');
+    try {
+      const resposta = await fetch(BASE_URL + '/api/empresas/configuracoes', {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify(empresa)
+      });
+      if (resposta.ok) {
+        // A CORREÇÃO DA TELA DE LOGIN: Atualiza a memória da máquina com o novo nome
+        localStorage.setItem('empresaNome', empresa.nome);
+        
+        setMensagem({ tipo: 'sucesso', texto: 'Configurações salvas com sucesso!' });
+        setTimeout(() => setMensagem(null), 3000);
+      }
+    } catch (erro) {
+      setMensagem({ tipo: 'erro', texto: 'Falha ao salvar. Verifique a conexão.' });
+    }
+  };
+
+  const limparEstoque = async () => {
+    const confirmacao = window.confirm("ATENÇÃO: Todos os produtos terão o estoque zerado e serão ocultados do catálogo. O histórico de vendas será mantido. Tem certeza?");
+    if (!confirmacao) return;
+
+    const token = localStorage.getItem('token');
+    const resposta = await fetch(BASE_URL + '/api/empresas/limpar-estoque', {
+      method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (resposta.ok) alert('O Estoque foi limpo com sucesso.');
+  };
+
+  const encerrarConta = async (e) => {
+    e.preventDefault();
+    if (confirmacaoExclusao !== 'DELETAR') {
+      alert("Para sua segurança, digite a palavra DELETAR exatamente como solicitado.");
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    const resposta = await fetch(BASE_URL + '/api/empresas/encerrar-conta', {
+      method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (resposta.ok) {
+      alert('Sua conta foi encerrada. Todos os dados foram apagados.');
+      localStorage.clear();
+      window.location.href = '/';
+    } else {
+      alert('Houve um erro ao excluir a conta.');
+      setModalExclusaoAberto(false);
+    }
+  };
+
+  const inputStyle = { padding: '12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '15px', backgroundColor: '#fcfcfc', color: '#333', width: '100%', boxSizing: 'border-box', outline: 'none' };
+
+  return (
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden' }}>
+      <div style={{ flexShrink: 0 }}>
+        <Navbar />
+      </div>
+
+      <main style={{ flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+        
+        <div style={{ width: '100%', maxWidth: '800px', display: 'flex', flexDirection: 'column', gap: '25px' }}>
+          
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#8e44ad', letterSpacing: '0.5px', marginBottom: '8px', textTransform: 'uppercase' }}>
+              Administração
+            </div>
+            <h1 style={{ margin: 0, color: '#333', fontSize: '28px' }}>Configurações da Empresa</h1>
+          </div>
+
+          <div style={{ padding: '30px', backgroundColor: 'white', borderRadius: '15px', border: '1px solid #f0f0f0', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
+            <h3 style={{ marginTop: 0, color: '#444' }}>Dados Comerciais</h3>
+            
+            {mensagem && (
+              <div style={{ padding: '10px', backgroundColor: mensagem.tipo === 'sucesso' ? '#e8f5e9' : '#ffeaec', color: mensagem.tipo === 'sucesso' ? '#1e8e3e' : '#d63031', borderRadius: '5px', marginBottom: '15px', fontWeight: 'bold', textAlign: 'center' }}>
+                {mensagem.texto}
+              </div>
+            )}
+
+            <form onSubmit={salvarConfiguracoes} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div style={{ gridColumn: 'span 2' }}>
+                <label style={{ fontSize: '12px', color: '#888', fontWeight: 'bold' }}>NOME FANTASIA</label>
+                <input type="text" value={empresa.nome} onChange={(e) => setEmpresa({...empresa, nome: e.target.value})} style={inputStyle} required />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', color: '#888', fontWeight: 'bold' }}>CNPJ (Bloqueado)</label>
+                <input type="text" value={empresa.cnpj} disabled style={{...inputStyle, backgroundColor: '#f0f0f0', color: '#aaa'}} />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', color: '#888', fontWeight: 'bold' }}>TELEFONE PÚBLICO</label>
+                <input type="text" value={empresa.telefone || ''} onChange={(e) => setEmpresa({...empresa, telefone: e.target.value})} style={inputStyle} placeholder="(00) 0000-0000" />
+              </div>
+
+              <div style={{ gridColumn: 'span 2' }}>
+                <label style={{ fontSize: '12px', color: '#888', fontWeight: 'bold' }}>E-MAIL DE CONTATO</label>
+                <input type="email" value={empresa.email || ''} onChange={(e) => setEmpresa({...empresa, email: e.target.value})} style={inputStyle} placeholder="contato@empresa.com" />
+              </div>
+
+              <div style={{ gridColumn: 'span 2' }}>
+                <label style={{ fontSize: '12px', color: '#888', fontWeight: 'bold' }}>ENDEREÇO DA SEDE</label>
+                <input type="text" value={empresa.endereco || ''} onChange={(e) => setEmpresa({...empresa, endereco: e.target.value})} style={inputStyle} />
+              </div>
+
+              <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                <button type="submit" style={{ padding: '12px 25px', backgroundColor: '#8e44ad', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 10px rgba(142,68,173,0.3)' }}>
+                  Salvar Alterações
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div style={{ padding: '30px', backgroundColor: 'white', borderRadius: '15px', border: '1px solid #ffeaec', boxShadow: '0 4px 15px rgba(214,48,49,0.05)' }}>
+            <h3 style={{ marginTop: 0, color: '#d63031' }}>Zona de Perigo</h3>
+            <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
+              Ações realizadas nesta seção têm impacto severo na operação da loja.
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '15px', borderBottom: '1px solid #f0f0f0', marginBottom: '15px' }}>
+              <div>
+                <strong style={{ color: '#333' }}>Limpar Catálogo e Estoque</strong>
+                <div style={{ fontSize: '13px', color: '#888', marginTop: '3px' }}>Oculta os produtos e zera estoques. Mantém faturamento histórico.</div>
+              </div>
+              <button onClick={limparEstoque} style={{ padding: '8px 15px', backgroundColor: '#fff5e6', color: '#d68a00', border: '1px solid #ffe0b2', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+                Limpar Estoque
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <strong style={{ color: '#333' }}>Encerrar Conta do Nexo Gestão</strong>
+                <div style={{ fontSize: '13px', color: '#888', marginTop: '3px' }}>Exclusão permanente de todos os dados da nuvem. Irreversível.</div>
+              </div>
+              <button onClick={() => setModalExclusaoAberto(true)} style={{ padding: '8px 15px', backgroundColor: '#ffeaec', color: '#d63031', border: '1px solid #ffcdd2', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+                Deletar Conta
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </main>
+
+      {/* NOVO: MODAL DE EXCLUSÃO SUSPENSO (Estilo PDV) */}
+      {modalExclusaoAberto && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10 }}>
+          <div style={{ backgroundColor: 'white', padding: '35px', borderRadius: '15px', width: '450px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ color: '#d63031', marginTop: 0, fontSize: '20px' }}>Exclusão Definitiva de Conta</h3>
+            <p style={{ fontSize: '14px', color: '#666', lineHeight: '1.5', marginBottom: '20px' }}>
+              Esta ação é <strong>irreversível</strong>. Todos os produtos, relatórios financeiros, histórico de vendas e contas de colaboradores serão completamente apagados dos servidores.
+            </p>
+            <p style={{ fontSize: '14px', color: '#333', fontWeight: 'bold', marginBottom: '10px' }}>
+              Para confirmar o encerramento, digite a palavra DELETAR abaixo:
+            </p>
+            
+            <form onSubmit={encerrarConta}>
+              <input 
+                type="text" 
+                placeholder="Digite DELETAR" 
+                value={confirmacaoExclusao} 
+                onChange={(e) => setConfirmacaoExclusao(e.target.value)} 
+                required
+                style={{ width: '100%', padding: '12px', marginBottom: '25px', boxSizing: 'border-box', border: '1px solid #ffcdd2', borderRadius: '8px', outline: 'none', fontSize: '14px', backgroundColor: '#fff5f5' }} 
+              />
+              
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                <button type="button" onClick={() => { setModalExclusaoAberto(false); setConfirmacaoExclusao(''); }} style={{ padding: '12px 20px', border: 'none', background: '#f5f5f5', color: '#555', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  Cancelar
+                </button>
+                <button type="submit" style={{ padding: '12px 20px', border: 'none', background: '#d63031', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  Apagar Empresa
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+export default Configuracoes;
