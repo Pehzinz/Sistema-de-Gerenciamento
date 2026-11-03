@@ -6,7 +6,7 @@ import jakarta.persistence.*;
 
 @Entity
 @Table(name = "produtos")
-public class Produto {
+public class Produto implements java.io.Serializable {
 
     // A MÁGICA: O banco de dados usa essa chave segura (ex: 1-1010101010)
     // O @JsonIgnore impede completamente que o React veja isso!

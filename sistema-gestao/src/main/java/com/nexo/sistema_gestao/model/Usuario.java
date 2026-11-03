@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 
 @Entity 
 @Table(name="usuarios")
-public class Usuario{
+public class Usuario implements java.io.Serializable {
     //Atributos do Objeto Usuario
     @Id 
     @GeneratedValue(strategy = GenerationType.IDENTITY)

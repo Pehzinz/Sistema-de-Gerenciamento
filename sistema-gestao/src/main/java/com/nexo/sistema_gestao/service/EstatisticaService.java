@@ -4,6 +4,7 @@ import com.nexo.sistema_gestao.model.ItemVenda;
 import com.nexo.sistema_gestao.model.Venda;
 import com.nexo.sistema_gestao.repository.VendaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -17,7 +18,8 @@ public class EstatisticaService {
     @Autowired
     private VendaRepository vendaRepository;
 
-    // --- 1. REGRESSÃO LINEAR (Foco Semanal/Diário por Empresa) ---
+    // --- 1. REGRESSÃO LINEAR (BLINDADA NA MEMÓRIA POR EMPRESA) ---
+    @Cacheable(value = "estatisticasRegressao", key = "#empresaId")
     public List<Map<String, Object>> calcularRegressaoLinearVendas(Long empresaId) {
         List<Venda> vendas = vendaRepository.findByEmpresaId(empresaId);
         if (vendas.isEmpty()) return new ArrayList<>();
@@ -96,6 +98,7 @@ public class EstatisticaService {
     }
 
     // --- 2. CURVA ABC E FLUXO DE CAIXA SEMANAL POR EMPRESA ---
+    @Cacheable(value = "estatisticasRegressao", key = "#empresaId")
     public Map<String, Object> calcularCurvaABCFluxo(Long empresaId) {
         List<Venda> vendas = vendaRepository.findByEmpresaId(empresaId);
         Map<String, Double> faturamentoPorProduto = new HashMap<>();
@@ -156,6 +159,7 @@ public class EstatisticaService {
     }
 
     // --- 3. TRÁFEGO POR DIA DA SEMANA POR EMPRESA ---
+    @Cacheable(value = "estatisticasRegressao", key = "#empresaId")
     public Map<String, Object> calcularTrafego(Long empresaId) {
         List<Venda> vendas = vendaRepository.findByEmpresaId(empresaId);
         double[] diasSemana = new double[8]; 

@@ -123,7 +123,7 @@ function ExcluirProduto() {
                 <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>ID do Produto</label>
                 <input 
                   type="text" 
-                  maxLength="10"
+                  /*maxLength="10"*/  
                   placeholder="Apenas números" 
                   value={idProduto} 
                   onChange={(e) => setIdProduto(e.target.value.replace(/\D/g, ''))} 
