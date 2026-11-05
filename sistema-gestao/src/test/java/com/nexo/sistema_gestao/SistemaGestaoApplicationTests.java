@@ -1,13 +1,170 @@
 package com.nexo.sistema_gestao;
 
-import org.junit.jupiter.api.Test;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nexo.sistema_gestao.model.*;
+import com.nexo.sistema_gestao.repository.*;
+import com.nexo.sistema_gestao.security.TokenService;
+import org.junit.jupiter.api.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.env.Environment;
+import java.net.URI;
+import java.net.http.*;
+import java.util.*;
+import java.util.concurrent.*;
+import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
+    "spring.datasource.url=jdbc:h2:mem:security;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
+    "spring.datasource.driver-class-name=org.h2.Driver", "spring.datasource.username=sa",
+    "spring.datasource.password=", "spring.jpa.hibernate.ddl-auto=create-drop",
+    "api.security.token.secret=isolated-tests-only-0123456789abcdef0123456789",
+    "telegrambots.enabled=false", "server.forward-headers-strategy=none"
+})
 class SistemaGestaoApplicationTests {
+    @Autowired Environment environment;
+    @Autowired EmpresaRepository empresas;
+    @Autowired UsuarioRepository usuarios;
+    @Autowired CategoriaRepository categorias;
+    @Autowired ProdutoRepository produtos;
+    @Autowired VendaRepository vendas;
+    @Autowired EventoRepository eventos;
+    @Autowired TokenService tokens;
+    final ObjectMapper json = new ObjectMapper();
+    final HttpClient http = HttpClient.newHttpClient();
+    Empresa empresa;
+    Usuario admin, colaborador;
+    Produto produto;
+    String adminToken, colaboradorToken;
 
-	@Test
-	void contextLoads() {
-	}
+    @BeforeEach void setup() {
+        empresa = empresas.save(new Empresa("Teste", UUID.randomUUID().toString().substring(0, 18)));
+        admin = user("ADMIN"); colaborador = user("COLABORADOR");
+        adminToken = tokens.gerarToken(admin); colaboradorToken = tokens.gerarToken(colaborador);
+        Categoria categoria = new Categoria("Categoria " + empresa.getId());
+        categoria.setEmpresa(empresa); categoria = categorias.save(categoria);
+        produto = new Produto(); produto.setId("1234567890");
+        produto.setIdInterno(empresa.getId() + "-1234567890"); produto.setEmpresa(empresa);
+        produto.setCategoria(categoria); produto.setNome("Produto"); produto.setPreco(10.0); produto.setEstoque(1);
+        produto = produtos.save(produto);
+    }
+
+    Usuario user(String role) {
+        Usuario u = new Usuario(); u.setEmpresa(empresa); u.setPerfil(role);
+        u.setNomeCompleto(role); u.setCpf(UUID.randomUUID().toString().substring(0, 14));
+        u.setSenha("hash-nao-deve-ser-exposto"); return usuarios.save(u);
+    }
+
+    HttpResponse<String> call(String method, String path, String token, String body) throws Exception {
+        var request = HttpRequest.newBuilder(URI.create("http://localhost:" + environment.getProperty("local.server.port") + path));
+        if (token != null) request.header("Authorization", "Bearer " + token);
+        request.header("Content-Type", "application/json");
+        request.method(method, body == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(body));
+        return http.send(request.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    String sale(int qty, String total) {
+        return "{\"usuarioId\":" + admin.getId() + ",\"formaPagamento\":\"PIX\",\"total\":" + total
+            + ",\"itens\":[{\"produtoId\":\"1234567890\",\"quantidade\":" + qty + ",\"precoUnitario\":0.01,\"subtotal\":0.01}]}";
+    }
+
+    @Test void anonymousAndInvalidTokenAreRejected() throws Exception {
+        assertEquals(401, call("GET", "/api/produtos", null, null).statusCode());
+        assertEquals(401, call("GET", "/api/produtos", "forged-token", null).statusCode());
+    }
+
+    @Test void collaboratorCannotUseAdministrativeEndpoints() throws Exception {
+        for (String path : List.of("/api/usuarios", "/api/vendas", "/api/eventos", "/api/tendencias/trafego"))
+            assertEquals(403, call("GET", path, colaboradorToken, null).statusCode(), path);
+        assertEquals(403, call("POST", "/api/empresas/limpar-estoque", colaboradorToken, "{}").statusCode());
+        assertEquals(403, call("DELETE", "/api/empresas/encerrar-conta", colaboradorToken, null).statusCode());
+        assertEquals(403, call("POST", "/api/usuarios", colaboradorToken, "{}").statusCode());
+        assertEquals(200, call("GET", "/api/produtos", colaboradorToken, null).statusCode());
+    }
+
+    @Test void tenantIsolationAndPasswordSecrecy() throws Exception {
+        Empresa other = empresas.save(new Empresa("Outra", "outra-" + empresa.getId()));
+        Categoria foreign = new Categoria("Outra " + empresa.getId()); foreign.setEmpresa(other); foreign = categorias.save(foreign);
+        var response = call("GET", "/api/usuarios", adminToken, null);
+        assertEquals(200, response.statusCode());
+        assertFalse(response.body().contains("senha")); assertFalse(response.body().contains("hash-nao"));
+        String body = "{\"id\":\"9999999999\",\"nome\":\"Intruso\",\"preco\":10,\"estoque\":1,\"categoria\":{\"id\":" + foreign.getId() + "}}";
+        assertEquals(400, call("POST", "/api/produtos", adminToken, body).statusCode());
+        assertEquals(404, call("DELETE", "/api/categorias/" + foreign.getId(), adminToken, null).statusCode());
+    }
+
+    @Test void suppliedEventIdCannotOverwriteAnotherTenant() throws Exception {
+        Empresa other = empresas.save(new Empresa("Outra", "evento-" + empresa.getId()));
+        Evento event = new Evento("Original", "2026-11-05", "12:00", "Original"); event.setEmpresa(other); event = eventos.save(event);
+        String body = "{\"id\":" + event.getId() + ",\"titulo\":\"Novo\",\"data\":\"2026-11-06\",\"hora\":\"12:00\",\"descricao\":\"Teste\"}";
+        assertEquals(201, call("POST", "/api/eventos", adminToken, body).statusCode());
+        assertEquals("Original", eventos.findById(event.getId()).orElseThrow().getTitulo());
+    }
+
+    @Test void tamperedTotalAndNegativeQuantitiesDoNotChangeStock() throws Exception {
+        assertEquals(400, call("POST", "/api/vendas", colaboradorToken, sale(1, "0.01")).statusCode());
+        assertEquals(400, call("POST", "/api/vendas", colaboradorToken, sale(-1, "-10")).statusCode());
+        assertEquals(1, produtos.findById(produto.getIdInterno()).orElseThrow().getEstoque());
+        assertTrue(vendas.findByEmpresaId(empresa.getId()).isEmpty());
+    }
+
+    @Test void serverSetsOperatorAndPrice() throws Exception {
+        assertEquals(201, call("POST", "/api/vendas", colaboradorToken, sale(1, "10.00")).statusCode());
+        var saved = vendas.findByEmpresaId(empresa.getId()).getFirst();
+        assertEquals(colaborador.getId(), saved.getUsuario().getId());
+        assertEquals(0, saved.getItens().getFirst().getPrecoUnitario().compareTo(new java.math.BigDecimal("10.00")));
+        assertEquals(0, produtos.findById(produto.getIdInterno()).orElseThrow().getEstoque());
+    }
+
+    @Test void concurrentCheckoutsCannotSellSameLastUnit() throws Exception {
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            Callable<Integer> task = () -> call("POST", "/api/vendas", colaboradorToken, sale(1, "10.00")).statusCode();
+            var results = executor.invokeAll(List.of(task, task));
+            var statuses = new ArrayList<Integer>();
+            for (var result : results) statuses.add(result.get());
+            Collections.sort(statuses);
+            assertEquals(List.of(201, 400), statuses);
+        }
+        assertEquals(1, vendas.findByEmpresaId(empresa.getId()).size());
+        assertEquals(0, produtos.findById(produto.getIdInterno()).orElseThrow().getEstoque());
+    }
+
+    @Test void registrationRejectsWeakPassword() throws Exception {
+        var response = call("POST", "/api/registro", null,
+            "{\"nomeEmpresa\":\"Teste\",\"cnpj\":\"123\",\"nomeAdmin\":\"Admin\",\"cpfAdmin\":\"123\",\"senhaAdmin\":\"123\"}");
+        assertEquals(400, response.statusCode());
+    }
+    @Test void signedUploadsRequireAdministrator() throws Exception {
+        assertEquals(401, call("POST", "/api/uploads/assinatura", null, "{}").statusCode());
+        assertEquals(403, call("POST", "/api/uploads/assinatura", colaboradorToken, "{}").statusCode());
+        assertEquals(503, call("POST", "/api/uploads/assinatura", adminToken, "{}").statusCode());
+    }
+
+    @Test void sameCategoryNameCanExistInDifferentCompanies() {
+        Empresa other = empresas.save(new Empresa("Outra", "categoria-" + empresa.getId()));
+        Categoria cat = new Categoria(produto.getCategoria().getNome()); cat.setEmpresa(other);
+        assertNotNull(categorias.saveAndFlush(cat).getId());
+    }
+
+    @Test void categoryWithStockCannotBeDeletedById() throws Exception {
+        assertEquals(400, call("DELETE", "/api/categorias/" + produto.getCategoria().getId(), adminToken, null).statusCode());
+        assertTrue(categorias.findById(produto.getCategoria().getId()).orElseThrow().isAtivo());
+    }
+
+    @Test void registrationAndLoginUseRealPasswordHashing() throws Exception {
+        String cpf = "login-" + empresa.getId();
+        String cnpj = "login-company-" + empresa.getId();
+        var body = Map.of("nomeEmpresa", "Nova empresa", "cnpj", cnpj, "nomeAdmin", "Admin",
+                "cpfAdmin", cpf, "senhaAdmin", "senha-teste-forte-123");
+        assertEquals(201, call("POST", "/api/registro", null, json.writeValueAsString(body)).statusCode());
+        var login = Map.of("cpf", cpf, "cnpj", cnpj, "senha", "senha-teste-forte-123");
+        var response = call("POST", "/api/login", null, json.writeValueAsString(login));
+        assertEquals(200, response.statusCode());
+        String token = json.readTree(response.body()).path("token").asText();
+        assertEquals(200, call("GET", "/api/produtos", token, null).statusCode());
+        var decoded = com.auth0.jwt.JWT.decode(token);
+        long remaining = decoded.getExpiresAtAsInstant().getEpochSecond() - java.time.Instant.now().getEpochSecond();
+        assertTrue(remaining > 7100 && remaining <= 7200);
+    }
 
 }

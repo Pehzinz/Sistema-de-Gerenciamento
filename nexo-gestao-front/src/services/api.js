@@ -9,3 +9,13 @@ export const BASE_URL = (
   import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? 'http://localhost:8080' : BACKEND_PRODUCAO)
 ).replace(/\/+$/, '');
+
+export async function apiFetch(input, options) {
+  const response = await globalThis.fetch(input, options);
+  if (typeof input === 'string' && input.startsWith(BASE_URL + '/api/')
+      && !input.endsWith('/login') && !input.endsWith('/registro') && response.status === 401) {
+    ['token', 'perfil', 'nome'].forEach(key => sessionStorage.removeItem(key));
+    window.location.assign('/');
+  }
+  return response;
+}

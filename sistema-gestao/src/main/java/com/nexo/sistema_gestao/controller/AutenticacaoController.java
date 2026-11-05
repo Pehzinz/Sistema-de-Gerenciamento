@@ -31,6 +31,8 @@ public class AutenticacaoController {
 
     @PostMapping("/login")
     public ResponseEntity<?> realizarLogin(@RequestBody LoginRequestDTO dadosLogin) {
+        com.nexo.sistema_gestao.security.RequestValidation.text(dadosLogin.cpf(), 14, "CPF");
+        com.nexo.sistema_gestao.security.RequestValidation.text(dadosLogin.senha(), 72, "Senha");
         
         List<Usuario> usuariosEncontrados;
 
@@ -44,7 +46,7 @@ public class AutenticacaoController {
         }
 
         if (usuariosEncontrados.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("{\"erro\": \"Usuário não encontrado.\"}");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("erro", "CPF ou senha incorretos."));
         }
 
         // Separa apenas as contas que possuem a senha digitada correta
@@ -53,7 +55,7 @@ public class AutenticacaoController {
                 .collect(Collectors.toList());
 
         if (contasComSenhaCorreta.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("{\"erro\": \"Senha incorreta.\"}");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("erro", "CPF ou senha incorretos."));
         }
 
         // A BARREIRA DE SEGURANÇA: Identidade ambígua em terminal não configurado
@@ -80,6 +82,11 @@ public class AutenticacaoController {
     @PostMapping("/registro")
     @Transactional
     public ResponseEntity<?> registrarNovaEmpresa(@RequestBody RegistroSaaSRequestDTO dados) {
+        com.nexo.sistema_gestao.security.RequestValidation.text(dados.nomeEmpresa(), 150, "Nome da empresa");
+        com.nexo.sistema_gestao.security.RequestValidation.text(dados.cnpj(), 18, "CNPJ");
+        com.nexo.sistema_gestao.security.RequestValidation.text(dados.nomeAdmin(), 150, "Nome do administrador");
+        com.nexo.sistema_gestao.security.RequestValidation.text(dados.cpfAdmin(), 14, "CPF");
+        com.nexo.sistema_gestao.security.RequestValidation.password(dados.senhaAdmin());
         
         if (empresaRepository.findByCnpj(dados.cnpj()).isPresent()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"erro\": \"CNPJ já cadastrado no sistema.\"}");

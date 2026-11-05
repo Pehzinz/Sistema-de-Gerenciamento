@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Navbar from '../components/Navbar';
-import { BASE_URL } from '../services/api';
+import { BASE_URL, apiFetch as fetch } from '../services/api';
 
 function Calendario() {
-  const [dataAtual, setDataAtual] = useState(new Date());
-  const [diaSelecionado, setDiaSelecionado] = useState(new Date().toISOString().split('T')[0]);
+  const [dataAtual, setDataAtual] = useState(() => new Date());
+  const [diaSelecionado, setDiaSelecionado] = useState(() => new Date().toLocaleDateString('en-CA'));
   
-  const dataLocal = new Date();
+  const [dataLocal] = useState(() => new Date());
   const hojeStr = `${dataLocal.getFullYear()}-${String(dataLocal.getMonth() + 1).padStart(2, '0')}-${String(dataLocal.getDate()).padStart(2, '0')}`;
   // --- ESTADOS DE DADOS (INTEGRADOS AO BANCO DE DADOS) ---
   const [eventos, setEventos] = useState([]);
@@ -19,14 +19,11 @@ function Calendario() {
   const [form, setForm] = useState({ titulo: '', data: '', hora: '', descricao: '' });
   const [notificacao, setNotificacao] = useState(null);
 
-  useEffect(() => {
-    buscarDadosAutomatizados();
-  }, [dataAtual.getFullYear()]);
 
+  const anoAtual = dataAtual.getFullYear();
   // --- FUNÇÃO PARA CARREGAR FERIADOS, PRODUTOS E EVENTOS DO BANCO ---
-  const buscarDadosAutomatizados = async () => {
-    const anoAtual = dataAtual.getFullYear();
-    const token = localStorage.getItem('token');
+  const buscarDadosAutomatizados = useCallback(async () => {
+    const token = sessionStorage.getItem('token');
 
     // 1. Busca Feriados Nacionais (BrasilAPI)
     try {
@@ -73,7 +70,13 @@ function Calendario() {
     } catch (e) {
       console.error('Erro ao buscar produtos', e);
     }
-  };
+  }, [anoAtual]);
+
+  useEffect(() => {
+    let ativo = true;
+    Promise.resolve().then(() => { if (ativo) void buscarDadosAutomatizados(); });
+    return () => { ativo = false; };
+  }, [buscarDadosAutomatizados]);
 
   const mostrarNotificacao = (titulo, mensagem, icone = '📌') => {
     setNotificacao({ titulo, mensagem, icone });
@@ -128,7 +131,7 @@ function Calendario() {
       return;
     }
 
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
     const url = editandoId 
       ? `${BASE_URL}/api/eventos/${editandoId}` 
       : BASE_URL + '/api/eventos';
@@ -155,7 +158,7 @@ function Calendario() {
       } else {
         mostrarNotificacao('Erro', 'Não foi possível salvar o evento no servidor.', '❌');
       }
-    } catch (erro) {
+    } catch {
       mostrarNotificacao('Erro de Conexão', 'Falha ao comunicar com o servidor Java.', '❌');
     }
   };
@@ -163,7 +166,7 @@ function Calendario() {
   // --- EXCLUIR EVENTO NO BANCO DE DADOS (DELETE) ---
   const excluirEvento = async () => {
     if (!editandoId) return;
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
 
     try {
       const resposta = await fetch(`${BASE_URL}/api/eventos/${editandoId}`, {
@@ -178,7 +181,7 @@ function Calendario() {
       } else {
         mostrarNotificacao('Erro', 'Não foi possível excluir o evento.', '❌');
       }
-    } catch (erro) {
+    } catch {
       mostrarNotificacao('Erro de Conexão', 'Falha ao comunicar com o servidor Java.', '❌');
     }
   };
@@ -210,7 +213,7 @@ function Calendario() {
     .slice(0, 3);
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden', position: 'relative' }}>
+    <div className="app-shell" style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden', position: 'relative' }}>
       
       {notificacao && (
         <div style={{
@@ -230,10 +233,10 @@ function Calendario() {
 
       <div style={{ flexShrink: 0 }}><Navbar /></div>
 
-      <main style={{ flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+      <main className="app-main" style={{ flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
         <div style={{ width: '100%', maxWidth: '1100px', display: 'flex', flexDirection: 'column', gap: '30px' }}>
           
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div className="responsive-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
             <div>
               <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#8e44ad', letterSpacing: '0.5px', marginBottom: '8px', textTransform: 'uppercase' }}>Gestão de Tempo</div>
               <h1 style={{ margin: 0, color: '#333', fontSize: '28px', letterSpacing: '-0.5px' }}>Agenda Operacional</h1>
@@ -245,13 +248,13 @@ function Calendario() {
           </div>
 
           <div style={{ backgroundColor: 'white', borderRadius: '20px', padding: '30px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '30px' }}>
+            <div className="calendar-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '30px' }}>
               <button onClick={() => mudarMes(-1)} style={{ width: '35px', height: '35px', borderRadius: '50%', border: '1px solid #e0e0e0', background: 'white', cursor: 'pointer' }}>{'<'}</button>
               <h2 style={{ margin: 0, fontSize: '18px', color: '#333', textTransform: 'capitalize', minWidth: '150px', textAlign: 'center' }}>{nomeMes} de {ano}</h2>
               <button onClick={() => mudarMes(1)} style={{ width: '35px', height: '35px', borderRadius: '50%', border: '1px solid #e0e0e0', background: 'white', cursor: 'pointer' }}>{'>'}</button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '10px' }}>
+            <div className="calendar-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '10px' }}>
               {diasDaSemana.map(dia => <div key={dia} style={{ textAlign: 'center', fontWeight: 'bold', color: '#888', fontSize: '13px', paddingBottom: '10px' }}>{dia}</div>)}
               {diasVazios.map((_, i) => <div key={`vazio-${i}`} style={{ minHeight: '110px' }}></div>)}
               
@@ -287,14 +290,14 @@ function Calendario() {
 
           <hr style={{ border: 'none', borderTop: '1px solid #eaeaea', margin: '10px 0' }} />
 
-          <div style={{ display: 'flex', gap: '30px' }}>
+          <div className="responsive-row" style={{ display: 'flex', gap: '30px' }}>
             {/* COLUNA ESQUERDA: AGENDA UNIFICADA DO DIA */}
             <div style={{ flex: 1 }}>
               <h3 style={{ fontSize: '16px', color: '#333', marginBottom: '20px' }}>📅 Agenda para o dia {diaSelecionado.split('-').reverse().join('/')}</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 {agendaUnificadaDoDia.length > 0 ? agendaUnificadaDoDia.map(item => (
                   <div key={item.id} onClick={() => abrirModalEditar(item)} style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', borderLeft: `6px solid ${item.corPrimaria}`, boxShadow: '0 2px 10px rgba(0,0,0,0.02)', cursor: item.tipo === 'manual' ? 'pointer' : 'default' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <div className="responsive-row" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                       <div style={{ backgroundColor: item.corSecundaria, color: item.corPrimaria, padding: '10px', borderRadius: '8px', fontWeight: 'bold', fontSize: '13px', textAlign: 'center', minWidth: '70px' }}>
                         {item.hora}
                       </div>
@@ -334,7 +337,7 @@ function Calendario() {
 
       {/* MODAL SUSPENSO */}
       {modalAberto && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
           <div style={{ backgroundColor: 'white', padding: '35px', borderRadius: '20px', width: '450px', boxShadow: '0 15px 35px rgba(0,0,0,0.1)' }}>
             <h3 style={{ color: '#333', marginTop: 0, fontSize: '20px', marginBottom: '25px' }}>{editandoId ? '✏️ Editar Evento' : '📅 Novo Evento'}</h3>
             <form onSubmit={salvarEvento}>
@@ -342,7 +345,7 @@ function Calendario() {
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#888', marginBottom: '5px' }}>TÍTULO DO EVENTO</label>
                 <input type="text" required value={form.titulo} onChange={e => setForm({...form, titulo: e.target.value})} style={{ width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '8px', boxSizing: 'border-box', outlineColor: '#8e44ad' }} placeholder="Ex: Fechar folha de ponto" />
               </div>
-              <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
+              <div className="responsive-row" style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#888', marginBottom: '5px' }}>DATA</label>
                   <input type="date" required min={hojeStr} value={form.data} onChange={e => setForm({...form, data: e.target.value})} style={{ width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '8px', boxSizing: 'border-box', outlineColor: '#8e44ad', color: '#555' }} />
@@ -356,7 +359,7 @@ function Calendario() {
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#888', marginBottom: '5px' }}>DESCRIÇÃO (Opcional)</label>
                 <textarea rows="3" value={form.descricao} onChange={e => setForm({...form, descricao: e.target.value})} style={{ width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '8px', boxSizing: 'border-box', outlineColor: '#8e44ad', resize: 'none' }} placeholder="Detalhes adicionais..."></textarea>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="responsive-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 {editandoId ? ( <button type="button" onClick={excluirEvento} style={{ padding: '12px 15px', border: 'none', background: '#fff0f0', color: '#e74c3c', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Excluir</button> ) : ( <div></div> )}
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button type="button" onClick={() => setModalAberto(false)} style={{ padding: '12px 20px', border: 'none', background: '#f5f5f5', color: '#555', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Cancelar</button>

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { BASE_URL } from '../services/api';
+import { BASE_URL, apiFetch as fetch } from '../services/api';
 
 function Caixa() {
   const [codigoProduto, setCodigoProduto] = useState('');
@@ -18,63 +17,28 @@ function Caixa() {
   // NOVO ESTADO: Controle do Modal de Nota Fiscal
   const [modalNotaAberta, setModalNotaAberta] = useState(false);
 
-  const navigate = useNavigate();
   const total = carrinho.reduce((acc, item) => acc + item.subtotal, 0);
 
   const [tempoRestante, setTempoRestante] = useState(120); 
-  const [contando, setContando] = useState(false);
-  const esperaTimeoutRef = useRef(null);
-  const contadorIntervalRef = useRef(null);
-
-  const esvaziarCaixaPorInatividade = () => {
-    setCarrinho([]); 
-    setEtapa(1); 
-    setFormaPagamento(''); 
-    setCodigoProduto(''); 
-    setModalNotaAberta(false);
-  };
-
-  const resetarCronometro = () => {
-    if (esperaTimeoutRef.current) clearTimeout(esperaTimeoutRef.current);
-    if (contadorIntervalRef.current) clearInterval(contadorIntervalRef.current);
-
-    setTempoRestante(120); 
-    setContando(false); 
-
-    esperaTimeoutRef.current = setTimeout(() => {
-      setContando(true);
-    }, 10000); 
-  };
-
+  const ultimaAtividadeRef = useRef(null);
   useEffect(() => {
-    resetarCronometro(); 
-
+    ultimaAtividadeRef.current = Date.now();
+    const registrarAtividade = () => { ultimaAtividadeRef.current = Date.now(); };
     const eventos = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
-    const lidarComAtividade = () => resetarCronometro();
-
-    eventos.forEach(evento => window.addEventListener(evento, lidarComAtividade));
-
+    eventos.forEach(evento => window.addEventListener(evento, registrarAtividade, { passive: true }));
+    const interval = setInterval(() => {
+      const decorrido = Date.now() - ultimaAtividadeRef.current;
+      if (decorrido >= 130000) {
+        setCarrinho([]); setEtapa(1); setFormaPagamento(''); setCodigoProduto(''); setModalNotaAberta(false);
+        ultimaAtividadeRef.current = Date.now();
+      }
+      setTempoRestante(decorrido < 10000 || decorrido >= 130000 ? 120 : Math.ceil((130000 - decorrido) / 1000));
+    }, 1000);
     return () => {
-      eventos.forEach(evento => window.removeEventListener(evento, lidarComAtividade));
-      if (esperaTimeoutRef.current) clearTimeout(esperaTimeoutRef.current);
-      if (contadorIntervalRef.current) clearInterval(contadorIntervalRef.current);
+      clearInterval(interval);
+      eventos.forEach(evento => window.removeEventListener(evento, registrarAtividade));
     };
   }, []);
-
-  useEffect(() => {
-    if (contando && tempoRestante > 0) {
-      contadorIntervalRef.current = setInterval(() => {
-        setTempoRestante((prev) => prev - 1);
-      }, 1000);
-    } else if (tempoRestante === 0) {
-      esvaziarCaixaPorInatividade();
-      resetarCronometro(); 
-    }
-
-    return () => {
-      if (contadorIntervalRef.current) clearInterval(contadorIntervalRef.current);
-    };
-  }, [contando, tempoRestante]);
 
   const minutos = Math.floor(tempoRestante / 60);
   const segundos = tempoRestante % 60;
@@ -89,7 +53,7 @@ function Caixa() {
       return; 
     }
 
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     
     try {
       const resposta = await fetch(`${BASE_URL}/api/produtos/${codigoProduto}`, {
@@ -107,7 +71,7 @@ function Caixa() {
 
         let precoFinal = produto.preco;
         let isPromocaoValida = false;
-        const hoje = new Date().toISOString().split('T')[0];
+        const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 
         if (produto.precoPromocional && produto.dataInicioPromocao && produto.dataFimPromocao) {
           if (hoje >= produto.dataInicioPromocao && hoje <= produto.dataFimPromocao) {
@@ -149,7 +113,7 @@ function Caixa() {
       } else {
         alert('Produto não encontrado!');
       }
-    } catch (erro) {
+    } catch {
       alert('Erro de conexão ao procurar o produto.');
     }
   };
@@ -185,7 +149,7 @@ function Caixa() {
       const resposta = await fetch(BASE_URL + '/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cpf: cpfAdmin, senha: senhaAdmin })
+        body: JSON.stringify({ cpf: cpfAdmin, senha: senhaAdmin, cnpj: localStorage.getItem('cnpj') })
       });
 
       if (resposta.ok) {
@@ -212,29 +176,31 @@ function Caixa() {
       } else {
         alert('CPF ou Senha incorretos!');
       }
-    } catch (erro) {
+    } catch {
       alert('Erro ao validar credenciais do administrador.');
     }
   };
 
+  const [salvando, setSalvando] = useState(false);
   const finalizarVenda = async () => {
+    if (salvando) return;
     if (!formaPagamento) {
       alert('Por favor, selecione uma forma de pagamento.');
       return;
     }
 
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     
     const pagamentoFormatado = formaPagamento
       .toUpperCase()
       .normalize('NFD') 
       .replace(/[\u0300-\u036f]/g, "") 
-      .replace(" ", "_"); 
+      .replaceAll(" ", "_");
     
+    setSalvando(true);
     const payloadVenda = {
-      usuarioId: 1, 
       formaPagamento: pagamentoFormatado, 
-      total: total,
+      total: Number(total.toFixed(2)),
       itens: carrinho.map(item => ({
         produtoId: item.produtoId,
         quantidade: item.quantidade,
@@ -260,9 +226,9 @@ function Caixa() {
         const erro = await resposta.json();
         alert(`Não foi possível finalizar: ${erro.erro}`);
       }
-    } catch (erro) {
+    } catch {
       alert('Erro ao ligar ao servidor para realizar a venda.');
-    }
+    } finally { setSalvando(false); }
   };
 
   // Função centralizada para limpar o caixa após a escolha na Nota Fiscal
@@ -274,17 +240,17 @@ function Caixa() {
   };
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden' }}>
+    <div className="app-shell" style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden' }}>
       
       <div style={{ flexShrink: 0 }}>
         <Navbar />
       </div>
 
-      <main style={{ flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+      <main className="app-main" style={{ flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
         
         <div style={{ width: '100%', maxWidth: '1300px', display: 'flex', flexDirection: 'column', gap: '25px' }}>   
           
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="responsive-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#8e44ad', letterSpacing: '0.5px', marginBottom: '8px', textTransform: 'uppercase' }}>
                 Ponto de Venda (PDV)
@@ -292,9 +258,9 @@ function Caixa() {
               <h1 style={{ margin: 0, color: '#333', fontSize: '28px' }}>Caixa Livre</h1>
             </div>
 
-            <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+            <div className="responsive-row" style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
               
-              <div style={{ display: 'flex', gap: '15px', backgroundColor: 'white', padding: '10px 20px', borderRadius: '10px', boxShadow: '0 2px 5px rgba(0,0,0,0.02)', border: '1px solid #eee' }}>
+              <div className="responsive-row" style={{ display: 'flex', gap: '15px', backgroundColor: 'white', padding: '10px 20px', borderRadius: '10px', boxShadow: '0 2px 5px rgba(0,0,0,0.02)', border: '1px solid #eee' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: etapa === 1 ? '#8e44ad' : '#aaa', fontWeight: 'bold', fontSize: '14px' }}>
                   <span style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: etapa === 1 ? '#8e44ad' : '#eee', color: etapa === 1 ? 'white' : '#aaa', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '12px' }}>1</span>
                   Produtos
@@ -325,7 +291,7 @@ function Caixa() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '25px', alignItems: 'flex-start' }}>
+          <div className="responsive-row" style={{ display: 'flex', gap: '25px', alignItems: 'flex-start' }}>
             
             <div style={{ flex: 2, backgroundColor: 'white', padding: '30px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
               
@@ -351,7 +317,7 @@ function Caixa() {
                   <h3 style={{ color: '#333', fontSize: '18px', marginBottom: '15px' }}>Produtos adicionados</h3>
                   
                   <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+                    <div className="table-scroll" tabIndex={0} role="region" aria-label="Tabela com rolagem horizontal"><table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                       <thead>
                         <tr style={{ color: '#888', borderBottom: '1px solid #f0f0f0', fontSize: '12px', letterSpacing: '0.5px' }}>
                           <th style={{ padding: '12px 0' }}>PRODUTO</th>
@@ -365,7 +331,7 @@ function Caixa() {
                         {carrinho.length > 0 ? carrinho.map((item, index) => (
                           <tr key={index} style={{ borderBottom: '1px solid #f0f0f0' }}>
                             <td style={{ padding: '15px 0' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                              <div className="responsive-row" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                 
                                 {item.imagemUrl ? (
                                   <img 
@@ -429,7 +395,7 @@ function Caixa() {
                           </tr>
                         )}
                       </tbody>
-                    </table>
+                    </table></div>
                   </div>
                 </>
               ) : (
@@ -473,7 +439,7 @@ function Caixa() {
               </ul>
 
               <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '2px solid #f0f0f0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '22px', fontWeight: 'bold', marginBottom: '25px', color: '#333' }}>
+                <div className="responsive-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '22px', fontWeight: 'bold', marginBottom: '25px', color: '#333' }}>
                   <span>Total</span>
                   <span style={{ color: '#8e44ad' }}>R$ {total.toFixed(2).replace('.', ',')}</span>
                 </div>
@@ -483,7 +449,7 @@ function Caixa() {
                     Selecionar Pagamento →
                   </button>
                 ) : (
-                  <button type="button" onClick={finalizarVenda} style={{ width: '100%', padding: '18px', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '10px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(39,174,96,0.3)' }}>
+                  <button type="button" onClick={finalizarVenda} disabled={salvando} style={{ width: '100%', padding: '18px', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '10px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(39,174,96,0.3)' }}>
                     Confirmar Pagamento ✓
                   </button>
                 )}
@@ -496,7 +462,7 @@ function Caixa() {
 
       {/* MODAL DE AUTORIZAÇÃO DE ADMINISTRADOR */}
       {modalAberto && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10 }}>
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10 }}>
           <div style={{ backgroundColor: 'white', padding: '35px', borderRadius: '15px', width: '400px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
             <h3 style={{ color: '#d63031', marginTop: 0, fontSize: '20px' }}>Autorização do Administrador</h3>
             <p style={{ fontSize: '14px', color: '#666', lineHeight: '1.5', marginBottom: '20px' }}>
@@ -532,7 +498,7 @@ function Caixa() {
 
       {/* NOVO MODAL DE NOTA FISCAL APÓS A VENDA */}
       {modalNotaAberta && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 20, backdropFilter: 'blur(3px)' }}>
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 20, backdropFilter: 'blur(3px)' }}>
           <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '15px', width: '420px', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
             <div style={{ fontSize: '50px', marginBottom: '15px', color: '#27ae60' }}>✅</div>  {/*PENSAR EM RETIRAR*/}
             <h2 style={{ color: '#333', marginTop: 0, fontSize: '24px', marginBottom: '10px' }}>Venda Finalizada!</h2>

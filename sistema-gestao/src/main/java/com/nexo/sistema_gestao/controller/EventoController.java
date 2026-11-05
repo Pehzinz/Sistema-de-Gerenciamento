@@ -30,6 +30,8 @@ public class EventoController {
 
     @PostMapping
     public ResponseEntity<Evento> criarEvento(@RequestBody Evento evento) {
+        validarEvento(evento);
+        evento.setId(null);
         var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         evento.setEmpresa(((Usuario) auth.getPrincipal()).getEmpresa());
         return ResponseEntity.status(HttpStatus.CREATED).body(eventoRepository.save(evento));
@@ -37,6 +39,7 @@ public class EventoController {
 
     @PutMapping("/{id}")
     public ResponseEntity<?> atualizarEvento(@PathVariable Long id, @RequestBody Evento detalhesEvento) {
+        validarEvento(detalhesEvento);
         Optional<Evento> eventoOpt = eventoRepository.findByIdAndEmpresaId(id, getEmpresaId());
         
         if (eventoOpt.isPresent()) {
@@ -49,6 +52,19 @@ public class EventoController {
             return ResponseEntity.ok(eventoRepository.save(evento));
         }
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("{\"erro\": \"Evento não encontrado nesta empresa!\"}");
+    }
+
+    private void validarEvento(Evento evento) {
+        com.nexo.sistema_gestao.security.RequestValidation.text(evento.getTitulo(), 255, "Título");
+        try {
+            java.time.LocalDate.parse(evento.getData());
+            java.time.LocalTime.parse(evento.getHora());
+        } catch (Exception exception) {
+            throw new IllegalArgumentException("Informe data e hora válidas.");
+        }
+        if (evento.getDescricao() != null && evento.getDescricao().length() > 255) {
+            throw new IllegalArgumentException("A descrição deve ter até 255 caracteres.");
+        }
     }
 
     @DeleteMapping("/{id}")

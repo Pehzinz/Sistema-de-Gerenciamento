@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { BASE_URL } from '../services/api';
+import { BASE_URL, apiFetch as fetch } from '../services/api';
 
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -17,12 +17,9 @@ function Dashboard() {
   
   const graficosRef = useRef(null);
 
-  useEffect(() => {
-    buscarDados();
-  }, []);
 
-  const buscarDados = async () => {
-    const token = localStorage.getItem('token');
+  const buscarDados = useCallback(async () => {
+    const token = sessionStorage.getItem('token');
     if (!token) return navigate('/');
 
     try {
@@ -43,7 +40,14 @@ function Dashboard() {
     } finally {
         setCarregando(false);
     }
-  };
+  }, [navigate]);
+
+  useEffect(() => {
+    let ativo = true;
+    Promise.resolve().then(() => { if (ativo) void buscarDados(); });
+    return () => { ativo = false; };
+  }, [buscarDados]);
+
 
   const gerarBalancoPDF = async () => {
     setGerandoPdf(true);
@@ -133,7 +137,7 @@ function Dashboard() {
     }
   };
 
-  const hoje = new Date().toISOString().split('T')[0];
+  const [hoje] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }));
   const ofertasAtivas = produtos.filter(p => 
     p.precoPromocional && p.dataInicioPromocao && p.dataFimPromocao && 
     hoje >= p.dataInicioPromocao && hoje <= p.dataFimPromocao
@@ -179,16 +183,16 @@ function Dashboard() {
   if (carregando) return <div style={{ padding: '50px', textAlign: 'center' }}>A carregar métricas...</div>;
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden' }}>
+    <div className="app-shell" style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden' }}>
       
       <div style={{ flexShrink: 0 }}>
         <Navbar />
       </div>
 
-      <main style={{ flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+      <main className="app-main" style={{ flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
         <div style={{ width: '100%', maxWidth: '1100px', display: 'flex', flexDirection: 'column', gap: '25px' }}>
           
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="responsive-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#8e44ad', letterSpacing: '0.5px', marginBottom: '8px', textTransform: 'uppercase' }}>
                 Visão Geral
@@ -206,7 +210,7 @@ function Dashboard() {
             </button>
           </div>
 
-          <div style={{ display: 'flex', gap: '20px' }}>
+          <div className="responsive-row" style={{ display: 'flex', gap: '20px' }}>
             <div style={{ flex: 1, backgroundColor: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', borderLeft: '5px solid #2ecc71' }}>
               <div style={{ fontSize: '13px', color: '#888', fontWeight: 'bold', marginBottom: '10px' }}>VALOR TOTAL EM ESTOQUE</div>
               <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#333' }}>

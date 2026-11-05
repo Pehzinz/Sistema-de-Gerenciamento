@@ -15,7 +15,7 @@ public class WebConfig {
 
     // Origens (sites) autorizadas a chamar a API, separadas por vírgula.
     // Para trocar sem mexer no código: crie a variável CORS_ALLOWED_ORIGINS no Railway (serviço do back-end).
-    @Value("${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,https://sweet-enchantment-production-d326.up.railway.app}")
+    @Value("${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,https://nexo-gestao.up.railway.app}")
     private String origensPermitidas;
 
     // O Spring Security usa automaticamente o bean "corsConfigurationSource" (ver .cors(...) em SecurityConfigurations).

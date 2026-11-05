@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { BASE_URL } from '../services/api';
+import { BASE_URL, apiFetch as fetch } from '../services/api';
 
 function Colaboradores() {
   const [equipe, setEquipe] = useState([]);
@@ -18,6 +18,7 @@ function Colaboradores() {
   const [colaboradorParaRemover, setColaboradorParaRemover] = useState(null);
 
   const navigate = useNavigate();
+  const [dataHoje] = useState(() => new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' }));
 
   // --- ESTADOS PARA A EDIÇÃO DE COLABORADOR ---
   const [modalAdminEditAberto, setModalAdminEditAberto] = useState(false);
@@ -35,12 +36,9 @@ function Colaboradores() {
   const [telefoneEdit, setTelefoneEdit] = useState('');
   const [enderecoEdit, setEnderecoEdit] = useState('');
 
-  useEffect(() => {
-    buscarEquipe();
-  }, []);
 
-  const buscarEquipe = async () => {
-    const token = localStorage.getItem('token');
+  const buscarEquipe = useCallback(async () => {
+    const token = sessionStorage.getItem('token');
     if (!token) {
       navigate('/');
       return;
@@ -58,7 +56,14 @@ function Colaboradores() {
     } catch (erro) {
       console.error('Erro ao buscar equipe', erro);
     }
-  };
+  }, [navigate]);
+
+  useEffect(() => {
+    let ativo = true;
+    Promise.resolve().then(() => { if (ativo) void buscarEquipe(); });
+    return () => { ativo = false; };
+  }, [buscarEquipe]);
+
 
   // 1. Abre a tela pedindo a senha do gerente
   const iniciarEdicao = (usuario) => {
@@ -83,7 +88,7 @@ function Colaboradores() {
       const resposta = await fetch(BASE_URL + '/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cpf: cpfAdminEdit, senha: senhaAdminEdit })
+        body: JSON.stringify({ cpf: cpfAdminEdit, senha: senhaAdminEdit, cnpj: localStorage.getItem('cnpj') })
       });
 
       if (resposta.ok) {
@@ -105,7 +110,7 @@ function Colaboradores() {
       } else {
         alert('Credenciais do Administrador inválidas.');
       }
-    } catch (erro) {
+    } catch {
       alert('Erro ao validar administrador.');
     }
   };
@@ -113,7 +118,7 @@ function Colaboradores() {
   // 3. Envia os dados editados para o Java
   const confirmarEdicao = async (e) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     
     const dadosAtualizados = {
       nomeCompleto: nomeEdit,
@@ -155,7 +160,8 @@ function Colaboradores() {
 
   const cadastrarColaborador = async (e, perfilSelecionado) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
+    if (senha.length < 12 || new TextEncoder().encode(senha).length > 72) { alert('A senha deve ter ao menos 12 caracteres e até 72 bytes.'); return; }
+    const token = sessionStorage.getItem('token');
 
     // Montando o pacote completo para o Java
     const novoUsuario = {
@@ -185,9 +191,10 @@ function Colaboradores() {
         setDataNascimento(''); setTelefone(''); setEndereco('');
         buscarEquipe(); 
       } else {
-        alert('Erro ao cadastrar. Verifique se o CPF já existe.');
+        const erro = await resposta.json();
+        alert(erro.erro || 'Não foi possível cadastrar. Confira os dados.');
       }
-    } catch (erro) {
+    } catch {
       alert('Erro de conexão ao salvar usuário.');
     }
   };
@@ -215,7 +222,7 @@ function Colaboradores() {
   };
 
   const confirmarRemocao = async () => {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     try {
       // CORREÇÃO: Utilizando a BASE_URL
       const resposta = await fetch(`${BASE_URL}/api/usuarios/${colaboradorParaRemover.id}`, {
@@ -231,7 +238,7 @@ function Colaboradores() {
         alert('Aviso do Servidor: Este usuário não pode ser excluído permanentemente porque possui vendas ou registros atrelados a ele no histórico.');
         setModalAberto(false);
       }
-    } catch (erro) {
+    } catch {
       alert('Erro de conexão ao tentar remover usuário.');
     }
   };
@@ -251,7 +258,7 @@ function Colaboradores() {
   };
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden' }}>
+    <div className="app-shell" style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden' }}>
       
       {/* Navbar Fixa na Esquerda */}
       <div style={{ flexShrink: 0 }}>
@@ -259,13 +266,13 @@ function Colaboradores() {
       </div>
 
       {/* ÁREA CENTRAL ROLÁVEL - Centralizada (justifyContent) e alinhada ao topo (alignItems) */}
-      <main style={{ flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+      <main className="app-main" style={{ flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
         
         {/* CONTAINER RESTRITOR: Define a largura máxima e organiza os blocos */}
         <div style={{ width: '100%', maxWidth: '1100px', display: 'flex', flexDirection: 'column', gap: '25px' }}>
           
           {/* Cabeçalho da Página Alinhado com a Data */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="responsive-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h2 style={{ marginTop: 0, marginBottom: '5px', color: '#333' }}>Gestão de Colaboradores</h2>
               <p style={{ color: '#888', fontSize: '14px', margin: 0 }}>Gerencie os acessos e administradores do sistema.</p>
@@ -274,12 +281,12 @@ function Colaboradores() {
             {/* Pílula de Data */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'white', padding: '10px 15px', borderRadius: '8px', fontSize: '13px', color: '#666', border: '1px solid #eee', boxShadow: '0 2px 5px rgba(0,0,0,0.02)' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8e44ad" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-              <span>{new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' })}</span>
+              <span>{dataHoje}</span>
             </div>
           </div>
 
           {/* O Seu Container Original (Formulário e Lista Lado a Lado) */}
-          <div style={{ display: 'flex', gap: '30px', alignItems: 'flex-start' }}>
+          <div className="responsive-row" style={{ display: 'flex', gap: '30px', alignItems: 'flex-start' }}>
             
             {/* Lado Esquerdo: Formulário de Cadastro Completo */}
             <div style={{ flex: 1, backgroundColor: 'white', padding: '30px', borderRadius: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
@@ -300,11 +307,11 @@ function Colaboradores() {
 
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>Senha de Acesso</label>
-                  <input type="password" placeholder="Defina uma senha" value={senha} onChange={(e) => setSenha(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
+                  <input type="password" placeholder="Senha (mín. 12 caracteres)" minLength={12} maxLength={72} value={senha} onChange={(e) => setSenha(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
                 </div>
 
                 {/* Linha com Data de Nascimento e Telefone Lado a Lado */}
-                <div style={{ display: 'flex', gap: '15px' }}>
+                <div className="responsive-row" style={{ display: 'flex', gap: '15px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                     <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>Data de Nascimento</label>
                     <input type="date" value={dataNascimento} onChange={(e) => setDataNascimento(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
@@ -336,7 +343,7 @@ function Colaboradores() {
               <h3 style={{ marginTop: 0 }}>Sua equipe</h3>
               <p style={{ color: '#666', fontSize: '14px' }}>Somente o Administrador pode adicionar e remover colaboradores da loja.</p>
 
-              <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', marginTop: '20px' }}>
+              <div className="table-scroll" tabIndex={0} role="region" aria-label="Tabela com rolagem horizontal"><table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', marginTop: '20px' }}>
                 <thead>
                   <tr style={{ color: '#888', borderBottom: '1px solid #eee' }}>
                     <th style={{ padding: '10px 0' }}>COLABORADOR / CPF</th>
@@ -383,7 +390,7 @@ function Colaboradores() {
                     </tr>
                   )}
                 </tbody>
-              </table>
+              </table></div>
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '20px', fontSize: '12px', color: '#888' }}>
                 🔒 CPF mascarado. Dados pessoais não são exibidos na lista.
@@ -395,7 +402,7 @@ function Colaboradores() {
 
       {/* MODAL DE REMOÇÃO */}
       {modalAberto && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10 }}>
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10 }}>
           <div style={{ backgroundColor: '#f9f5fa', padding: '40px', borderRadius: '15px', width: '400px', textAlign: 'center', border: '1px solid #e0c3fc' }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
                <div style={{ width: '50px', height: '50px', borderRadius: '8px', backgroundColor: 'white', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '24px', border: '1px solid #eee' }}>🗑</div>
@@ -406,7 +413,7 @@ function Colaboradores() {
               Ao confirmar, o acesso desta colaboradora à loja será revogado. Esta ação é exclusiva do Administrador. Verifique o nome antes de prosseguir.
             </p>
             
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '15px' }}>
+            <div className="responsive-row" style={{ display: 'flex', justifyContent: 'center', gap: '15px' }}>
               <button onClick={() => setModalAberto(false)} style={{ padding: '12px 25px', border: 'none', background: 'white', color: '#8e44ad', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
                 Cancelar
               </button>
@@ -420,7 +427,7 @@ function Colaboradores() {
 
       {/* MODAL 1: AUTORIZAÇÃO DO ADMINISTRADOR PARA EDIÇÃO */}
       {modalAdminEditAberto && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 15 }}>
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 15 }}>
           <div style={{ backgroundColor: 'white', padding: '35px', borderRadius: '15px', width: '400px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
             <h3 style={{ color: '#8e44ad', marginTop: 0, fontSize: '20px' }}>Autorização Necessária</h3>
             <p style={{ fontSize: '14px', color: '#666', lineHeight: '1.5', marginBottom: '20px' }}>
@@ -471,7 +478,7 @@ function Colaboradores() {
 
       {/* MODAL 2: FORMULÁRIO DE EDIÇÃO (SEM CPF) */}
       {modalEdicaoAberto && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 20 }}>
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 20 }}>
           <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '15px', width: '550px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
             <h3 style={{ marginTop: 0, color: '#333', fontSize: '22px' }}>Editar Colaborador</h3>
             <p style={{ fontSize: '14px', color: '#666', marginBottom: '25px' }}>
@@ -490,7 +497,7 @@ function Colaboradores() {
                 <input type="password" placeholder="Digite apenas se quiser alterar a senha atual" value={senhaEdit} onChange={(e) => setSenhaEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} />
               </div>
 
-              <div style={{ display: 'flex', gap: '15px' }}>
+              <div className="responsive-row" style={{ display: 'flex', gap: '15px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                   <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>Data de Nascimento</label>
                   <input type="date" value={dataNascimentoEdit} onChange={(e) => setDataNascimentoEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
@@ -506,7 +513,7 @@ function Colaboradores() {
                 <input type="text" value={enderecoEdit} onChange={(e) => setEnderecoEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
               </div>
               
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px', marginTop: '20px' }}>
+              <div className="responsive-row" style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px', marginTop: '20px' }}>
                 <button type="button" onClick={() => { setModalEdicaoAberto(false); setColaboradorEditando(null); }} style={{ padding: '15px 25px', border: 'none', background: '#f5f5f5', color: '#555', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                   Cancelar
                 </button>

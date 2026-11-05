@@ -18,6 +18,7 @@ public class Usuario implements java.io.Serializable {
     @Column(nullable = false, length = 14)
     private String cpf;
 
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
     @Column(nullable = false)
     private String senha;
 

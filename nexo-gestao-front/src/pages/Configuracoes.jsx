@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { BASE_URL } from '../services/api';
+import { BASE_URL, apiFetch as fetch } from '../services/api';
 
 function Configuracoes() {
   const [empresa, setEmpresa] = useState({
@@ -13,17 +13,9 @@ function Configuracoes() {
   
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const perfil = localStorage.getItem('perfil');
-    if (perfil !== 'ADMIN') {
-      navigate('/caixa');
-      return;
-    }
-    buscarConfiguracoes();
-  }, []);
 
-  const buscarConfiguracoes = async () => {
-    const token = localStorage.getItem('token');
+  const buscarConfiguracoes = useCallback(async () => {
+    const token = sessionStorage.getItem('token');
     try {
       const resposta = await fetch(BASE_URL + '/api/empresas/minha-empresa', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -35,11 +27,18 @@ function Configuracoes() {
     } catch (erro) {
       console.error('Erro ao buscar empresa', erro);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    let ativo = true;
+    Promise.resolve().then(() => { if (ativo) void buscarConfiguracoes(); });
+    return () => { ativo = false; };
+  }, [buscarConfiguracoes, navigate]);
+
 
   const salvarConfiguracoes = async (e) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     try {
       const resposta = await fetch(BASE_URL + '/api/empresas/configuracoes', {
         method: 'PUT',
@@ -56,7 +55,7 @@ function Configuracoes() {
         setMensagem({ tipo: 'sucesso', texto: 'Configurações salvas com sucesso!' });
         setTimeout(() => setMensagem(null), 3000);
       }
-    } catch (erro) {
+    } catch {
       setMensagem({ tipo: 'erro', texto: 'Falha ao salvar. Verifique a conexão.' });
     }
   };
@@ -65,7 +64,7 @@ function Configuracoes() {
     const confirmacao = window.confirm("ATENÇÃO: Todos os produtos terão o estoque zerado e serão ocultados do catálogo. O histórico de vendas será mantido. Tem certeza?");
     if (!confirmacao) return;
 
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     const resposta = await fetch(BASE_URL + '/api/empresas/limpar-estoque', {
       method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -79,14 +78,15 @@ function Configuracoes() {
       return;
     }
 
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     const resposta = await fetch(BASE_URL + '/api/empresas/encerrar-conta', {
       method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }
     });
     
     if (resposta.ok) {
       alert('Sua conta foi encerrada. Todos os dados foram apagados.');
-      localStorage.clear();
+      ['token', 'perfil', 'nome'].forEach(key => sessionStorage.removeItem(key));
+      ['empresaNome', 'cnpj'].forEach(key => localStorage.removeItem(key));
       window.location.href = '/';
     } else {
       alert('Houve um erro ao excluir a conta.');
@@ -97,12 +97,12 @@ function Configuracoes() {
   const inputStyle = { padding: '12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '15px', backgroundColor: '#fcfcfc', color: '#333', width: '100%', boxSizing: 'border-box', outline: 'none' };
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden' }}>
+    <div className="app-shell" style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden' }}>
       <div style={{ flexShrink: 0 }}>
         <Navbar />
       </div>
 
-      <main style={{ flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+      <main className="app-main" style={{ flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
         
         <div style={{ width: '100%', maxWidth: '800px', display: 'flex', flexDirection: 'column', gap: '25px' }}>
           
@@ -122,7 +122,7 @@ function Configuracoes() {
               </div>
             )}
 
-            <form onSubmit={salvarConfiguracoes} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <form className="settings-grid" onSubmit={salvarConfiguracoes} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
               <div style={{ gridColumn: 'span 2' }}>
                 <label style={{ fontSize: '12px', color: '#888', fontWeight: 'bold' }}>NOME FANTASIA</label>
                 <input type="text" value={empresa.nome} onChange={(e) => setEmpresa({...empresa, nome: e.target.value})} style={inputStyle} required />
@@ -162,7 +162,7 @@ function Configuracoes() {
               Ações realizadas nesta seção têm impacto severo na operação da loja.
             </p>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '15px', borderBottom: '1px solid #f0f0f0', marginBottom: '15px' }}>
+            <div className="responsive-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '15px', borderBottom: '1px solid #f0f0f0', marginBottom: '15px' }}>
               <div>
                 <strong style={{ color: '#333' }}>Limpar Catálogo e Estoque</strong>
                 <div style={{ fontSize: '13px', color: '#888', marginTop: '3px' }}>Oculta os produtos e zera estoques. Mantém faturamento histórico.</div>
@@ -172,7 +172,7 @@ function Configuracoes() {
               </button>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="responsive-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <strong style={{ color: '#333' }}>Encerrar Conta do Nexo Gestão</strong>
                 <div style={{ fontSize: '13px', color: '#888', marginTop: '3px' }}>Exclusão permanente de todos os dados da nuvem. Irreversível.</div>
@@ -188,7 +188,7 @@ function Configuracoes() {
 
       {/* NOVO: MODAL DE EXCLUSÃO SUSPENSO (Estilo PDV) */}
       {modalExclusaoAberto && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10 }}>
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10 }}>
           <div style={{ backgroundColor: 'white', padding: '35px', borderRadius: '15px', width: '450px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
             <h3 style={{ color: '#d63031', marginTop: 0, fontSize: '20px' }}>Exclusão Definitiva de Conta</h3>
             <p style={{ fontSize: '14px', color: '#666', lineHeight: '1.5', marginBottom: '20px' }}>

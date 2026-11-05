@@ -43,7 +43,7 @@ public class SecurityFilter extends OncePerRequestFilter {
 
                 // 4. Filtra a lista para encontrar EXATAMENTE a conta que pertence à empresa do Token
                 var usuarioOpt = contasDoCpf.stream()
-                        .filter(u -> u.getEmpresa().getId().equals(empresaId))
+                        .filter(u -> u.getEmpresa() != null && u.getEmpresa().getId().equals(empresaId))
                         .findFirst();
 
                 if (usuarioOpt.isPresent()) {
@@ -61,8 +61,8 @@ public class SecurityFilter extends OncePerRequestFilter {
 
     private String recuperarToken(HttpServletRequest request) {
         var authorizationHeader = request.getHeader("Authorization");
-        if (authorizationHeader != null) {
-            return authorizationHeader.replace("Bearer ", "");
+        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+            return authorizationHeader.substring(7);
         }
         return null;
     }

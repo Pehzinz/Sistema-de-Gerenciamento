@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import ReactMarkdown from 'react-markdown'; // <-- IMPORTANTE: Nova biblioteca
-import { BASE_URL } from '../services/api';
+import { BASE_URL, apiFetch as fetch } from '../services/api';
 
 function Agente() {
   const [mensagens, setMensagens] = useState([
@@ -12,7 +12,10 @@ function Agente() {
   ]);
   const [input, setInput] = useState('');
   const [carregando, setCarregando] = useState(false);
-  const [iniciais, setIniciais] = useState('US'); // Estado para as iniciais
+  const [iniciais] = useState(() => {
+    const partes = (sessionStorage.getItem('nome') || 'Usuário Local').trim().split(/\s+/);
+    return partes.length > 1 ? (partes[0][0] + partes[1][0]).toUpperCase() : partes[0].slice(0, 2).toUpperCase();
+  }); // Estado para as iniciais
   
   const fimChatRef = useRef(null);
 
@@ -20,16 +23,6 @@ function Agente() {
     fimChatRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  useEffect(() => {
-    // Busca o nome do usuário logado para extrair as iniciais
-    const nomeSalvo = localStorage.getItem('nome') || 'Usuário Local';
-    const partes = nomeSalvo.trim().split(' ');
-    if (partes.length >= 2) {
-      setIniciais((partes[0][0] + partes[1][0]).toUpperCase());
-    } else {
-      setIniciais(nomeSalvo.substring(0, 2).toUpperCase());
-    }
-  }, []);
 
   useEffect(() => {
     rolarParaFinal();
@@ -45,7 +38,7 @@ function Agente() {
     setMensagens(prev => [...prev, { remetente: 'USUARIO', texto: perguntaUsuario }]);
     setCarregando(true);
 
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
 
     try {
       const resposta = await fetch(BASE_URL + '/api/agente/perguntar', {
@@ -63,7 +56,7 @@ function Agente() {
       } else {
         setMensagens(prev => [...prev, { remetente: 'IA', texto: 'Desculpe, encontrei um erro ao acessar os dados da loja. Verifique a conexão com o servidor.' }]);
       }
-    } catch (erro) {
+    } catch {
       setMensagens(prev => [...prev, { remetente: 'IA', texto: 'Erro de conexão: O servidor principal do Nexo Gestão parece estar desligado.' }]);
     } finally {
       setCarregando(false);
@@ -71,17 +64,17 @@ function Agente() {
   };
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden' }}>
+    <div className="app-shell chat-shell" style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden' }}>
       
       <div style={{ flexShrink: 0 }}>
         <Navbar />
       </div>
 
-      <main style={{ flex: 1, padding: '40px', overflowY: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <main className="app-main" style={{ flex: 1, padding: '40px', overflowY: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
         
         <div style={{ width: '100%', maxWidth: '1000px', height: '100%', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexShrink: 0 }}>
+          <div className="responsive-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexShrink: 0 }}>
             <div>
               <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#8e44ad', letterSpacing: '0.5px', marginBottom: '8px', textTransform: 'uppercase' }}>
                 Inteligência Artificial
@@ -132,7 +125,7 @@ function Agente() {
               ))}
 
               {carregando && (
-                <div style={{ display: 'flex', gap: '15px', alignItems: 'flex-end' }}>
+                <div className="responsive-row" style={{ display: 'flex', gap: '15px', alignItems: 'flex-end' }}>
                   <div style={{ width: '40px', height: '40px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px', backgroundColor: '#f3e8ff', border: '1px solid #e0c3fc' }}>✨</div>
                   <div style={{ padding: '18px 25px', backgroundColor: 'white', borderRadius: '20px 20px 20px 0', border: '1px solid #eee', color: '#888', fontStyle: 'italic', fontSize: '14px' }}>
                     Analisando dados da loja...

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { BASE_URL } from '../services/api';
+import { BASE_URL, apiFetch as fetch } from '../services/api';
 
 function ExcluirProduto() {
   // Estados do Produto
@@ -28,7 +28,7 @@ function ExcluirProduto() {
       return;
     }
 
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (!token) return navigate('/');
 
     try {
@@ -48,7 +48,7 @@ function ExcluirProduto() {
         const erro = await resposta.json();
         alert(erro.erro || 'Erro ao excluir produto.');
       }
-    } catch (erro) {
+    } catch {
       alert('Erro de conexão ao tentar excluir o produto.');
     }
   };
@@ -67,7 +67,7 @@ function ExcluirProduto() {
       return;
     }
 
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (!token) return navigate('/');
 
     try {
@@ -85,20 +85,20 @@ function ExcluirProduto() {
         const erro = await resposta.json();
         alert(erro.erro || 'Erro ao excluir a categoria.');
       }
-    } catch (erro) {
+    } catch {
       alert('Erro de conexão ao tentar excluir a categoria.');
     }
   };
 
   return (
-      <div style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden' }}>
+      <div className="app-shell" style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden' }}>
       
       {/* 2. Navbar Fixa na Esquerda */}
       <div style={{ flexShrink: 0 }}>
         <Navbar />
       </div>
 
-      <main style={{ maxWidth: '900px', margin: '0 auto', marginTop: '30px' }}>
+      <main className="app-main" style={{ maxWidth: '900px', margin: '0 auto', marginTop: '30px' }}>
         
         <div style={{ marginBottom: '30px' }}>
           <h2 style={{ color: '#d63031', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -109,7 +109,7 @@ function ExcluirProduto() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '20px' }}>
+        <div className="responsive-row" style={{ display: 'flex', gap: '20px' }}>
           
           {/* Lado Esquerdo: Produto */}
           <div style={{ flex: 1, backgroundColor: 'white', padding: '30px', borderRadius: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>

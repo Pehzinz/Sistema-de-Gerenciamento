@@ -1,0 +1,67 @@
+
+
+/* Layout compartilhado; os !important substituem apenas os estilos inline legados. */
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #root { margin: 0; min-width: 320px; min-height: 100%; }
+body { font-family: Arial, sans-serif; color: #2d3436; }
+button, input, select, textarea { font: inherit; max-width: 100%; }
+button, a, input, select, textarea { touch-action: manipulation; }
+button { min-height: 40px; }
+button:disabled { cursor: wait; opacity: .65; }
+:focus-visible { outline: 3px solid #8e44ad !important; outline-offset: 3px; }
+img { max-width: 100%; }
+.app-shell { height: 100dvh !important; }
+.app-main { min-width: 0; min-height: 0; }
+.app-main div, .app-main form { min-width: 0; }
+.app-main h1, .app-main p { overflow-wrap: anywhere; }
+.sidebar { height: 100dvh !important; overflow-y: auto; width: 260px !important; }
+.menu-toggle { display: none; }
+.table-scroll { width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+.table-scroll table { min-width: 640px; }
+.modal-overlay { padding: 16px; overflow-y: auto; }
+.modal-overlay > div { max-width: 100%; max-height: calc(100dvh - 32px); overflow-y: auto; }
+.login-page { padding: 24px 16px; min-height: 100dvh !important; }
+.login-card { max-width: 100%; }
+.loading-page { display: grid; min-height: 100dvh; place-items: center; }
+.calendar-grid { grid-template-columns: repeat(7, minmax(0, 1fr)) !important; }
+@media (max-width: 1200px) {
+  .app-main { padding: 24px !important; }
+  .responsive-row { flex-wrap: wrap; }
+  .responsive-row > div[style*="flex: 1"],
+  .responsive-row > div[style*="flex: 2"] { flex-basis: 240px !important; }
+}
+@media (max-width: 1024px) {
+  .app-shell { flex-direction: column !important; }
+  .sidebar { width: 100% !important; height: auto !important; max-height: 70dvh; padding: 12px 20px !important; border-right: 0 !important; border-bottom: 1px solid #eee; }
+  .sidebar-brand { margin-bottom: 0 !important; }
+  .menu-toggle { display: block; margin-left: auto; border: 1px solid #e0c3fc; border-radius: 8px; padding: 8px 12px; background: #f9f5fa; color: #71358b; }
+  .sidebar-caption, .sidebar-links, .sidebar-profile { display: none !important; }
+  .sidebar.is-open .sidebar-links { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 16px; }
+  .sidebar.is-open .sidebar-profile { display: flex !important; }
+  .sidebar-links a { margin-bottom: 4px !important; }
+  .app-main { width: 100%; }
+}
+@media (max-width: 640px) {
+  .app-main { padding: 16px !important; }
+  .app-main h1 { font-size: 24px !important; }
+  .sidebar { padding: 10px 16px !important; }
+  .sidebar.is-open .sidebar-links { grid-template-columns: 1fr; }
+  .responsive-row { flex-direction: column !important; align-items: stretch !important; gap: 12px !important; }
+  .responsive-row > div[style*="flex: 1"],
+  .responsive-row > div[style*="flex: 2"] { flex-basis: auto !important; }
+  .responsive-row > div, .responsive-row > input, .responsive-row > select { width: 100% !important; }
+  .app-main div[style*="padding: 40px"], .app-main div[style*="padding: 30px"], .app-main div[style*="padding: 25px"] { padding: 16px !important; }
+  .settings-grid { grid-template-columns: 1fr !important; }
+  .settings-grid > * { grid-column: auto !important; }
+  .login-card { padding: 24px !important; }
+  input, select, textarea { font-size: 16px !important; min-width: 0; }
+  .calendar-grid { gap: 3px !important; }
+  .calendar-grid > div { padding: 4px !important; min-height: 64px !important; overflow-wrap: anywhere; }
+  .calendar-grid > div:nth-child(-n+7) { min-height: auto !important; font-size: 10px !important; }
+  .modal-overlay > div { padding: 24px !important; }
+  .chat-shell .app-main { overflow-y: auto !important; }
+  .chat-shell .app-main > div { min-height: 560px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}

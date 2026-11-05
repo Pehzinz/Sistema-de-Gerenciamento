@@ -6,6 +6,14 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ProdutoRepository extends JpaRepository<Produto, String> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select p from Produto p where p.id = :id and p.empresa.id = :empresaId")
+    Optional<Produto> buscarParaAlteracao(@org.springframework.data.repository.query.Param("id") String id,
+                                         @org.springframework.data.repository.query.Param("empresaId") Long empresaId);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select p from Produto p where p.id = :id and p.empresa.id = :empresaId and p.ativo = true")
+    Optional<Produto> buscarParaVenda(@org.springframework.data.repository.query.Param("id") String id,
+                                      @org.springframework.data.repository.query.Param("empresaId") Long empresaId);
     // Busca todos os produtos ativos de uma empresa
     List<Produto> findByEmpresaIdAndAtivoTrue(Long empresaId);
     

@@ -38,6 +38,8 @@ public class CategoriaController {
 
     @PostMapping
     public ResponseEntity<?> criarCategoria(@RequestBody Categoria novaCategoria) {
+        com.nexo.sistema_gestao.security.RequestValidation.text(novaCategoria.getNome(), 255, "Nome");
+        novaCategoria.setId(null);
         String nomeFormatado = novaCategoria.getNome().trim();
         Optional<Categoria> existenteOpt = categoriaRepository.findByNomeIgnoreCaseAndEmpresaId(nomeFormatado, getEmpresaId());
 
@@ -61,20 +63,18 @@ public class CategoriaController {
     }
 
     @DeleteMapping("/{id}")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> inativarCategoria(@PathVariable Long id) {
         Optional<Categoria> catOpt = categoriaRepository.findByIdAndEmpresaId(id, getEmpresaId());
         if (catOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
 
-        Categoria categoria = catOpt.get();
-        categoria.setAtivo(false); 
-        categoriaRepository.save(categoria);
-
-        return ResponseEntity.noContent().build();
+        return inativarCategoriaPorNome(catOpt.get().getNome());
     }
     
     @DeleteMapping("/nome/{nome}")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> inativarCategoriaPorNome(@PathVariable String nome) {
         Optional<Categoria> catOpt = categoriaRepository.findByNomeIgnoreCaseAndEmpresaId(nome.trim(), getEmpresaId());
         

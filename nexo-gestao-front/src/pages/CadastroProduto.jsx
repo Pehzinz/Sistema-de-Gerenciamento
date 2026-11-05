@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { BASE_URL } from '../services/api';
+import { uploadImage } from '../services/upload';
+import { BASE_URL, apiFetch as fetch } from '../services/api';
 
 function CadastroProduto() {
   const [modo, setModo] = useState('CADASTRAR');
@@ -40,12 +41,9 @@ function CadastroProduto() {
 
   const navigate = useNavigate();
 
-  useEffect(() => {
-    buscarCategorias();
-  }, []);
 
-  const buscarCategorias = async () => {
-    const token = localStorage.getItem('token');
+  const buscarCategorias = useCallback(async () => {
+    const token = sessionStorage.getItem('token');
     if (!token) return;
 
     try {
@@ -55,14 +53,19 @@ function CadastroProduto() {
       if (resposta.ok) {
         const dados = await resposta.json();
         setCategorias(dados);
-        if (dados.length > 0 && !categoriaSelecionada) {
-          setCategoriaSelecionada(dados[0].id);
-        }
+        if (dados.length > 0) setCategoriaSelecionada(atual => atual || dados[0].id);
       }
     } catch (erro) {
       console.error('Erro ao buscar categorias:', erro);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    let ativo = true;
+    Promise.resolve().then(() => { if (ativo) void buscarCategorias(); });
+    return () => { ativo = false; };
+  }, [buscarCategorias]);
+
 
   const salvarNovaCategoria = async () => {
     if (!nomeNovaCategoria.trim()) {
@@ -70,7 +73,7 @@ function CadastroProduto() {
       return;
     }
 
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (!token) return;
 
     try {
@@ -93,7 +96,7 @@ function CadastroProduto() {
       } else {
         alert('Erro ao criar categoria.');
       }
-    } catch (erro) {
+    } catch {
       alert('Erro de conexão ao criar categoria.');
     }
   };
@@ -102,22 +105,16 @@ function CadastroProduto() {
   const fazerUploadImagem = async (e) => {
     const arquivo = e.target.files[0];
     if (!arquivo) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(arquivo.type) || arquivo.size > 5 * 1024 * 1024) {
+      alert('Escolha uma imagem JPG, PNG ou WebP de até 5 MB.'); return;
+    }
 
     setFazendoUpload(true);
-    const formData = new FormData();
-    formData.append('file', arquivo);
-    formData.append('upload_preset', 'df9czwxs'); 
-    formData.append('cloud_name', 'mhdmaebz');    
-
     try {
-      const resposta = await fetch('https://api.cloudinary.com/v1_1/mhdmaebz/image/upload', {
-        method: 'POST',
-        body: formData
-      });
-      const dados = await resposta.json();
+      const dados = { secure_url: await uploadImage(arquivo) };
       setImagemUrl(dados.secure_url); 
-    } catch (erro) {
-      alert('Erro ao enviar a imagem.');
+    } catch (error) {
+      alert(error.message || 'Erro ao enviar a imagem.');
     } finally {
       setFazendoUpload(false);
     }
@@ -127,27 +124,21 @@ function CadastroProduto() {
   const fazerUploadImagemEdicao = async (e) => {
     const arquivo = e.target.files[0];
     if (!arquivo || !produtoEncontrado) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(arquivo.type) || arquivo.size > 5 * 1024 * 1024) {
+      alert('Escolha uma imagem JPG, PNG ou WebP de até 5 MB.'); return;
+    }
 
     setFazendoUploadEdicao(true);
-    const formData = new FormData();
-    formData.append('file', arquivo);
-    formData.append('upload_preset', 'df9czwxs'); 
-    formData.append('cloud_name', 'mhdmaebz');    
-
     try {
-      const resposta = await fetch('https://api.cloudinary.com/v1_1/mhdmaebz/image/upload', {
-        method: 'POST',
-        body: formData
-      });
-      const dados = await resposta.json();
+      const dados = { secure_url: await uploadImage(arquivo) };
       
       const produtoAtualizado = { ...produtoEncontrado, imagemUrl: dados.secure_url };
       setProdutoEncontrado(produtoAtualizado);
       
       salvarEdicaoProduto(produtoAtualizado, 'Foto do produto atualizada com sucesso!');
       
-    } catch (erro) {
-      alert('Erro ao enviar a imagem.');
+    } catch (error) {
+      alert(error.message || 'Erro ao enviar a imagem.');
     } finally {
       setFazendoUploadEdicao(false);
     }
@@ -155,7 +146,7 @@ function CadastroProduto() {
 
   // SALVAR EDIÇÃO DO PRODUTO NO BANCO DE DADOS
   const salvarEdicaoProduto = async (produtoEditado, mensagemSucesso = 'Alteração salva com sucesso!') => {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     try {
       // CORREÇÃO: Utilizando a BASE_URL
       const resposta = await fetch(`${BASE_URL}/api/produtos/${produtoEditado.id}`, {
@@ -172,7 +163,7 @@ function CadastroProduto() {
       } else {
         alert('Erro ao salvar as alterações no banco de dados.');
       }
-    } catch (erro) {
+    } catch {
       alert('Erro de conexão ao atualizar os dados.');
     }
   };
@@ -242,7 +233,7 @@ function CadastroProduto() {
       return alert("Falha de segurança: A data de início não pode ser depois da data de fim!");
     }
 
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     const novoProduto = {
       id: codigoBarras,
       nome: nome,
@@ -271,7 +262,7 @@ function CadastroProduto() {
       } else {
         alert('Erro ao cadastrar. O código já existe.');
       }
-    } catch (erro) {
+    } catch {
       alert('Erro de conexão com o servidor.');
     }
   };
@@ -279,7 +270,7 @@ function CadastroProduto() {
   // --- BUSCAR PRODUTO (REPOSIÇÃO/EDIÇÃO) ---
   const buscarProdutoParaReposicao = async (e) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     setBuscandoProduto(true);
     setProdutoEncontrado(null);
 
@@ -300,7 +291,7 @@ function CadastroProduto() {
       } else {
         alert('Produto não encontrado!');
       }
-    } catch (erro) {
+    } catch {
       alert('Erro ao buscar o produto.');
     } finally {
       setBuscandoProduto(false);
@@ -311,7 +302,7 @@ function CadastroProduto() {
   // --- ADICIONAR ESTOQUE ---
   const confirmarReposicaoEstoque = async () => {
     if (!produtoEncontrado) return;
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
 
     try {
       // CORREÇÃO: Utilizando a BASE_URL
@@ -332,23 +323,23 @@ function CadastroProduto() {
       } else {
         alert('Erro ao atualizar o estoque.');
       }
-    } catch (erro) {
+    } catch {
       alert('Erro de conexão.');
     }
   };
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden' }}>
+    <div className="app-shell" style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden' }}>
       
       <div style={{ flexShrink: 0 }}>
         <Navbar />
       </div>
 
-      <main style={{ flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+      <main className="app-main" style={{ flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
         
         <div style={{ width: '100%', maxWidth: '1100px', display: 'flex', flexDirection: 'column', gap: '25px' }}>
           
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div className="responsive-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
             <div>
               <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#8e44ad', letterSpacing: '0.5px', marginBottom: '8px', textTransform: 'uppercase' }}>
                 Área de Gerenciamento
@@ -394,7 +385,7 @@ function CadastroProduto() {
                   <input type="text" value={codigoBarras} onChange={(e) => setCodigoBarras(e.target.value.replace(/\D/g, ''))} required maxLength="10" placeholder="Ex: 7891020304" style={{ padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#fafafa', fontSize: '15px', outline: 'none' }} />
                 </div>
 
-                <div style={{ display: 'flex', gap: '20px' }}>
+                <div className="responsive-row" style={{ display: 'flex', gap: '20px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', flex: 2 }}>
                     <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>Nome do Produto *</label>
                     <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} required placeholder="Ex: Mouse Gamer" style={{ padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#fafafa', fontSize: '15px', outline: 'none' }} />
@@ -408,7 +399,7 @@ function CadastroProduto() {
 
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>Categoria *</label>
-                  <div style={{ display: 'flex', gap: '15px' }}>
+                  <div className="responsive-row" style={{ display: 'flex', gap: '15px' }}>
                     <select value={categoriaSelecionada} onChange={(e) => setCategoriaSelecionada(e.target.value)} required style={{ flex: 1, padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#fafafa', fontSize: '15px', outline: 'none', cursor: 'pointer' }}>
                       <option value="" disabled>Escolha a Categoria</option>
                       {categorias.map(cat => <option key={cat.id} value={cat.id}>{cat.nome}</option>)}
@@ -419,13 +410,13 @@ function CadastroProduto() {
 
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>Foto do Produto</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                    <input type="file" accept="image/*" onChange={fazerUploadImagem} style={{ padding: '12px', border: '1px dashed #ccc', borderRadius: '8px', backgroundColor: '#fafafa', cursor: 'pointer', flex: 1 }} />
+                  <div className="responsive-row" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <input type="file" accept="image/jpeg,image/png,image/webp" onChange={fazerUploadImagem} style={{ padding: '12px', border: '1px dashed #ccc', borderRadius: '8px', backgroundColor: '#fafafa', cursor: 'pointer', flex: 1 }} />
                     {fazendoUpload ? <span style={{ fontSize: '13px', color: '#8e44ad', fontWeight: 'bold' }}>Enviando... ⏳</span> : imagemUrl && <img src={imagemUrl} alt="Preview" style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e0c3fc' }} />}
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '20px' }}>
+                <div className="responsive-row" style={{ display: 'flex', gap: '20px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                     <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>Valor do Produto (R$) *</label>
                     <input type="text" value={preco} onChange={(e) => setPreco(e.target.value)} required placeholder="R$ 0,00" style={{ padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#fafafa', fontSize: '15px', outline: 'none' }} />
@@ -438,7 +429,7 @@ function CadastroProduto() {
                 </div>
 
                 {/* AREA DE PROMOÇÃO (CADASTRO) - ATUALIZADA COM A DATA DE INÍCIO */}
-                <div style={{ backgroundColor: '#fff5f5', padding: '20px', borderRadius: '10px', border: '1px dashed #ffb8b8', display: 'flex', gap: '15px', alignItems: 'center', marginTop: '10px' }}>
+                <div className="responsive-row" style={{ backgroundColor: '#fff5f5', padding: '20px', borderRadius: '10px', border: '1px dashed #ffb8b8', display: 'flex', gap: '15px', alignItems: 'center', marginTop: '10px' }}>
                   <div style={{ flex: 1 }}>
                     <h4 style={{ margin: 0, color: '#d63031', fontSize: '16px' }}>Oferta Especial (Opcional)</h4>
                     <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#666' }}>Se preenchido, o desconto aplica-se automaticamente no período.</p>
@@ -482,8 +473,8 @@ function CadastroProduto() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   
                   {/* CABEÇALHO DO PRODUTO ENCONTRADO */}
-                  <div style={{ backgroundColor: '#fcf9ff', border: '2px dashed #e0c3fc', padding: '20px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                  <div className="responsive-row" style={{ backgroundColor: '#fcf9ff', border: '2px dashed #e0c3fc', padding: '20px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="responsive-row" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                       {produtoEncontrado.imagemUrl ? (
                         <img src={produtoEncontrado.imagemUrl} alt={produtoEncontrado.nome} style={{ width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e0c3fc' }} />
                       ) : (
@@ -499,14 +490,14 @@ function CadastroProduto() {
                   </div>
 
                   {/* BLOCO DUPLO DE EDIÇÕES (Flexbox) */}
-                  <div style={{ display: 'flex', gap: '20px' }}>
+                  <div className="responsive-row" style={{ display: 'flex', gap: '20px' }}>
                     
                     {/* COLUNA ESQUERDA: FOTO E ESTOQUE */}
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '15px' }}>
                       <div style={{ border: '1px solid #eee', padding: '20px', borderRadius: '10px' }}>
                         <label style={{ fontSize: '14px', fontWeight: 'bold', display: 'block', marginBottom: '10px' }}>Atualizar Foto</label>
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                          <input type="file" accept="image/*" onChange={fazerUploadImagemEdicao} style={{ padding: '8px', flex: 1, border: '1px dashed #ccc', borderRadius: '5px' }} />
+                          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={fazerUploadImagemEdicao} style={{ padding: '8px', flex: 1, border: '1px dashed #ccc', borderRadius: '5px' }} />
                           {fazendoUploadEdicao && <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#8e44ad' }}>Enviando...</span>}
                         </div>
                       </div>
@@ -524,7 +515,7 @@ function CadastroProduto() {
                     <div style={{ flex: 1, backgroundColor: '#fff5f5', border: '1px dashed #ffb8b8', padding: '20px', borderRadius: '10px' }}>
                       <h4 style={{ margin: '0 0 15px 0', color: '#d63031', fontSize: '16px' }}>Definir Oferta Especial</h4>
                       
-                      <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
+                      <div className="responsive-row" style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
                         <div style={{ flex: 1 }}>
                           <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#d63031', marginBottom: '5px', display: 'block' }}>Preço Promo (R$)</label>
                           <input type="text" value={precoPromoEdicao} onChange={(e) => setPrecoPromoEdicao(e.target.value)} placeholder="0.00" style={{ width: '100%', padding: '12px', borderRadius: '5px', border: '1px solid #ffcccc', outline: 'none', boxSizing: 'border-box' }} />
@@ -560,11 +551,11 @@ function CadastroProduto() {
 
       {/* MODAL PARA NOVA CATEGORIA */}
       {modalCategoriaAberto && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10 }}>
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10 }}>
           <div style={{ backgroundColor: 'white', padding: '35px', borderRadius: '15px', width: '380px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
             <h3 style={{ marginTop: 0, color: '#333', fontSize: '20px' }}>Nova Categoria</h3>
             <input type="text" placeholder="Ex: Monitores" value={nomeNovaCategoria} onChange={(e) => setNomeNovaCategoria(e.target.value)} style={{ width: '100%', padding: '15px', boxSizing: 'border-box', border: '1px solid #ccc', borderRadius: '8px', marginBottom: '25px', outline: 'none' }} />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px' }}>
+            <div className="responsive-row" style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px' }}>
               <button onClick={() => setModalCategoriaAberto(false)} style={{ padding: '12px 20px', border: 'none', background: '#f5f5f5', color: '#555', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Cancelar</button>
               <button onClick={salvarNovaCategoria} style={{ padding: '12px 20px', border: 'none', background: '#8e44ad', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Salvar Categoria</button>
             </div>

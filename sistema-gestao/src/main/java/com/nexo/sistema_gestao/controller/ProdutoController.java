@@ -18,6 +18,44 @@ public class ProdutoController {
     @Autowired
     private ProdutoRepository produtoRepository;
 
+    @Autowired
+    private com.nexo.sistema_gestao.repository.CategoriaRepository categoriaRepository;
+
+    private void validarProduto(Produto produto, boolean cadastro) {
+        com.nexo.sistema_gestao.security.RequestValidation.text(produto.getNome(), 255, "Nome");
+        if (cadastro) {
+            if (produto.getId() == null || !produto.getId().matches("[0-9]{10}")) {
+                throw new IllegalArgumentException("O código de barras deve ter 10 dígitos.");
+            }
+            if (produto.getEstoque() == null || produto.getEstoque() < 0) {
+                throw new IllegalArgumentException("Estoque inválido.");
+            }
+        }
+        if (produto.getPreco() == null || !Double.isFinite(produto.getPreco()) || produto.getPreco() <= 0) {
+            throw new IllegalArgumentException("O preço deve ser positivo.");
+        }
+        if (produto.getCategoria() == null || produto.getCategoria().getId() == null) {
+            throw new IllegalArgumentException("Informe a categoria.");
+        }
+        var categoria = categoriaRepository.findByIdAndEmpresaId(produto.getCategoria().getId(), getEmpresaId())
+                .filter(com.nexo.sistema_gestao.model.Categoria::isAtivo)
+                .orElseThrow(() -> new IllegalArgumentException("Categoria não encontrada nesta empresa."));
+        produto.setCategoria(categoria);
+        if (produto.getMarca() != null && produto.getMarca().length() > 255) throw new IllegalArgumentException("Marca muito longa.");
+        if (produto.getImagemUrl() != null && !produto.getImagemUrl().isBlank()
+                && (produto.getImagemUrl().length() > 500 || !produto.getImagemUrl().startsWith("https://"))) {
+            throw new IllegalArgumentException("A imagem deve ter uma URL HTTPS de até 500 caracteres.");
+        }
+        if (produto.getPrecoPromocional() != null) {
+            if (!Double.isFinite(produto.getPrecoPromocional()) || produto.getPrecoPromocional() <= 0
+                    || produto.getPrecoPromocional() > produto.getPreco()
+                    || produto.getDataInicioPromocao() == null || produto.getDataFimPromocao() == null
+                    || produto.getDataFimPromocao().isBefore(produto.getDataInicioPromocao())) {
+                throw new IllegalArgumentException("Preço ou período promocional inválido.");
+            }
+        }
+    }
+
     private Long getEmpresaId() {
         var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         return ((Usuario) auth.getPrincipal()).getEmpresa().getId();
@@ -42,12 +80,14 @@ public class ProdutoController {
     }
 
     @PostMapping
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> salvarProduto(@RequestBody Produto produto) {
+        validarProduto(produto, true);
         Usuario usuarioLogado = getUsuarioLogado();
         produto.setEmpresa(usuarioLogado.getEmpresa());
 
         // Busca se o produto já existe usando o ID limpo
-        Optional<Produto> existenteOpt = produtoRepository.findByIdAndEmpresaId(produto.getId(), getEmpresaId());
+        Optional<Produto> existenteOpt = produtoRepository.buscarParaAlteracao(produto.getId(), getEmpresaId());
 
         if (existenteOpt.isPresent()) {
             Produto existente = existenteOpt.get();
@@ -80,9 +120,10 @@ public class ProdutoController {
     }
 
     @DeleteMapping("/{id}")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> inativarProduto(@PathVariable String id) {
         // A CORREÇÃO: Usa o ID limpo para exclusão
-        Optional<Produto> prodOpt = produtoRepository.findByIdAndEmpresaIdAndAtivoTrue(id, getEmpresaId());
+        Optional<Produto> prodOpt = produtoRepository.buscarParaVenda(id, getEmpresaId());
 
         if (prodOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
@@ -102,8 +143,9 @@ public class ProdutoController {
     }
     
     @PutMapping("/{id}/adicionar-estoque")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> adicionarEstoque(@PathVariable String id, @RequestBody java.util.Map<String, Integer> payload) {
-        Optional<Produto> prodOpt = produtoRepository.findByIdAndEmpresaIdAndAtivoTrue(id, getEmpresaId());
+        Optional<Produto> prodOpt = produtoRepository.buscarParaVenda(id, getEmpresaId());
 
         if (prodOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -117,6 +159,9 @@ public class ProdutoController {
         }
 
         Produto produto = prodOpt.get();
+        if (qtdAdicional > Integer.MAX_VALUE - produto.getEstoque()) {
+            throw new IllegalArgumentException("Quantidade acima do limite de estoque.");
+        }
         produto.setEstoque(produto.getEstoque() + qtdAdicional);
         Produto atualizado = produtoRepository.save(produto);
 
@@ -124,8 +169,10 @@ public class ProdutoController {
     }
 
     @PutMapping("/{id}")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> atualizarProduto(@PathVariable String id, @RequestBody Produto produtoAtualizado) {
-        return produtoRepository.findByIdAndEmpresaId(id, getEmpresaId()).map(produto -> {
+        validarProduto(produtoAtualizado, false);
+        return produtoRepository.buscarParaVenda(id, getEmpresaId()).map(produto -> {
             produto.setNome(produtoAtualizado.getNome());
             produto.setMarca(produtoAtualizado.getMarca());
             produto.setPreco(produtoAtualizado.getPreco());

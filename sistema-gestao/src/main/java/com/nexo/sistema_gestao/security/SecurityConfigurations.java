@@ -30,8 +30,16 @@ public class SecurityConfigurations {
                         // Garante a passagem do Preflight e do Login
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/login", "/api/registro").permitAll()
-                        .anyRequest().authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/produtos", "/api/produtos/*", "/api/empresas/minha-empresa").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/vendas").authenticated()
+                        .requestMatchers("/api/usuarios/**", "/api/empresas/**", "/api/produtos/**",
+                                "/api/categorias/**", "/api/eventos/**", "/api/vendas/**",
+                                "/api/agente/**", "/api/tendencias/**", "/api/uploads/**").hasRole("ADMIN")
+                        .anyRequest().denyAll()
                 )
+                .exceptionHandling(errors -> errors
+                        .authenticationEntryPoint((request, response, exception) -> response.setStatus(401))
+                        .accessDeniedHandler((request, response, exception) -> response.setStatus(403)))
                 .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }

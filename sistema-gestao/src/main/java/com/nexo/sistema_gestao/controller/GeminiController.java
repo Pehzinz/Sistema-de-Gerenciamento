@@ -38,7 +38,7 @@ public class GeminiController {
     public ResponseEntity<?> perguntarAoAgente(@RequestBody Map<String, String> payload) {
         String perguntaUsuario = payload.get("pergunta");
 
-        if (perguntaUsuario == null || perguntaUsuario.trim().isEmpty()) {
+        if (perguntaUsuario == null || perguntaUsuario.trim().isEmpty() || perguntaUsuario.length() > 4000) {
             return ResponseEntity.badRequest().body(Map.of("erro", "A pergunta não pode estar vazia."));
         }
 
@@ -64,7 +64,7 @@ public class GeminiController {
         Map<String, Object> trafegoData = estatisticaService.calcularTrafego(empresaId);
         @SuppressWarnings("unchecked") List<Map<String, Object>> trafego = (List<Map<String, Object>>) trafegoData.get("grafico");
         
-        StringBuilder contexto = new StringBuilder("Você é o Consultor Estratégico. REGRA DE CALENDÁRIO: Agendamento = [AGENDAR: Titulo | AAAA-MM-DD | HH:MM | Descricao breve]\n\n");
+        StringBuilder contexto = new StringBuilder("Você é o Consultor Estratégico. Para agendamentos, oriente o usuário a preencher e salvar o formulário do Calendário. Não afirme que executou ações.\n\n");
         contexto.append("📊 DADOS:\n- Faturamento: R$ ").append(String.format("%.2f", faturamento.doubleValue())).append("\n- Pedidos: ").append(vendas.size()).append("\n\n");
         contexto.append("🧠 INTELIGÊNCIA:\n- Top Tendência: ").append(curvaEFluxo.get("produtoAltaTendencia")).append("\n- Curva ABC:\n");
         
@@ -77,18 +77,6 @@ public class GeminiController {
 
         String resposta = geminiService.perguntarParaIA(contexto.toString());
 
-        if (resposta.contains("[AGENDAR:")) {
-            try {
-                String extrato = resposta.substring(resposta.indexOf("[AGENDAR:") + 9, resposta.indexOf("]"));
-                String[] partes = extrato.split("\\|");
-                Evento novoEvento = new Evento(partes[0].trim(), partes[1].trim(), partes[2].trim(), partes[3].trim());
-                novoEvento.setEmpresa(usuarioLogado.getEmpresa());
-                eventoRepository.save(novoEvento); 
-                resposta = "✅ Feito! Compromisso agendado no calendário.";
-            } catch (Exception e) {
-                resposta = "❌ Entendi que você quer agendar algo, mas não consegui extrair a data ou hora exata.";
-            }
-        }
         return ResponseEntity.ok(Map.of("resposta", resposta));
     }
 }

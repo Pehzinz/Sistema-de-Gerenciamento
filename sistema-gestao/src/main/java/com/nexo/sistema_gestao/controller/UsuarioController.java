@@ -32,6 +32,13 @@ public class UsuarioController {
 
     @PostMapping
     public ResponseEntity<?> cadastrar(@RequestBody Usuario novoUsuario) {
+        com.nexo.sistema_gestao.security.RequestValidation.text(novoUsuario.getNomeCompleto(), 150, "Nome");
+        com.nexo.sistema_gestao.security.RequestValidation.text(novoUsuario.getCpf(), 14, "CPF");
+        com.nexo.sistema_gestao.security.RequestValidation.password(novoUsuario.getSenha());
+        novoUsuario.setId(null);
+        if (!java.util.Set.of("ADMIN", "COLABORADOR").contains(novoUsuario.getPerfil() == null ? "" : novoUsuario.getPerfil())) {
+            throw new IllegalArgumentException("Perfil inválido.");
+        }
         
         var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         Usuario usuarioLogado = (Usuario) authentication.getPrincipal();
@@ -56,6 +63,9 @@ public class UsuarioController {
         Optional<Usuario> usuarioOpt = usuarioRepository.findByIdAndEmpresaId(id, usuarioLogado.getEmpresa().getId());
         
         if (usuarioOpt.isPresent()) {
+            if ("ADMIN".equals(usuarioOpt.get().getPerfil())) {
+                return ResponseEntity.badRequest().body(java.util.Map.of("erro", "Não é possível remover o administrador por esta operação."));
+            }
             usuarioRepository.delete(usuarioOpt.get());
             return ResponseEntity.ok().build();
         }
@@ -74,12 +84,14 @@ public class UsuarioController {
         }
 
         Usuario usuario = usuarioOpt.get();
+        com.nexo.sistema_gestao.security.RequestValidation.text(dadosAtualizados.getNomeCompleto(), 150, "Nome");
         usuario.setNomeCompleto(dadosAtualizados.getNomeCompleto());
         usuario.setDataNascimento(dadosAtualizados.getDataNascimento());
         usuario.setTelefone(dadosAtualizados.getTelefone());
         usuario.setEndereco(dadosAtualizados.getEndereco());
 
         if (dadosAtualizados.getSenha() != null && !dadosAtualizados.getSenha().trim().isEmpty()) {
+            com.nexo.sistema_gestao.security.RequestValidation.password(dadosAtualizados.getSenha());
             usuario.setSenha(passwordEncoder.encode(dadosAtualizados.getSenha()));
         }
 

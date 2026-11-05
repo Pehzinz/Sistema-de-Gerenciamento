@@ -23,14 +23,17 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "telegrambots.enabled", havingValue = "true")
 public class TelegramService extends TelegramLongPollingBot {
 
     private final String botToken;
     private static final String BOT_USERNAME = "NexoGestao_bot"; 
-    private static final String CHAT_ID = "8806880654"; 
+    @org.springframework.beans.factory.annotation.Value("${TELEGRAM_CHAT_ID}")
+    private String chatIdAutorizado;
 
     // ID FIXO DA EMPRESA PADRÃO (Até criarmos o login via Telegram)
-    private static final Long EMPRESA_PADRAO_ID = 1L;
+    @org.springframework.beans.factory.annotation.Value("${TELEGRAM_EMPRESA_ID}")
+    private Long empresaAutorizadaId;
 
     @Autowired private ProdutoRepository produtoRepository;
     @Autowired private VendaRepository vendaRepository;
@@ -53,6 +56,9 @@ public class TelegramService extends TelegramLongPollingBot {
     @Override
     public void onUpdateReceived(Update update) {
         if (update.hasMessage() && update.getMessage().hasText()) {
+            // Somente conversa privada explicitamente vinculada pelo operador do servidor.
+            if (!update.getMessage().getChat().isUserChat()
+                    || !chatIdAutorizado.equals(update.getMessage().getChatId().toString())) return;
             String mensagemRecebida = update.getMessage().getText().trim().toLowerCase();
             String chatIdUsuario = update.getMessage().getChatId().toString();
 
@@ -71,16 +77,16 @@ public class TelegramService extends TelegramLongPollingBot {
 
     private void responderResumo(String chatId) {
         String resposta = "📈 *Resumo Gerencial Nexo:*\n\n" +
-                          "📦 Produtos: " + produtoRepository.findByEmpresaIdAndAtivoTrue(EMPRESA_PADRAO_ID).size() + "\n" +
-                          "🛒 Vendas: " + vendaRepository.findByEmpresaId(EMPRESA_PADRAO_ID).size() + "\n" +
-                          "👥 Equipe: " + usuarioRepository.findByEmpresaId(EMPRESA_PADRAO_ID).size() + "\n" +
-                          "📅 Eventos: " + eventoRepository.findByEmpresaId(EMPRESA_PADRAO_ID).size() + "\n\n" +
+                          "📦 Produtos: " + produtoRepository.findByEmpresaIdAndAtivoTrue(empresaAutorizadaId).size() + "\n" +
+                          "🛒 Vendas: " + vendaRepository.findByEmpresaId(empresaAutorizadaId).size() + "\n" +
+                          "👥 Equipe: " + usuarioRepository.findByEmpresaId(empresaAutorizadaId).size() + "\n" +
+                          "📅 Eventos: " + eventoRepository.findByEmpresaId(empresaAutorizadaId).size() + "\n\n" +
                           "_(Use o menu /ajuda)_";
         enviarMensagem(chatId, resposta);
     }
 
     private void responderVendas(String chatId) {
-        List<Venda> vendas = vendaRepository.findByEmpresaId(EMPRESA_PADRAO_ID);
+        List<Venda> vendas = vendaRepository.findByEmpresaId(empresaAutorizadaId);
         if (vendas.isEmpty()) { enviarMensagem(chatId, "📊 Nenhuma venda registrada."); return; }
 
         BigDecimal faturamentoTotal = BigDecimal.ZERO;
@@ -91,7 +97,7 @@ public class TelegramService extends TelegramLongPollingBot {
     }
 
     private void responderEstoque(String chatId) {
-        List<Produto> produtos = produtoRepository.findByEmpresaIdAndAtivoTrue(EMPRESA_PADRAO_ID);
+        List<Produto> produtos = produtoRepository.findByEmpresaIdAndAtivoTrue(empresaAutorizadaId);
         if (produtos.isEmpty()) { enviarMensagem(chatId, "📦 Seu estoque está vazio."); return; }
 
         BigDecimal capital = BigDecimal.ZERO;
@@ -105,7 +111,7 @@ public class TelegramService extends TelegramLongPollingBot {
     }
 
     private void responderAlertas(String chatId) {
-        List<Produto> produtos = produtoRepository.findByEmpresaIdAndAtivoTrue(EMPRESA_PADRAO_ID);
+        List<Produto> produtos = produtoRepository.findByEmpresaIdAndAtivoTrue(empresaAutorizadaId);
         List<Produto> estoqueBaixo = produtos.stream().filter(p -> p.getEstoque() <= 5).collect(Collectors.toList());
         if (estoqueBaixo.isEmpty()) { enviarMensagem(chatId, "✅ *Estoque Saudável!*"); return; }
         
@@ -116,7 +122,7 @@ public class TelegramService extends TelegramLongPollingBot {
 
     private void responderInsights(String chatId) {
         enviarMensagem(chatId, "⏳ Gerando inteligência de mercado...");
-        Map<String, Object> curvaEFluxo = estatisticaService.calcularCurvaABCFluxo(EMPRESA_PADRAO_ID);
+        Map<String, Object> curvaEFluxo = estatisticaService.calcularCurvaABCFluxo(empresaAutorizadaId);
         @SuppressWarnings("unchecked") List<Map<String, Object>> curvaABC = (List<Map<String, Object>>) curvaEFluxo.get("curva");
         
         StringBuilder resposta = new StringBuilder("🧠 *Inteligência de Mercado*\n\n");
@@ -127,7 +133,7 @@ public class TelegramService extends TelegramLongPollingBot {
     }
 
     private void responderAgenda(String chatId) {
-        List<Evento> eventosFuturos = eventoRepository.findByEmpresaIdAndDataGreaterThanEqualOrderByDataAscHoraAsc(EMPRESA_PADRAO_ID, LocalDate.now().toString());
+        List<Evento> eventosFuturos = eventoRepository.findByEmpresaIdAndDataGreaterThanEqualOrderByDataAscHoraAsc(empresaAutorizadaId, LocalDate.now().toString());
         if (eventosFuturos.isEmpty()) { enviarMensagem(chatId, "📅 *Sua Agenda está livre!*"); return; }
 
         StringBuilder resposta = new StringBuilder("📅 *Próximos Compromissos:*\n\n");
@@ -136,7 +142,7 @@ public class TelegramService extends TelegramLongPollingBot {
     }
 
     private void responderPromocoes(String chatId) {
-        List<Produto> produtos = produtoRepository.findByEmpresaIdAndAtivoTrue(EMPRESA_PADRAO_ID);
+        List<Produto> produtos = produtoRepository.findByEmpresaIdAndAtivoTrue(empresaAutorizadaId);
         List<Produto> emOferta = produtos.stream().filter(p -> p.getPrecoPromocional() != null).collect(Collectors.toList());
         if (emOferta.isEmpty()) { enviarMensagem(chatId, "🏷️ *Nenhuma promoção ativa.*"); return; }
 
@@ -146,7 +152,7 @@ public class TelegramService extends TelegramLongPollingBot {
     }
 
     private void responderEquipe(String chatId) {
-        List<Usuario> usuarios = usuarioRepository.findByEmpresaId(EMPRESA_PADRAO_ID);
+        List<Usuario> usuarios = usuarioRepository.findByEmpresaId(empresaAutorizadaId);
         StringBuilder resposta = new StringBuilder("👥 *Colaboradores:*\n\n");
         for (Usuario u : usuarios) { resposta.append("👤 *").append(u.getNomeCompleto()).append("*\n   Acesso: ").append(u.getPerfil()).append("\n\n"); }
         enviarMensagem(chatId, resposta.toString());
@@ -161,20 +167,20 @@ public class TelegramService extends TelegramLongPollingBot {
         try { execute(message); } catch (TelegramApiException e) { System.err.println("❌ Erro Telegram: " + e.getMessage()); }
     }
 
-    public void enviarAlerta(String mensagem) { enviarMensagem(CHAT_ID, mensagem); }
+    public void enviarAlerta(String mensagem) { enviarMensagem(chatIdAutorizado, mensagem); }
 
     private void responderComIA(String chatId, String perguntaUsuario) {
         enviarMensagem(chatId, "⏳ Analisando...");
-        List<Produto> produtos = produtoRepository.findByEmpresaIdAndAtivoTrue(EMPRESA_PADRAO_ID);
-        List<Venda> vendas = vendaRepository.findByEmpresaId(EMPRESA_PADRAO_ID);
+        List<Produto> produtos = produtoRepository.findByEmpresaIdAndAtivoTrue(empresaAutorizadaId);
+        List<Venda> vendas = vendaRepository.findByEmpresaId(empresaAutorizadaId);
         BigDecimal faturamento = BigDecimal.ZERO;
         for (Venda v : vendas) { if (v.getTotal() != null) faturamento = faturamento.add(v.getTotal()); }
 
-        Map<String, Object> curvaEFluxo = estatisticaService.calcularCurvaABCFluxo(EMPRESA_PADRAO_ID);
+        Map<String, Object> curvaEFluxo = estatisticaService.calcularCurvaABCFluxo(empresaAutorizadaId);
         String produtoAltaTendencia = (String) curvaEFluxo.get("produtoAltaTendencia");
 
         StringBuilder contexto = new StringBuilder();
-        contexto.append("Você é o Consultor do Nexo Gestão. REGRA: Agendamento = [AGENDAR: Titulo | AAAA-MM-DD | HH:MM | Descricao]\n");
+        contexto.append("Você é o Consultor do Nexo Gestão. Para agendar, oriente o usuário a salvar um evento no Calendário. Não execute ações.\n");
         contexto.append("📊 Vendas: ").append(vendas.size()).append(" | Faturamento: R$").append(faturamento).append("\n");
         contexto.append("🚀 Top: ").append(produtoAltaTendencia).append("\n📦 Estoque:\n");
         for(Produto p : produtos) { contexto.append("- ").append(p.getNome()).append(" | R$").append(p.getPreco()).append("\n"); }
@@ -182,17 +188,6 @@ public class TelegramService extends TelegramLongPollingBot {
 
         String respostaIA = geminiService.perguntarParaIA(contexto.toString());
 
-        if (respostaIA.contains("[AGENDAR:")) {
-            try {
-                String extrato = respostaIA.substring(respostaIA.indexOf("[AGENDAR:") + 9, respostaIA.indexOf("]"));
-                String[] partes = extrato.split("\\|");
-                Empresa emp = new Empresa(); emp.setId(EMPRESA_PADRAO_ID);
-                Evento novoEvento = new Evento(partes[0].trim(), partes[1].trim(), partes[2].trim(), partes[3].trim());
-                novoEvento.setEmpresa(emp);
-                eventoRepository.save(novoEvento);
-                respostaIA = "✅ Agendado: " + partes[0].trim() + " para " + partes[1].trim() + " às " + partes[2].trim();
-            } catch (Exception e) { respostaIA = "❌ Faltaram informações de data ou hora para agendar."; }
-        }
         enviarMensagem(chatId, respostaIA);
     }
 }

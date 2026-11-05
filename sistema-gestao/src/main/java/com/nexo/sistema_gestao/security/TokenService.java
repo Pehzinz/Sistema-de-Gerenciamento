@@ -8,17 +8,21 @@ import com.nexo.sistema_gestao.model.Usuario;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import org.springframework.beans.factory.annotation.Value;
 
 @Service
 public class TokenService {
 
-    // Em um ambiente real de nuvem, essa chave vem de uma variável de ambiente, nunca fica exposta no código.
-    // Como estamos em desenvolvimento local, vamos fixar uma string secreta.
+    // Segredo injetado pelo ambiente; nenhuma chave de produção deve estar no repositório.
     @Value("${api.security.token.secret}")
     private String secret;
+
+    @jakarta.annotation.PostConstruct
+    void validarSegredo() {
+        if (secret == null || secret.getBytes(java.nio.charset.StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException("JWT_SECRET deve conter ao menos 32 bytes aleatórios.");
+        }
+    }
 
     public String gerarToken(Usuario usuario) {
         try {
@@ -63,6 +67,6 @@ public class TokenService {
 
     private Instant gerarDataExpiracao() {
         // O token expira em 2 horas. Depois disso, o usuário precisará fazer login novamente.
-        return LocalDateTime.now().plusHours(2).toInstant(ZoneOffset.of("-03:00"));
+        return Instant.now().plusSeconds(7200);
     }
 }

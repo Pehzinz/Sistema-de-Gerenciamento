@@ -39,6 +39,12 @@ public class EmpresaController {
     // 2. Atualiza as informações comerciais da empresa
     @PutMapping("/configuracoes")
     public ResponseEntity<?> atualizarEmpresa(@RequestBody Empresa dadosAtualizados) {
+        com.nexo.sistema_gestao.security.RequestValidation.text(dadosAtualizados.getNome(), 150, "Nome da empresa");
+        if (dadosAtualizados.getTelefone() != null && dadosAtualizados.getTelefone().length() > 20
+                || dadosAtualizados.getEmail() != null && dadosAtualizados.getEmail().length() > 150
+                || dadosAtualizados.getEndereco() != null && dadosAtualizados.getEndereco().length() > 2000) {
+            throw new IllegalArgumentException("Telefone, email ou endereço acima do limite permitido.");
+        }
         Optional<Empresa> empresaOpt = empresaRepository.findById(getEmpresaIdLogada());
 
         if (empresaOpt.isEmpty()) {

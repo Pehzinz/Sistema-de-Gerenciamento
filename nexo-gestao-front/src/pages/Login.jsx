@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BASE_URL } from '../services/api';
+import { BASE_URL, apiFetch as fetch } from '../services/api';
 
 function Login() {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -8,8 +8,8 @@ function Login() {
   // Estados para Login
   const [cpf, setCpf] = useState('');
   const [senha, setSenha] = useState('');
-  const [empresaLembrada, setEmpresaLembrada] = useState('');
-  const [cnpjLembrado, setCnpjLembrado] = useState(''); 
+  const [empresaLembrada, setEmpresaLembrada] = useState(() => localStorage.getItem('empresaNome') || '');
+  const [cnpjLembrado, setCnpjLembrado] = useState(() => localStorage.getItem('cnpj') || '');
   
   // Estados para Cadastro de Empresa
   const [nomeEmpresa, setNomeEmpresa] = useState('');
@@ -20,15 +20,6 @@ function Login() {
 
   const navigate = useNavigate();
 
-  // A CORREÇÃO: Garante que a tela sempre pega o nome mais atual do Storage
-  useEffect(() => {
-    const empresaSalva = localStorage.getItem('empresaNome');
-    const cnpjSalvo = localStorage.getItem('cnpj');
-    if (empresaSalva && cnpjSalvo) {
-      setEmpresaLembrada(empresaSalva);
-      setCnpjLembrado(cnpjSalvo);
-    }
-  }, [localStorage.getItem('empresaNome')]); // Escuta mudanças no nome!
 
   const fazerLogin = async (evento) => {
     evento.preventDefault();
@@ -41,9 +32,9 @@ function Login() {
 
       if (resposta.ok) {
         const dados = await resposta.json();
-        localStorage.setItem('token', dados.token);
-        localStorage.setItem('perfil', dados.perfil);
-        localStorage.setItem('nome', dados.nomeCompleto || 'Usuário');
+        sessionStorage.setItem('token', dados.token);
+        sessionStorage.setItem('perfil', dados.perfil);
+        sessionStorage.setItem('nome', dados.nomeCompleto || 'Usuário');
         localStorage.setItem('empresaNome', dados.nomeEmpresa);
         localStorage.setItem('cnpj', dados.cnpj); 
 
@@ -55,7 +46,7 @@ function Login() {
       } else {
         alert('CPF ou senha incorretos! Tente novamente.');
       }
-    } catch (erro) {
+    } catch {
       alert('Erro de conexão com o servidor.');
     }
   };
@@ -78,7 +69,7 @@ function Login() {
         const erro = await resposta.json();
         alert(erro.erro || 'Erro ao cadastrar empresa.');
       }
-    } catch (erro) {
+    } catch {
       alert('Erro de conexão com o servidor.');
     }
   };
@@ -96,9 +87,9 @@ function Login() {
   const btnStyle = { padding: '12px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '6px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px' };
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif' }}>
+    <div className="login-page" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif' }}>
       
-      <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', width: '380px', textAlign: 'center' }}>
+      <div className="login-card" style={{ backgroundColor: 'white', padding: '40px', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', width: '380px', textAlign: 'center' }}>
         
         {!isRegistering ? (
           <>
@@ -149,7 +140,7 @@ function Login() {
               <div style={{ textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: '#888', marginTop: '10px' }}>DADOS DO ADMINISTRADOR</div>
               <input type="text" placeholder="Seu Nome Completo" value={nomeAdmin} onChange={(e) => setNomeAdmin(e.target.value)} required style={inputStyle} />
               <input type="text" placeholder="Seu CPF" value={cpfAdmin} onChange={(e) => setCpfAdmin(e.target.value)} required style={inputStyle} />
-              <input type="password" placeholder="Crie uma Senha" value={senhaAdmin} onChange={(e) => setSenhaAdmin(e.target.value)} required style={inputStyle} />
+              <input type="password" placeholder="Crie uma senha (mín. 12 caracteres)" minLength={12} maxLength={72} value={senhaAdmin} onChange={(e) => setSenhaAdmin(e.target.value)} required style={inputStyle} />
 
               <button type="submit" style={{...btnStyle, backgroundColor: '#28a745'}}>Concluir Cadastro</button>
             </form>

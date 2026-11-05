@@ -44,10 +44,15 @@ public class VendaController {
     })
     public ResponseEntity<?> realizarVenda(@RequestBody VendaRequestDTO request) {
         try {
+            if (request.itens() == null || request.itens().isEmpty() || request.itens().size() > 200) {
+                throw new IllegalArgumentException("Informe de 1 a 200 itens por venda.");
+            }
+            if (request.formaPagamento() == null || !java.util.Set.of("DINHEIRO", "PIX", "CREDITO", "DEBITO", "VALE_ALIMENTACAO").contains(request.formaPagamento())) {
+                throw new IllegalArgumentException("Forma de pagamento inválida.");
+            }
             Long empresaId = getEmpresaId();
             Venda venda = new Venda();
-            Usuario usuario = new Usuario();
-            usuario.setId(request.usuarioId());
+            Usuario usuario = (Usuario) org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getPrincipal();
             
             venda.setUsuario(usuario);
             com.nexo.sistema_gestao.model.Empresa empresa = new com.nexo.sistema_gestao.model.Empresa();
@@ -59,6 +64,9 @@ public class VendaController {
 
             List<ItemVenda> itens = new ArrayList<>();
             for (ItemVendaRequestDTO itemDTO : request.itens()) {
+                if (itemDTO == null || itemDTO.produtoId() == null || !itemDTO.produtoId().matches("[0-9]{10}")) {
+                    throw new IllegalArgumentException("Código de produto inválido.");
+                }
                 ItemVenda item = new ItemVenda();
                 Produto produto = new Produto();
                 
@@ -78,7 +86,7 @@ public class VendaController {
             return ResponseEntity.status(HttpStatus.CREATED).body("{\"mensagem\": \"Venda concluída com sucesso\"}");
 
         } catch (IllegalStateException | IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"erro\": \"" + e.getMessage() + "\"}");
+            return ResponseEntity.badRequest().body(java.util.Map.of("erro", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("{\"erro\": \"Falha interna no servidor.\"}");
         }

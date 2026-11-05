@@ -129,10 +129,10 @@ public class EstatisticaService {
         for (Map.Entry<String, Double> entry : listaProd) {
             if (faturamentoTotal == 0) break;
             double pct = (entry.getValue() / faturamentoTotal) * 100;
-            acumulado += pct;
-            if (acumulado <= 80) { prodA.add(entry.getKey()); valA += pct; }
-            else if (acumulado <= 95) { prodB.add(entry.getKey()); valB += pct; }
+            if (acumulado < 80) { prodA.add(entry.getKey()); valA += pct; }
+            else if (acumulado < 95) { prodB.add(entry.getKey()); valB += pct; }
             else { prodC.add(entry.getKey()); valC += pct; }
+            acumulado += pct;
         }
 
         List<Map<String, Object>> abc = List.of(
