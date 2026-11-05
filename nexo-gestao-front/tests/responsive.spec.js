@@ -77,6 +77,34 @@ test('agent quick queries return server data and preserve the AI conversation', 
   await expect(page.getByText('Análise da IA disponível.')).toBeVisible();
 });
 
+test('agent routes typed commands to quick queries without calling AI', async ({ page }) => {
+  await seed(page);
+  let consultas = 0;
+  let chamadasIa = 0;
+  await page.route('**/api/agente/consultas/estoque', async route => {
+    consultas++;
+    expect(route.request().method()).toBe('GET');
+    await route.fulfill({ json: { resposta: 'Estoque confirmado: 7 unidades.' } });
+  });
+  await page.route('**/api/agente/perguntar', async route => {
+    chamadasIa++;
+    await route.fulfill({ json: { resposta: 'Não deveria chamar IA para comandos.' } });
+  });
+  await page.goto('/agente');
+  await page.getByRole('textbox').fill(' /ESTOQUE ');
+  await page.getByRole('button', { name: 'Enviar', exact: true }).click();
+  await expect(page.getByText('Estoque confirmado: 7 unidades.')).toBeVisible();
+  expect(consultas).toBe(1); expect(chamadasIa).toBe(0);
+});
+
+test('agent explains when the backend does not support quick queries', async ({ page }) => {
+  await seed(page);
+  await page.route('**/api/agente/consultas/estoque', route => route.fulfill({ status: 404, json: {} }));
+  await page.goto('/agente');
+  await page.getByRole('button', { name: '📦 Estoque', exact: true }).click();
+  await expect(page.getByText('Esta consulta não está disponível no servidor.', { exact: false })).toBeVisible();
+});
+
 test('product photo uses signed upload in the configured Cloudinary account', async ({ page }) => {
   await seed(page);
   const params = { folder: 'nexo/1', public_id: 'photo-test', timestamp: '1793894400', allowed_formats: 'jpg,png,webp', overwrite: 'false' };

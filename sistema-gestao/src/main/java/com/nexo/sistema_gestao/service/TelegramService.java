@@ -51,13 +51,16 @@ public class TelegramService extends TelegramLongPollingBot {
             }
             String comando = texto.trim().toLowerCase(java.util.Locale.ROOT);
             if (!"ADMIN".equals(acesso.perfil()) && !java.util.Set.of("/estoque", "/promocoes", "/ofertas",
-                    "/alertas", "/ruptura", "/ajuda").contains(comando)) {
+                    "/alerta", "/alertas", "/ruptura", "/ajuda").contains(comando)) {
                 enviarMensagem(chatId, "Seu perfil permite consultar estoque, promoções e alertas de estoque. Use /ajuda.");
+                return;
+            }
+            if (comando.equals("/ajuda")) {
+                enviarMensagem(chatId, TelegramSessaoService.menu(acesso.perfil()));
                 return;
             }
             String resposta = consultas.consultar(comando, acesso.empresaId());
             if (resposta != null) enviarMensagem(chatId, resposta);
-            else if (comando.equals("/ajuda")) enviarMensagem(chatId, TelegramSessaoService.menu(acesso.perfil()));
             else if (comando.startsWith("/")) enviarMensagem(chatId, "Comando desconhecido. Use /ajuda.");
             else responderComIA(chatId, texto, acesso.empresaId());
         } catch (RuntimeException exception) {

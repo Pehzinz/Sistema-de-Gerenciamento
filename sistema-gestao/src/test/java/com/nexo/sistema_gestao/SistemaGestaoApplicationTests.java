@@ -95,6 +95,23 @@ class SistemaGestaoApplicationTests {
         assertTrue(usuarios.findByCredenciaisTelegram("12345678900", "99999999000199").isEmpty());
     }
 
+    @Test void typedCommandsUseTenantQueriesWithoutCallingAi() throws Exception {
+        for (String comando : List.of("/estoque", " /ESTOQUE ", "/alerta", "/promocoes", "/ajuda", "/equipe")) {
+            var response = call("POST", "/api/agente/perguntar", adminToken,
+                    json.writeValueAsString(Map.of("pergunta", comando)));
+            assertEquals(200, response.statusCode(), comando);
+            assertTrue(json.readTree(response.body()).get("resposta").isTextual(), comando);
+            assertFalse(response.body().contains("não foi configurad"), comando);
+            assertFalse(response.body().contains("Por favor, pergunte"), comando);
+        }
+        assertEquals(400, call("POST", "/api/agente/perguntar", adminToken,
+                json.writeValueAsString(Map.of("pergunta", "/comando_inexistente"))).statusCode());
+        assertEquals(401, call("POST", "/api/agente/perguntar", null,
+                json.writeValueAsString(Map.of("pergunta", "/estoque"))).statusCode());
+        assertEquals(403, call("POST", "/api/agente/perguntar", colaboradorToken,
+                json.writeValueAsString(Map.of("pergunta", "/estoque"))).statusCode());
+    }
+
     @Test void collaboratorCannotUseAdministrativeEndpoints() throws Exception {
         for (String path : List.of("/api/usuarios", "/api/vendas", "/api/eventos", "/api/tendencias/trafego"))
             assertEquals(403, call("GET", path, colaboradorToken, null).statusCode(), path);

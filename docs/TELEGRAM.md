@@ -25,10 +25,23 @@ Grupos e canais são ignorados. Nenhuma consulta recebe a empresa diretamente do
 
 ## Agente no sistema
 
-O Agente mantém a IA e oferece oito atalhos: resumo, estoque, promoções, alertas, vendas, tendências, agenda e equipe. Os atalhos consultam `GET /api/agente/consultas/{comando}`, usando as mesmas rotinas do bot, sem depender da IA. A empresa vem do usuário autenticado no servidor, e o endpoint mantém a exigência de ADMIN da tela do Agente.
+O Agente mantém a IA e oferece oito atalhos: resumo, estoque, promoções, alertas, vendas, tendências, agenda e equipe. Os atalhos e comandos digitados (como `/estoque`) consultam `GET /api/agente/consultas/{comando}`, usando as mesmas rotinas do bot, sem depender da IA. O endpoint `POST /api/agente/perguntar` também reconhece comandos para clientes que ainda usam esse caminho. `/ajuda` lista os comandos e `/alerta` é aceito como alternativa a `/alertas`. A empresa vem do usuário autenticado no servidor, e os endpoints mantêm a exigência de ADMIN da tela do Agente.
 
 ## Ativação
 
 Configure `TELEGRAM_ENABLED=true` e `BOT_TOKEN` no ambiente do backend e publique as alterações do backend e do frontend. `TELEGRAM_CHAT_ID` e `TELEGRAM_EMPRESA_ID` não são mais usados. Não é necessária alteração no esquema do banco.
 
 Os testes automatizados usam H2, credenciais fictícias e respostas simuladas da interface. O envio e a exclusão de mensagens precisam ser conferidos no bot real após a publicação.
+
+## Frontend atualizado e bot ainda sem login
+
+O menu antigo com o título "Terminal Nexo" em resposta a `/start` é gerado pela implementação anterior do bot. Na implementação atual, `/start` invalida a sessão anterior e pede o CNPJ, inclusive para quem já está autenticado. Alterar apenas o frontend não atualiza o bot, que roda no processo Java do backend.
+
+1. Confira no serviço backend do Railway se a branch e o diretório raiz são os corretos (`main` e `sistema-gestao`, para a configuração atual do projeto).
+2. Confira se o deployment ativo usa o commit enviado com as alterações Java. Um push concluído não comprova que o deploy terminou. Se houver falha, consulte o primeiro erro nos logs de build/deploy antes de tentar novamente.
+3. Publique o backend e aguarde a nova versão ficar ativa. Reiniciar um deployment antigo executará o código antigo novamente.
+4. Confira no frontend se `VITE_API_URL` aponta para esse backend. Uma mudança nessa variável exige novo build do frontend.
+5. Envie `/start`: o resultado esperado é o pedido de CNPJ. Antes de autenticar, `/estoque` não pode retornar produtos. Depois de entrar, confira a empresa confirmada pelo bot.
+6. No Agente, confira tanto o botão Estoque quanto `/estoque` digitado. Ambos devem retornar a consulta direta, sem depender da chave Gemini.
+
+Se o menu antigo persistir com o deployment correto ativo, verifique se existe outro serviço ou processo local executando a versão antiga com o mesmo token do bot. Não compartilhe o token nos logs ou nas capturas usadas para diagnóstico.

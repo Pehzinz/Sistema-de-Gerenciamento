@@ -33,6 +33,8 @@ function Agente() {
     if (carregando || (!comando && !input.trim())) return;
 
     const perguntaUsuario = comando ? `/${comando}` : input;
+    const consulta = comando || (perguntaUsuario.trim().startsWith('/')
+      ? perguntaUsuario.trim().slice(1).toLowerCase() : null);
     if (!comando) setInput('');
     
     setMensagens(prev => [...prev, { remetente: 'USUARIO', texto: perguntaUsuario }]);
@@ -41,23 +43,35 @@ function Agente() {
     const token = sessionStorage.getItem('token');
 
     try {
-      const resposta = await fetch(BASE_URL + (comando ? `/api/agente/consultas/${comando}` : '/api/agente/perguntar'), {
-        method: comando ? 'GET' : 'POST',
+      const resposta = await fetch(BASE_URL + (consulta ? `/api/agente/consultas/${encodeURIComponent(consulta)}` : '/api/agente/perguntar'), {
+        method: consulta ? 'GET' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}` 
         },
-        ...(comando ? {} : { body: JSON.stringify({ pergunta: perguntaUsuario }) })
+        ...(consulta ? {} : { body: JSON.stringify({ pergunta: perguntaUsuario }) })
       });
 
       if (resposta.ok) {
         const dados = await resposta.json();
+        if (typeof dados.resposta !== 'string' || !dados.resposta.trim()) {
+          setMensagens(prev => [...prev, { remetente: 'IA', texto: 'O servidor retornou uma resposta inválida. Tente novamente.' }]);
+          return;
+        }
         setMensagens(prev => [...prev, { remetente: 'IA', texto: dados.resposta }]);
       } else {
-        setMensagens(prev => [...prev, { remetente: 'IA', texto: 'Desculpe, encontrei um erro ao acessar os dados da loja. Verifique a conexão com o servidor.' }]);
+        const erros = {
+          400: 'Consulta desconhecida. Use os atalhos ou digite /ajuda para ver os comandos disponíveis.',
+          401: 'Sua sessão expirou. Entre novamente no sistema.',
+          403: 'Seu usuário não tem permissão para acessar esta consulta.',
+          404: 'Esta consulta não está disponível no servidor. Verifique se o backend foi atualizado e se o site aponta para a API correta.',
+          405: 'Esta consulta não está disponível no servidor. Verifique se o backend foi atualizado e se o site aponta para a API correta.',
+          429: 'Muitas consultas em pouco tempo. Aguarde um minuto e tente novamente.',
+        };
+        setMensagens(prev => [...prev, { remetente: 'IA', texto: erros[resposta.status] || 'Não foi possível consultar os dados da loja agora. Tente novamente.' }]);
       }
     } catch {
-      setMensagens(prev => [...prev, { remetente: 'IA', texto: 'Erro de conexão: O servidor principal do Nexo Gestão parece estar desligado.' }]);
+      setMensagens(prev => [...prev, { remetente: 'IA', texto: 'Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.' }]);
     } finally {
       setCarregando(false);
     }

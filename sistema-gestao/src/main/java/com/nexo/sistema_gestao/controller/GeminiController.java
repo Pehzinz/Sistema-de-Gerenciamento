@@ -52,16 +52,23 @@ public class GeminiController {
             return ResponseEntity.badRequest().body(Map.of("erro", "A pergunta não pode estar vazia."));
         }
 
-        String perguntaLower = perguntaUsuario.toLowerCase();
+        Usuario usuarioLogado = (Usuario) org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication().getPrincipal();
+        Long empresaId = usuarioLogado.getEmpresa().getId();
+
+        // Comandos digitados usam as mesmas consultas dos atalhos, sem chamar a IA.
+        String perguntaLower = perguntaUsuario.trim().toLowerCase(java.util.Locale.ROOT);
+        if (perguntaLower.startsWith("/")) {
+            String resposta = consultas.consultar(perguntaLower, empresaId);
+            return resposta == null
+                    ? ResponseEntity.badRequest().body(Map.of("erro", "Comando desconhecido. Use /ajuda para ver as consultas disponíveis."))
+                    : ResponseEntity.ok(Map.of("resposta", resposta));
+        }
         boolean temContexto = PALAVRAS_CHAVE_NEGOCIOS.stream().anyMatch(perguntaLower::contains);
         
         if (!temContexto) {
             return ResponseEntity.ok(Map.of("resposta", "Sou o Consultor Estratégico. Por favor, pergunte algo relacionado aos nossos negócios!"));
         }
-
-        var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        Usuario usuarioLogado = (Usuario) authentication.getPrincipal();
-        Long empresaId = usuarioLogado.getEmpresa().getId();
 
         List<Produto> produtos = produtoRepository.findByEmpresaIdAndAtivoTrue(empresaId);
         List<Venda> vendas = vendaRepository.findByEmpresaId(empresaId);

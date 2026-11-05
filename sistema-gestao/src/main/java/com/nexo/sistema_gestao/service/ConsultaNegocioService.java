@@ -28,13 +28,14 @@ public class ConsultaNegocioService {
     @Autowired private EstatisticaService estatisticaService;
 
     public String consultar(String comando, Long empresaId) {
-        return switch (comando.toLowerCase(java.util.Locale.ROOT)) {
+        return switch (comando.trim().toLowerCase(java.util.Locale.ROOT)) {
+            case "/ajuda" -> "Consultas disponíveis: /resumo, /estoque, /promocoes, /alertas, /vendas, /insights, /agenda e /equipe.";
             case "/estoque" -> responderEstoque(empresaId);
             case "/vendas" -> responderVendas(empresaId);
             case "/equipe", "/usuarios", "/colaboradores", "/funcionarios" -> responderEquipe(empresaId);
             case "/resumo" -> responderResumo(empresaId);
             case "/insights", "/tendencias" -> responderInsights(empresaId);
-            case "/alertas", "/ruptura" -> responderAlertas(empresaId);
+            case "/alerta", "/alertas", "/ruptura" -> responderAlertas(empresaId);
             case "/agenda", "/compromissos" -> responderAgenda(empresaId);
             case "/promocoes", "/ofertas" -> responderPromocoes(empresaId);
             default -> null;
