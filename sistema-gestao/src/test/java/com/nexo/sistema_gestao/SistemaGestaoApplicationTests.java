@@ -73,6 +73,28 @@ class SistemaGestaoApplicationTests {
         assertEquals(401, call("GET", "/api/produtos", "forged-token", null).statusCode());
     }
 
+    @Test void quickQueriesUseAuthenticatedTenantAndKeepAdministrativePermissions() throws Exception {
+        Empresa other = empresas.save(new Empresa("Outra loja", "consulta-" + empresa.getId()));
+        Produto foreign = new Produto(); foreign.setId("7777777777");
+        foreign.setIdInterno(other.getId() + "-7777777777"); foreign.setEmpresa(other);
+        foreign.setNome("Produto sigiloso de outra empresa"); foreign.setPreco(5.0); foreign.setEstoque(8);
+        produtos.save(foreign);
+        var response = call("GET", "/api/agente/consultas/estoque?empresaId=" + other.getId(), adminToken, null);
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Produto"));
+        assertFalse(response.body().contains("sigiloso"));
+        assertEquals(401, call("GET", "/api/agente/consultas/estoque", null, null).statusCode());
+        assertEquals(403, call("GET", "/api/agente/consultas/estoque", colaboradorToken, null).statusCode());
+        assertEquals(400, call("GET", "/api/agente/consultas/desconhecida", adminToken, null).statusCode());
+    }
+
+    @Test void telegramLookupAcceptsFormattedCpfAndCnpjWithoutMixingCompanies() {
+        empresa.setCnpj("12.345.678/0001-99"); empresas.save(empresa);
+        admin.setCpf("123.456.789-00"); usuarios.save(admin);
+        assertEquals(admin.getId(), usuarios.findByCredenciaisTelegram("12345678900", "12345678000199").orElseThrow().getId());
+        assertTrue(usuarios.findByCredenciaisTelegram("12345678900", "99999999000199").isEmpty());
+    }
+
     @Test void collaboratorCannotUseAdministrativeEndpoints() throws Exception {
         for (String path : List.of("/api/usuarios", "/api/vendas", "/api/eventos", "/api/tendencias/trafego"))
             assertEquals(403, call("GET", path, colaboradorToken, null).statusCode(), path);

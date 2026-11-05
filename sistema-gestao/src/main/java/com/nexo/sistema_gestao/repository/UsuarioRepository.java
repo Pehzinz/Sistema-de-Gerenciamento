@@ -9,6 +9,13 @@ import java.util.Optional;
 
 @Repository 
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
+    @org.springframework.data.jpa.repository.Query("""
+        select u from Usuario u join fetch u.empresa e
+        where replace(replace(replace(u.cpf, '.', ''), '-', ''), ' ', '') = :cpf
+        and replace(replace(replace(replace(e.cnpj, '.', ''), '-', ''), '/', ''), ' ', '') = :cnpj
+        """)
+    Optional<Usuario> findByCredenciaisTelegram(@org.springframework.data.repository.query.Param("cpf") String cpf,
+            @org.springframework.data.repository.query.Param("cnpj") String cnpj);
     
     // Retorna todas as contas vinculadas a este CPF em empresas diferentes
     List<Usuario> findByCpf(String cpf);

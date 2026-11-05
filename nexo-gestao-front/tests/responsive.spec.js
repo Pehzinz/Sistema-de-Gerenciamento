@@ -65,6 +65,18 @@ test('anonymous user is redirected to login', async ({ page }) => {
   await page.goto('/admin'); await expect(page).toHaveURL('http://127.0.0.1:5173/');
 });
 
+test('agent quick queries return server data and preserve the AI conversation', async ({ page }) => {
+  await seed(page);
+  await page.route('**/api/agente/consultas/estoque', route => route.fulfill({ json: { resposta: 'Estoque confirmado: 7 unidades.' } }));
+  await page.route('**/api/agente/perguntar', route => route.fulfill({ json: { resposta: 'Análise da IA disponível.' } }));
+  await page.goto('/agente');
+  await page.getByRole('button', { name: '📦 Estoque', exact: true }).click();
+  await expect(page.getByText('Estoque confirmado: 7 unidades.')).toBeVisible();
+  await page.getByRole('textbox').fill('Como melhorar as vendas?');
+  await page.getByRole('button', { name: 'Enviar', exact: true }).click();
+  await expect(page.getByText('Análise da IA disponível.')).toBeVisible();
+});
+
 test('product photo uses signed upload in the configured Cloudinary account', async ({ page }) => {
   await seed(page);
   const params = { folder: 'nexo/1', public_id: 'photo-test', timestamp: '1793894400', allowed_formats: 'jpg,png,webp', overwrite: 'false' };

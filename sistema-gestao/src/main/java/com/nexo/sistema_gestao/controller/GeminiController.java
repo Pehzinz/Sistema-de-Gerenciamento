@@ -27,6 +27,16 @@ public class GeminiController {
     @Autowired private VendaRepository vendaRepository;
     @Autowired private EventoRepository eventoRepository;
     @Autowired private EstatisticaService estatisticaService;
+    @Autowired private com.nexo.sistema_gestao.service.ConsultaNegocioService consultas;
+
+    @GetMapping("/consultas/{comando}")
+    public ResponseEntity<?> consultar(@PathVariable String comando) {
+        Usuario usuario = (Usuario) org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication().getPrincipal();
+        String resposta = consultas.consultar("/" + comando, usuario.getEmpresa().getId());
+        return resposta == null ? ResponseEntity.badRequest().body(Map.of("erro", "Consulta desconhecida."))
+                : ResponseEntity.ok(Map.of("resposta", resposta));
+    }
 
     private static final List<String> PALAVRAS_CHAVE_NEGOCIOS = Arrays.asList(
         "venda", "estoque", "produto", "lucro", "faturamento", "cliente", "nexo", "gestão", 

@@ -28,12 +28,12 @@ function Agente() {
     rolarParaFinal();
   }, [mensagens, carregando]);
 
-  const enviarMensagem = async (e) => {
-    e.preventDefault();
-    if (!input.trim()) return;
+  const enviarMensagem = async (e, comando = null) => {
+    e?.preventDefault();
+    if (carregando || (!comando && !input.trim())) return;
 
-    const perguntaUsuario = input;
-    setInput(''); 
+    const perguntaUsuario = comando ? `/${comando}` : input;
+    if (!comando) setInput('');
     
     setMensagens(prev => [...prev, { remetente: 'USUARIO', texto: perguntaUsuario }]);
     setCarregando(true);
@@ -41,13 +41,13 @@ function Agente() {
     const token = sessionStorage.getItem('token');
 
     try {
-      const resposta = await fetch(BASE_URL + '/api/agente/perguntar', {
-        method: 'POST',
+      const resposta = await fetch(BASE_URL + (comando ? `/api/agente/consultas/${comando}` : '/api/agente/perguntar'), {
+        method: comando ? 'GET' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}` 
         },
-        body: JSON.stringify({ pergunta: perguntaUsuario })
+        ...(comando ? {} : { body: JSON.stringify({ pergunta: perguntaUsuario }) })
       });
 
       if (resposta.ok) {
@@ -137,6 +137,19 @@ function Agente() {
             </div>
 
             <div style={{ padding: '20px', backgroundColor: 'white', borderTop: '1px solid #f0f0f0' }}>
+              <div aria-label="Consultas rápidas" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '15px' }}>
+                {[
+                  ['resumo', '📈 Resumo'], ['estoque', '📦 Estoque'], ['promocoes', '🏷️ Promoções'],
+                  ['alertas', '⚠️ Estoque baixo'], ['vendas', '🛒 Vendas'], ['insights', '📊 Tendências'],
+                  ['agenda', '📅 Agenda'], ['equipe', '👥 Equipe'],
+                ].map(([comando, titulo]) => (
+                  <button key={comando} type="button" disabled={carregando}
+                    onClick={() => enviarMensagem(null, comando)}
+                    style={{ padding: '8px 12px', border: '1px solid #e0c3fc', borderRadius: '18px', backgroundColor: '#f3e8ff', color: '#71368a', cursor: carregando ? 'wait' : 'pointer' }}>
+                    {titulo}
+                  </button>
+                ))}
+              </div>
               <form onSubmit={enviarMensagem} style={{ display: 'flex', gap: '15px' }}>
                 <input 
                   type="text" 
