@@ -98,7 +98,7 @@ public class EstatisticaService {
     }
 
     // --- 2. CURVA ABC E FLUXO DE CAIXA SEMANAL POR EMPRESA ---
-    @Cacheable(value = "estatisticasRegressao", key = "#empresaId")
+    @Cacheable(value = "estatisticasCurva", key = "#empresaId")
     public Map<String, Object> calcularCurvaABCFluxo(Long empresaId) {
         List<Venda> vendas = vendaRepository.findByEmpresaId(empresaId);
         Map<String, Double> faturamentoPorProduto = new HashMap<>();
@@ -159,7 +159,7 @@ public class EstatisticaService {
     }
 
     // --- 3. TRÁFEGO POR DIA DA SEMANA POR EMPRESA ---
-    @Cacheable(value = "estatisticasRegressao", key = "#empresaId")
+    @Cacheable(value = "estatisticasTrafego", key = "#empresaId")
     public Map<String, Object> calcularTrafego(Long empresaId) {
         List<Venda> vendas = vendaRepository.findByEmpresaId(empresaId);
         double[] diasSemana = new double[8]; 
