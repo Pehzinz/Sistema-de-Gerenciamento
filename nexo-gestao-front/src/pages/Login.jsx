@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BASE_URL, apiFetch as fetch } from '../services/api';
+import { BASE_URL, apiFetch as fetch, readApiError } from '../services/api';
 
 function Login() {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -44,7 +44,9 @@ function Login() {
           navigate('/caixa');
         }
       } else {
-        alert('CPF ou senha incorretos! Tente novamente.');
+        alert(await readApiError(resposta, resposta.status === 401
+          ? 'CPF ou senha incorretos. Confira também a empresa deste terminal'
+          : 'Não foi possível entrar no sistema'));
       }
     } catch {
       alert('Erro de conexão com o servidor.');
@@ -61,13 +63,18 @@ function Login() {
       });
 
       if (resposta.ok) {
+        // O navegador pode guardar uma empresa que já foi removida do banco de demonstração.
+        localStorage.setItem('empresaNome', nomeEmpresa);
+        localStorage.setItem('cnpj', cnpj);
+        setEmpresaLembrada(nomeEmpresa);
+        setCnpjLembrado(cnpj);
+        ['token', 'perfil', 'nome'].forEach(key => sessionStorage.removeItem(key));
         alert('Empresa e Administrador cadastrados com sucesso! Faça o login agora.');
         setIsRegistering(false); 
         setCpf(cpfAdmin); 
         setSenha('');
       } else {
-        const erro = await resposta.json();
-        alert(erro.erro || 'Erro ao cadastrar empresa.');
+        alert(await readApiError(resposta, 'Não foi possível cadastrar a empresa'));
       }
     } catch {
       alert('Erro de conexão com o servidor.');

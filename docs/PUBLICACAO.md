@@ -2,6 +2,10 @@
 
 As alterações estão nos arquivos locais. A publicação e o commit não foram executados.
 
+## Atualização: banco reiniciado para demonstração
+
+O responsável informou posteriormente que apagou as tabelas. Para o cadastro inicial e recuperação após essa limpeza, siga [Recuperar o cadastro](RECUPERAR_CADASTRO.md). Os resultados históricos listados abaixo pertencem ao banco anterior à limpeza e não confirmam o estado da base atual.
+
 ## Publicar a integração Cloudinary agora
 
 A revisão dos registros históricos pode seguir separadamente da publicação da API corrigida. Os scripts SQL deste repositório são manuais: o deploy não os executa e não corrige operadores históricos por aproximação.
