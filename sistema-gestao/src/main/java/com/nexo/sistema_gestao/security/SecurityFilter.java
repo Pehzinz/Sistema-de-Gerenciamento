@@ -26,19 +26,8 @@ public class SecurityFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-    
-    // Força a injeção do cabeçalho CORS em todas as requisições para evitar o net::ERR_FAILED
-    response.setHeader("Access-Control-Allow-Origin", "https://sweet-enchantment-production-d326.up.railway.app");
-    response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    response.setHeader("Access-Control-Allow-Headers", "authorization, content-type, xsrf-token");
-    response.addHeader("Access-Control-Expose-Headers", "xsrf-token");
-    
-    if ("OPTIONS".equals(request.getMethod())) {
-        response.setStatus(HttpServletResponse.SC_OK);
-        return;
-    }
 
-    var tokenJWT = recuperarToken(request);
+        var tokenJWT = recuperarToken(request);
 
         if (tokenJWT != null) {
             // 1. Descobre o CPF dono do Token
