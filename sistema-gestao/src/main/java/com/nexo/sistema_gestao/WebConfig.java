@@ -15,19 +15,19 @@ public class WebConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
         
-        // Define as origens permitidas explicitamente em vez de "*"
+        // Define as origens permitidas
         config.setAllowedOrigins(Arrays.asList(
-            "http://localhost:5173", // Para desenvolvimento local (Vite/React)
-            "http://localhost:3000", // Alternativa de porta
-            "https://sua-aplicacao.vercel.app" // Adicione aqui a futura URL do seu Vercel
+            "http://localhost:5173", // Para desenvolvimento local
+            "http://localhost:3000",
+            "https://sweet-enchantment-production-d326.up.railway.app" // Front-end no Railway
         ));
         
         config.setAllowedHeaders(Arrays.asList("Origin", "Content-Type", "Accept", "Authorization"));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowCredentials(true); // Permite envio de cookies e cabeçalhos de autenticação (JWT)
+        config.setAllowCredentials(true); 
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config); // Aplica a regra a todas as rotas
+        source.registerCorsConfiguration("/**", config); 
         return new CorsFilter(source);
     }
 }
