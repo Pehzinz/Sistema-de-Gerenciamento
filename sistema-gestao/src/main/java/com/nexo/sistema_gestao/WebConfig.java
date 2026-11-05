@@ -1,4 +1,4 @@
-package com.nexo.sistema_gestao;
+/*package com.nexo.sistema_gestao;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,4 +31,7 @@ public class WebConfig {
         source.registerCorsConfiguration("/**", config); 
         return source;
     }
-}
+}  
+
+
+*/
