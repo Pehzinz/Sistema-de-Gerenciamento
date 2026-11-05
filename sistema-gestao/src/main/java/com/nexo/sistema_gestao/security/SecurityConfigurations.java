@@ -23,13 +23,15 @@ public class SecurityConfigurations {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
-                .cors(Customizer.withDefaults()) // Mantém o CORS liberado para o React
+                .cors(Customizer.withDefaults()) // Diz ao Spring Security para usar as regras do WebConfig
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // A CORREÇÃO ESTÁ AQUI: Liberamos o /api/login e o /api/registro para quem não tem Token
+                        // Liberta os pedidos de verificação de CORS (Preflight)
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // Liberta as rotas de autenticação
                         .requestMatchers(HttpMethod.POST, "/api/login", "/api/registro").permitAll()
-                        // Qualquer outra requisição no sistema exigirá o Token!
+                        // Bloqueia qualquer outra rota exigindo o Token JWT
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class)
