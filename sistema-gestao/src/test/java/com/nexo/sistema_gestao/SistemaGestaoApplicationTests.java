@@ -206,4 +206,53 @@ class SistemaGestaoApplicationTests {
         assertTrue(remaining > 7100 && remaining <= 7200);
     }
 
+    @Test void cotaCadastroConsultaEVendaFuncionamPorHttpParaColaborador() throws Exception {
+        String body = json.writeValueAsString(Map.of("id", "2121212121", "nome", "Torrada", "preco", 29.90,
+                "estoque", 0, "tipoEstoque", "COTA_TEMPO", "limiteCota", 5, "intervaloCotaMinutos", 3,
+                "categoria", Map.of("id", produto.getCategoria().getId())));
+        var criado = call("POST", "/api/produtos", adminToken, body);
+        assertEquals(201, criado.statusCode(), criado.body());
+        var dados = json.readTree(criado.body());
+        assertEquals("COTA_TEMPO", dados.path("tipoEstoque").asText(), criado.body());
+        assertEquals(5, dados.path("quantidadeDisponivel").asInt(), criado.body());
+        // A edição real devolve o JSON inteiro, incluindo os campos somente leitura.
+        assertEquals(200, call("PUT", "/api/produtos/2121212121", adminToken, criado.body()).statusCode());
+        var salvo = produtos.findByIdAndEmpresaId("2121212121", empresa.getId()).orElseThrow();
+        assertEquals(TipoEstoque.COTA_TEMPO, salvo.getTipoEstoque());
+        assertEquals(5, salvo.getLimiteCota()); assertEquals(3, salvo.getIntervaloCotaMinutos());
+        for (var token : List.of(adminToken, colaboradorToken)) {
+            var consulta = call("GET", "/api/produtos/catalogo/2121212121", token, null);
+            assertEquals(200, consulta.statusCode(), consulta.body());
+            assertEquals(5, json.readTree(consulta.body()).path("quantidadeDisponivel").asInt());
+        }
+        var venda = json.writeValueAsString(Map.of("formaPagamento", "PIX", "total", 149.50,
+                "itens", List.of(Map.of("produtoId", "2121212121", "quantidade", 5))));
+        assertEquals(201, call("POST", "/api/vendas", colaboradorToken, venda).statusCode());
+        assertEquals(400, call("POST", "/api/vendas", colaboradorToken, venda).statusCode());
+        assertEquals(200, call("GET", "/api/empresas/minha-empresa", colaboradorToken, null).statusCode());
+        var consulta = call("GET", "/api/produtos/catalogo/2121212121", colaboradorToken, null);
+        assertEquals(200, consulta.statusCode()); assertEquals(0, json.readTree(consulta.body()).path("quantidadeDisponivel").asInt());
+    }
+
+    @Test void validadePersisteNoJsonENoBancoEProdutoVencidoRetorna404SemInvalidarSessao() throws Exception {
+        String validade = java.time.Instant.now().plusSeconds(3600).truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString();
+        var body = json.writeValueAsString(Map.of("nome", "Cookies", "preco", 15.90, "estoque", 4,
+                "tipoEstoque", "VALIDADE", "validadeComercial", validade,
+                "categoria", Map.of("id", produto.getCategoria().getId())));
+        assertEquals(200, call("PUT", "/api/produtos/1234567890", adminToken, body).statusCode());
+        var consulta = call("GET", "/api/produtos/catalogo/1234567890", colaboradorToken, null);
+        assertEquals(200, consulta.statusCode(), consulta.body());
+        var dados = json.readTree(consulta.body()); assertEquals("VALIDADE", dados.path("tipoEstoque").asText());
+        assertEquals(java.time.Instant.parse(validade), java.time.Instant.parse(dados.path("validadeComercial").asText()));
+        assertEquals(4, dados.path("quantidadeDisponivel").asInt());
+        var salvo = produtos.findByIdAndEmpresaId("1234567890", empresa.getId()).orElseThrow();
+        salvo.setValidadeComercial(java.time.Instant.now().minusSeconds(1)); produtos.save(salvo);
+        assertEquals(404, call("GET", "/api/produtos/catalogo/1234567890", colaboradorToken, null).statusCode());
+        assertEquals(404, call("GET", "/api/produtos/catalogo/9999999999", colaboradorToken, null).statusCode());
+        assertEquals(200, call("GET", "/api/empresas/minha-empresa", colaboradorToken, null).statusCode());
+        assertEquals(401, call("GET", "/api/produtos/catalogo/1234567890", "forged-token", null).statusCode());
+        var recursos = call("GET", "/api/produtos/recursos", colaboradorToken, null);
+        assertEquals(200, recursos.statusCode()); assertEquals(1, json.readTree(recursos.body()).path("versaoControleEstoque").asInt());
+    }
+
 }
