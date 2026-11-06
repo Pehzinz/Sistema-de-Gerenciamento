@@ -53,6 +53,33 @@ public class Produto implements java.io.Serializable {
     @JoinColumn(name = "empresa_id")
     private Empresa empresa;
 
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(32) default 'PADRAO'")
+    private TipoEstoque tipoEstoque = TipoEstoque.PADRAO;
+    private Integer limiteCota;
+    private Integer intervaloCotaMinutos;
+    private java.time.Instant validadeComercial;
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private java.time.Instant inicioJanelaCota;
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private Integer vendasNaJanela;
+
+    public TipoEstoque getTipoEstoque() { return tipoEstoque == null ? TipoEstoque.PADRAO : tipoEstoque; }
+    public void setTipoEstoque(TipoEstoque valor) { tipoEstoque = valor; }
+    public Integer getLimiteCota() { return limiteCota; }
+    public void setLimiteCota(Integer valor) { limiteCota = valor; }
+    public Integer getIntervaloCotaMinutos() { return intervaloCotaMinutos; }
+    public void setIntervaloCotaMinutos(Integer valor) { intervaloCotaMinutos = valor; }
+    public java.time.Instant getValidadeComercial() { return validadeComercial; }
+    public void setValidadeComercial(java.time.Instant valor) { validadeComercial = valor; }
+    public java.time.Instant getInicioJanelaCota() { return inicioJanelaCota; }
+    public void setInicioJanelaCota(java.time.Instant valor) { inicioJanelaCota = valor; }
+    public Integer getVendasNaJanela() { return vendasNaJanela; }
+    public void setVendasNaJanela(Integer valor) { vendasNaJanela = valor; }
+    public int getQuantidadeDisponivel() {
+        return com.nexo.sistema_gestao.service.ControleEstoque.disponivel(this, java.time.Instant.now());
+    }
+
     public Produto() {}
 
     // Getters e Setters

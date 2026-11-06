@@ -32,7 +32,7 @@ public class SecurityConfigurations {
                         // Garante a passagem do Preflight e do Login
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/login", "/api/registro").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/produtos", "/api/produtos/*", "/api/empresas/minha-empresa").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/produtos", "/api/produtos/*", "/api/produtos/catalogo/**", "/api/empresas/minha-empresa").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/vendas").authenticated()
                         .requestMatchers("/api/usuarios/**", "/api/empresas/**", "/api/produtos/**",
                                 "/api/categorias/**", "/api/eventos/**", "/api/vendas/**",

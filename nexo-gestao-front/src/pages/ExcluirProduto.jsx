@@ -105,7 +105,7 @@ function ExcluirProduto() {
              Excluir Produto ou Categoria
           </h2>
           <div style={{ backgroundColor: '#fff0f0', borderLeft: '5px solid #d63031', padding: '15px', borderRadius: '5px', color: '#555', fontSize: '14px', lineHeight: '1.5' }}>
-            <strong>Atenção:</strong> Ao confirmar a exclusão, o item será inativado no catálogo da loja. Certifique-se de que os estoques estão zerados antes de prosseguir. Esta ação exige confirmação de segurança.
+            <strong>Atenção:</strong> Ao confirmar a exclusão, o item será inativado no catálogo da loja. Produtos com estoque físico exigem saldo zerado. Produtos com cota de tempo podem ser inativados a qualquer momento. Esta ação exige confirmação de segurança.
           </div>
         </div>
 

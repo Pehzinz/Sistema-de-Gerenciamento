@@ -1,6 +1,8 @@
 package com.nexo.sistema_gestao.controller;
 
 import com.nexo.sistema_gestao.model.Produto;
+import com.nexo.sistema_gestao.model.TipoEstoque;
+import com.nexo.sistema_gestao.service.ControleEstoque;
 import com.nexo.sistema_gestao.model.Usuario;
 import com.nexo.sistema_gestao.repository.ProdutoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,9 +28,6 @@ public class ProdutoController {
         if (cadastro) {
             if (produto.getId() == null || !produto.getId().matches("[0-9]{10}")) {
                 throw new IllegalArgumentException("O código de barras deve ter 10 dígitos.");
-            }
-            if (produto.getEstoque() == null || produto.getEstoque() < 0) {
-                throw new IllegalArgumentException("Estoque inválido.");
             }
         }
         if (produto.getPreco() == null || !Double.isFinite(produto.getPreco()) || produto.getPreco() <= 0) {
@@ -71,6 +70,20 @@ public class ProdutoController {
         return ResponseEntity.ok(produtoRepository.findByEmpresaIdAndAtivoTrue(getEmpresaId()));
     }
 
+    @GetMapping("/catalogo")
+    public ResponseEntity<List<Produto>> listarCatalogo() {
+        var agora = java.time.Instant.now();
+        return ResponseEntity.ok(produtoRepository.findByEmpresaIdAndAtivoTrue(getEmpresaId()).stream()
+                .filter(p -> ControleEstoque.catalogavel(p, agora)).toList());
+    }
+
+    @GetMapping("/catalogo/{id}")
+    public ResponseEntity<Produto> buscarNoCatalogo(@PathVariable String id) {
+        return produtoRepository.findByIdAndEmpresaIdAndAtivoTrue(id, getEmpresaId())
+                .filter(p -> ControleEstoque.catalogavel(p, java.time.Instant.now()))
+                .map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+    }
+
     // A CORREÇÃO: Passa o ID limpo (10 dígitos) direto para o banco
     @GetMapping("/{id}")
     public ResponseEntity<Produto> buscarPorId(@PathVariable String id) {
@@ -85,6 +98,7 @@ public class ProdutoController {
         validarProduto(produto, true);
         Usuario usuarioLogado = getUsuarioLogado();
         produto.setEmpresa(usuarioLogado.getEmpresa());
+        ControleEstoque.configurar(produto, produto, java.time.Instant.now(), true);
 
         // Busca se o produto já existe usando o ID limpo
         Optional<Produto> existenteOpt = produtoRepository.buscarParaAlteracao(produto.getId(), getEmpresaId());
@@ -95,7 +109,8 @@ public class ProdutoController {
                 existente.setNome(produto.getNome());
                 existente.setMarca(produto.getMarca());
                 existente.setPreco(produto.getPreco());
-                existente.setEstoque(produto.getEstoque());
+                ControleEstoque.configurar(existente, produto, java.time.Instant.now(), true);
+                existente.setImagemUrl(produto.getImagemUrl());
                 existente.setCategoria(produto.getCategoria());
                 existente.setPrecoPromocional(produto.getPrecoPromocional());
                 existente.setDataInicioPromocao(produto.getDataInicioPromocao());
@@ -131,7 +146,7 @@ public class ProdutoController {
 
         Produto produto = prodOpt.get();
 
-        if (produto.getEstoque() > 0) {
+        if (produto.getTipoEstoque() != TipoEstoque.COTA_TEMPO && produto.getEstoque() > 0) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body("{\"erro\": \"Ação negada: Só é possível inativar produtos com estoque zerado.\"}");
         }
@@ -159,6 +174,9 @@ public class ProdutoController {
         }
 
         Produto produto = prodOpt.get();
+        if (produto.getTipoEstoque() == TipoEstoque.COTA_TEMPO) {
+            throw new IllegalArgumentException("Produtos com cota não recebem estoque físico. Edite o limite da cota.");
+        }
         if (qtdAdicional > Integer.MAX_VALUE - produto.getEstoque()) {
             throw new IllegalArgumentException("Quantidade acima do limite de estoque.");
         }
@@ -173,6 +191,7 @@ public class ProdutoController {
     public ResponseEntity<?> atualizarProduto(@PathVariable String id, @RequestBody Produto produtoAtualizado) {
         validarProduto(produtoAtualizado, false);
         return produtoRepository.buscarParaVenda(id, getEmpresaId()).map(produto -> {
+            ControleEstoque.configurar(produto, produtoAtualizado, java.time.Instant.now(), false);
             produto.setNome(produtoAtualizado.getNome());
             produto.setMarca(produtoAtualizado.getMarca());
             produto.setPreco(produtoAtualizado.getPreco());
