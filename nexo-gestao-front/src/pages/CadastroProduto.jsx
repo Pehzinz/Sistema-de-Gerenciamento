@@ -1,3 +1,5 @@
+import ControleEstoqueForm from '../components/ControleEstoqueForm';
+import { controleInicial, controleDoProduto, payloadControle, indicadorEstoque } from '../utils/controleEstoque';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
@@ -12,7 +14,8 @@ function CadastroProduto() {
   const [nome, setNome] = useState('');
   const [marca, setMarca] = useState('');
   const [preco, setPreco] = useState('');
-  const [estoque, setEstoque] = useState('');
+  const [controle, setControle] = useState(controleInicial);
+  const [controleEdicao, setControleEdicao] = useState(controleInicial);
   const [categoriaSelecionada, setCategoriaSelecionada] = useState('');
 
   const [imagemUrl, setImagemUrl] = useState('');
@@ -159,9 +162,18 @@ function CadastroProduto() {
       });
 
       if (resposta.ok) {
+        const consulta = await fetch(`${BASE_URL}/api/produtos/${produtoEditado.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (consulta.ok) {
+          const atualizado = await consulta.json();
+          setProdutoEncontrado(atualizado);
+          setControleEdicao(controleDoProduto(atualizado));
+        }
         alert(mensagemSucesso);
       } else {
-        alert('Erro ao salvar as alterações no banco de dados.');
+        const erro = await resposta.json().catch(() => ({}));
+        alert(erro.erro || 'Erro ao salvar as alterações no banco de dados.');
       }
     } catch {
       alert('Erro de conexão ao atualizar os dados.');
@@ -239,7 +251,7 @@ function CadastroProduto() {
       nome: nome,
       marca: marca,
       preco: precoNumerico,
-      estoque: parseInt(estoque),
+      ...payloadControle(controle),
       categoria: { id: parseInt(categoriaSelecionada) },
       imagemUrl: imagemUrl,
       precoPromocional: pPromo,
@@ -260,7 +272,8 @@ function CadastroProduto() {
       if (resposta.status === 201 || resposta.ok) {
         navigate('/admin');
       } else {
-        alert('Erro ao cadastrar. O código já existe.');
+        const erro = await resposta.json().catch(() => ({}));
+        alert(erro.erro || 'Erro ao cadastrar o produto. Verifique os campos.');
       }
     } catch {
       alert('Erro de conexão com o servidor.');
@@ -282,6 +295,7 @@ function CadastroProduto() {
       if (resposta.ok) {
         const prod = await resposta.json();
         setProdutoEncontrado(prod);
+        setControleEdicao(controleDoProduto(prod));
         setQuantidadeAdicional(1);
         
         // CARREGA A PROMOÇÃO PARA OS INPUTS
@@ -422,11 +436,8 @@ function CadastroProduto() {
                     <input type="text" value={preco} onChange={(e) => setPreco(e.target.value)} required placeholder="R$ 0,00" style={{ padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#fafafa', fontSize: '15px', outline: 'none' }} />
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                    <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>Estoque Inicial *</label>
-                    <input type="number" value={estoque} onChange={(e) => setEstoque(e.target.value)} required placeholder="Ex: 50" style={{ padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#fafafa', fontSize: '15px', outline: 'none' }} />
-                  </div>
                 </div>
+                <ControleEstoqueForm value={controle} onChange={setControle} />
 
                 {/* AREA DE PROMOÇÃO (CADASTRO) - ATUALIZADA COM A DATA DE INÍCIO */}
                 <div className="responsive-row" style={{ backgroundColor: '#fff5f5', padding: '20px', borderRadius: '10px', border: '1px dashed #ffb8b8', display: 'flex', gap: '15px', alignItems: 'center', marginTop: '10px' }}>
@@ -483,11 +494,19 @@ function CadastroProduto() {
                       <div>
                         <h4 style={{ margin: 0, fontSize: '18px', color: '#333' }}>{produtoEncontrado.nome}</h4>
                         <p style={{ margin: '5px 0 0 0', color: '#888', fontSize: '13px' }}>
-                          Preço Original: R$ {produtoEncontrado.preco.toFixed(2).replace('.',',')} | Estoque: {produtoEncontrado.estoque} un.
+                          Preço Original: R$ {produtoEncontrado.preco.toFixed(2).replace('.',',')} | {indicadorEstoque(produtoEncontrado)}
                         </p>
                       </div>
                     </div>
                   </div>
+
+                  <form onSubmit={async e => {
+                    e.preventDefault();
+                    await salvarEdicaoProduto({ ...produtoEncontrado, ...payloadControle(controleEdicao) }, 'Controle de estoque atualizado!');
+                  }} style={{ display: 'grid', gap: '12px' }}>
+                    <ControleEstoqueForm value={controleEdicao} onChange={setControleEdicao} edicao />
+                    <button type="submit" style={{ padding: '12px', background: '#8e44ad', color: 'white', border: 0, borderRadius: '8px', cursor: 'pointer' }}>Salvar controle de estoque</button>
+                  </form>
 
                   {/* BLOCO DUPLO DE EDIÇÕES (Flexbox) */}
                   <div className="responsive-row" style={{ display: 'flex', gap: '20px' }}>
@@ -502,13 +521,13 @@ function CadastroProduto() {
                         </div>
                       </div>
 
-                      <div style={{ border: '1px solid #eee', padding: '20px', borderRadius: '10px' }}>
+                      {produtoEncontrado.tipoEstoque !== 'COTA_TEMPO' && <div style={{ border: '1px solid #eee', padding: '20px', borderRadius: '10px' }}>
                         <label style={{ fontSize: '14px', fontWeight: 'bold', display: 'block', marginBottom: '10px' }}>Adicionar ao Estoque</label>
                         <div style={{ display: 'flex', gap: '10px' }}>
                           <input type="number" min="1" value={quantidadeAdicional} onChange={(e) => setQuantidadeAdicional(Math.max(1, parseInt(e.target.value) || 1))} style={{ width: '80px', padding: '10px', border: '1px solid #ccc', borderRadius: '5px', fontSize: '15px' }} />
                           <button type="button" onClick={confirmarReposicaoEstoque} style={{ backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '5px', padding: '0 20px', fontWeight: 'bold', cursor: 'pointer' }}>Confirmar</button>
                         </div>
-                      </div>
+                      </div>}
                     </div>
 
                     {/* COLUNA DIREITA: GESTÃO DE PROMOÇÕES */}

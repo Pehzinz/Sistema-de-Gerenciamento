@@ -61,9 +61,7 @@ public class VendaService {
                 }
                 var produto = produtoRepo.buscarParaVenda(item.getProduto().getId(), venda.getEmpresa().getId())
                         .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado ou inativo."));
-                if (produto.getEstoque() < item.getQuantidade()) {
-                    throw new IllegalStateException("Estoque insuficiente para " + produto.getNome());
-                }
+                ControleEstoque.consumir(produto, item.getQuantidade(), java.time.Instant.now());
                 double preco = produto.getPreco();
                 if (produto.getPrecoPromocional() != null && produto.getDataInicioPromocao() != null
                         && produto.getDataFimPromocao() != null && !hoje.isBefore(produto.getDataInicioPromocao())
@@ -75,7 +73,6 @@ public class VendaService {
                 item.setPrecoUnitario(unitario);
                 item.setSubtotal(unitario.multiply(java.math.BigDecimal.valueOf(item.getQuantidade())));
                 total = total.add(item.getSubtotal());
-                produto.setEstoque(produto.getEstoque() - item.getQuantidade());
             }
             if (venda.getTotal() == null || total.compareTo(venda.getTotal()) != 0) {
                 throw new IllegalArgumentException("Os preços mudaram. Atualize o carrinho antes de concluir a venda.");

@@ -145,8 +145,8 @@ function Dashboard() {
 
   const totalProdutosCadastrados = produtos.length;
   const valorTotalEstoque = produtos.reduce((acc, p) => acc + (p.preco * p.estoque), 0);
-  const produtosEstoqueBaixo = produtos.filter(p => p.estoque > 0 && p.estoque <= 5).length;
-  const produtosEsgotados = produtos.filter(p => p.estoque === 0).length;
+  const produtosEstoqueBaixo = produtos.filter(p => p.tipoEstoque !== 'COTA_TEMPO' && p.estoque > 0 && p.estoque <= 5).length;
+  const produtosEsgotados = produtos.filter(p => p.tipoEstoque !== 'COTA_TEMPO' && p.estoque === 0).length;
 
   const contagemCategorias = produtos.reduce((acc, p) => {
     const nomeCat = p.categoria?.nome || 'Sem Categoria';

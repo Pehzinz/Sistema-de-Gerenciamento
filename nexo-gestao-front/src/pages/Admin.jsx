@@ -1,3 +1,4 @@
+import { indicadorEstoque } from '../utils/controleEstoque';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
@@ -87,7 +88,7 @@ function Admin() {
         p.nome,
         p.marca || '-',
         p.categoria ? p.categoria.nome : '-',
-        p.estoque.toString(),
+        indicadorEstoque(p),
         precoFinal
       ];
     });
@@ -224,15 +225,15 @@ function Admin() {
                     
                     <td style={{ padding: '15px 20px' }}>
                       <span style={{ 
-                        backgroundColor: produto.estoque === 0 ? '#ffeaec' : (produto.estoque <= 10 ? '#fff5e6' : '#e8f5e9'),
-                        color: produto.estoque === 0 ? '#d63031' : (produto.estoque <= 10 ? '#ff9900' : '#1e8e3e'),
+                        backgroundColor: produto.quantidadeDisponivel === 0 ? '#ffeaec' : ((produto.quantidadeDisponivel ?? produto.estoque) <= 10 ? '#fff5e6' : '#e8f5e9'),
+                        color: produto.quantidadeDisponivel === 0 ? '#d63031' : ((produto.quantidadeDisponivel ?? produto.estoque) <= 10 ? '#ff9900' : '#1e8e3e'),
                         padding: '6px 12px', 
                         borderRadius: '20px', 
                         fontSize: '13px', 
                         fontWeight: 'bold',
                         whiteSpace: 'nowrap'
                       }}>
-                        {produto.estoque} un.
+                        {indicadorEstoque(produto)}
                       </span>
                     </td>
 

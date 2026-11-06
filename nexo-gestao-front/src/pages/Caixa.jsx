@@ -56,12 +56,13 @@ function Caixa() {
     const token = sessionStorage.getItem('token');
     
     try {
-      const resposta = await fetch(`${BASE_URL}/api/produtos/${codigoProduto}`, {
+      const resposta = await fetch(`${BASE_URL}/api/produtos/catalogo/${codigoProduto}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (resposta.ok) {
         const produto = await resposta.json();
+        produto.estoque = produto.quantidadeDisponivel ?? produto.estoque;
         
         if (produto.estoque < 1) {
           alert(`Atenção: O produto "${produto.nome}" está fora de stock (0 unidades).`);
