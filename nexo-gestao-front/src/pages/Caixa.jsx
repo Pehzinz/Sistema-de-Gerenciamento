@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Navbar from '../components/Navbar';
-import { BASE_URL, apiFetch as fetch } from '../services/api';
+import { BASE_URL, apiFetch as fetch, readApiError } from '../services/api';
 
 function Caixa() {
   const [codigoProduto, setCodigoProduto] = useState('');
@@ -62,10 +62,17 @@ function Caixa() {
 
       if (resposta.ok) {
         const produto = await resposta.json();
-        produto.estoque = produto.quantidadeDisponivel ?? produto.estoque;
+        const disponibilidade = produto.quantidadeDisponivel ?? (produto.tipoEstoque === 'COTA_TEMPO' ? null : produto.estoque);
+        if (!Number.isInteger(disponibilidade) || disponibilidade < 0) {
+          alert('O servidor não informou a disponibilidade deste produto. Confira a atualização do back-end.');
+          return;
+        }
+        produto.estoque = disponibilidade;
         
         if (produto.estoque < 1) {
-          alert(`Atenção: O produto "${produto.nome}" está fora de stock (0 unidades).`);
+          alert(produto.tipoEstoque === 'COTA_TEMPO'
+            ? `A cota de "${produto.nome}" está esgotada neste intervalo. Aguarde a renovação automática.`
+            : `O produto "${produto.nome}" está sem estoque disponível.`);
           setCodigoProduto('');
           return;
         }
@@ -91,6 +98,7 @@ function Caixa() {
           }
 
           const novoCarrinho = [...carrinho];
+          novoCarrinho[indexExistente].estoque = disponibilidade;
           novoCarrinho[indexExistente].quantidade += 1;
           novoCarrinho[indexExistente].subtotal = novoCarrinho[indexExistente].quantidade * novoCarrinho[indexExistente].precoUnitario;
           setCarrinho(novoCarrinho);
@@ -112,10 +120,12 @@ function Caixa() {
         
         setCodigoProduto(''); 
       } else {
-        alert('Produto não encontrado!');
+        alert(resposta.status === 404
+          ? 'Produto não encontrado no catálogo de vendas. Confira o código; produtos vencidos ou com validade e estoque zerado ficam indisponíveis.'
+          : await readApiError(resposta, 'Não foi possível consultar o produto'));
       }
-    } catch {
-      alert('Erro de conexão ao procurar o produto.');
+    } catch (erro) {
+      alert(erro.message || 'Erro de conexão ao procurar o produto.');
     }
   };
 
@@ -224,8 +234,7 @@ function Caixa() {
         // Substituímos o alert nativo pelo modal customizado
         setModalNotaAberta(true);
       } else {
-        const erro = await resposta.json();
-        alert(`Não foi possível finalizar: ${erro.erro}`);
+        alert(await readApiError(resposta, 'Não foi possível finalizar a venda'));
       }
     } catch {
       alert('Erro ao ligar ao servidor para realizar a venda.');

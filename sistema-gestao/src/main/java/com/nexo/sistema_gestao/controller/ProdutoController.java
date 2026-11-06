@@ -70,6 +70,11 @@ public class ProdutoController {
         return ResponseEntity.ok(produtoRepository.findByEmpresaIdAndAtivoTrue(getEmpresaId()));
     }
 
+    @GetMapping("/recursos")
+    public java.util.Map<String, Object> recursos() {
+        return java.util.Map.of("versaoControleEstoque", 1, "tiposEstoque", TipoEstoque.values());
+    }
+
     @GetMapping("/catalogo")
     public ResponseEntity<List<Produto>> listarCatalogo() {
         var agora = java.time.Instant.now();

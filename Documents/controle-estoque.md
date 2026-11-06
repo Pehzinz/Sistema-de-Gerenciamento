@@ -31,3 +31,22 @@ Venda, edição, reposição e exclusão usam o mesmo bloqueio pessimista por pr
 Os testes Java cobrem legado nulo, fronteiras temporais, janelas ociosas, validade, conversões, catálogo, isolamento por empresa, edição, reposição, exclusão, reativação, itens repetidos, rollback e concorrência real entre transações H2. Os testes Playwright cobrem os campos dinâmicos, payload de cadastro, conversão de cota para físico e layout móvel. A integração com PostgreSQL de produção não é executada pelos testes locais.
 
 Comandos: `./mvnw test` no back-end; `npm run build`, `npm run lint` e `npm run test:e2e` no front-end.
+
+
+## Confirmação de versão, sessão e calendário
+
+`GET /api/produtos/recursos`, autenticado, deve devolver `versaoControleEstoque: 1`. O front-end consulta esse contrato antes de salvar cotas/validades e verifica o produto retornado após a gravação. Uma API antiga que ignore campos novos não deve mais produzir uma mensagem de sucesso no formulário. Campos físicos do mesmo tipo são apresentados como saldo somente leitura; reposição usa a ação específica.
+
+Um HTTP 401 isolado no catálogo não comprova que a sessão expirou: a aplicação agora consulta `/api/empresas/minha-empresa` com o mesmo token. Apenas se esse endpoint conhecido também responder 401 a sessão é apagada. Erros de produto, permissão, rede ou versão são apresentados sem tratar todos como produto inexistente. Uma sessão efetivamente inválida continua sendo encerrada.
+
+No calendário, a validade aparece automaticamente no dia e horário do vencimento, enquanto o produto estiver ativo, com estoque positivo e prazo futuro. Os eventos são derivados dos produtos persistidos; não há linhas manuais duplicadas na tabela de eventos. A tela atualiza produtos a cada 30 segundos enquanto visível e imediatamente ao recuperar o foco. O prazo é verificado a cada segundo. Reposição ou prorrogação faz o aviso reaparecer; estoque zero, exclusão, conversão para outro tipo e vencimento o removem.
+
+### Conferência após publicar
+
+1. Confirme nos dois serviços Railway o **commit de origem** e a branch `main`, além do status do deploy. Um deploy ativo pode estar executando uma revisão anterior. O back-end deve usar a raiz `sistema-gestao`; o front-end, `nexo-gestao-front`.
+2. Depois de publicar ambos os serviços, entre no sistema e verifique a resposta autenticada de `/api/produtos/recursos` nas ferramentas de rede do navegador. Não compartilhe o token nem a senha.
+3. Edite os produtos que antes apareceram como padrão apesar da seleção de cota/validade e salve novamente a configuração desejada. O cadastro anterior não permite reconstruir automaticamente limites, intervalos ou prazos que o servidor não tenha persistido.
+4. Para cota 5/3 minutos, a resposta do produto deve conter `tipoEstoque: COTA_TEMPO`, `limiteCota: 5`, `intervaloCotaMinutos: 3` e `quantidadeDisponivel: 5` inicialmente. `estoque: 0` é o saldo **físico** e não indica esgotamento dessa cota. A tabela mostra a cota disponível.
+5. Para validade, confirme `tipoEstoque: VALIDADE`, `validadeComercial` com fuso e `quantidadeDisponivel` igual ao saldo enquanto válido. Confira o aviso no calendário e sua remoção após a última unidade vendida.
+
+Os testes HTTP agora também verificam a serialização JSON, gravação real no H2 e consulta/venda autenticada dos três tipos, inclusive com colaborador. Eles distinguem 404 para produto indisponível de 401 para token inválido. O acesso ao banco e ao deploy de produção não é realizado por esses testes.

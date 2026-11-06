@@ -3,15 +3,17 @@ import Navbar from '../components/Navbar';
 import { BASE_URL, apiFetch as fetch } from '../services/api';
 
 function Calendario() {
+  const [agora, setAgora] = useState(() => Date.now());
   const [dataAtual, setDataAtual] = useState(() => new Date());
   const [diaSelecionado, setDiaSelecionado] = useState(() => new Date().toLocaleDateString('en-CA'));
   
-  const [dataLocal] = useState(() => new Date());
+  const dataLocal = new Date(agora);
   const hojeStr = `${dataLocal.getFullYear()}-${String(dataLocal.getMonth() + 1).padStart(2, '0')}-${String(dataLocal.getDate()).padStart(2, '0')}`;
   // --- ESTADOS DE DADOS (INTEGRADOS AO BANCO DE DADOS) ---
   const [eventos, setEventos] = useState([]);
   const [feriados, setFeriados] = useState([]);
   const [produtosPromo, setProdutosPromo] = useState([]);
+  const [produtosValidade, setProdutosValidade] = useState([]);
 
   // Estados do Modal e Notificações
   const [modalAberto, setModalAberto] = useState(false);
@@ -21,6 +23,24 @@ function Calendario() {
 
 
   const anoAtual = dataAtual.getFullYear();
+  // Eventos de validade são derivados do produto salvo: sem cópias que possam ficar órfãs.
+  const buscarProdutos = useCallback(async () => {
+    const token = sessionStorage.getItem('token');
+    if (!token) return;
+    try {
+      const resposta = await fetch(BASE_URL + '/api/produtos', {
+        headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
+      });
+      if (!resposta.ok) return;
+      const produtos = await resposta.json();
+      setProdutosPromo(produtos.filter(p => p.precoPromocional && p.dataInicioPromocao && p.dataFimPromocao)
+        .map(p => ({ ...p, inicioLimpo: String(p.dataInicioPromocao).split('T')[0], fimLimpo: String(p.dataFimPromocao).split('T')[0] })));
+      setProdutosValidade(produtos.filter(p => p.tipoEstoque === 'VALIDADE' && p.ativo !== false && p.estoque > 0 && p.validadeComercial));
+    } catch (erro) {
+      console.error('Erro ao buscar produtos do calendário', erro);
+    }
+  }, []);
+
   // --- FUNÇÃO PARA CARREGAR FERIADOS, PRODUTOS E EVENTOS DO BANCO ---
   const buscarDadosAutomatizados = useCallback(async () => {
     const token = sessionStorage.getItem('token');
@@ -51,32 +71,40 @@ function Calendario() {
       console.error('Erro ao buscar eventos do banco', e);
     }
 
-    // 3. Busca Produtos em Promoção no Java
-    try {
-      const resProdutos = await fetch(BASE_URL + '/api/produtos', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (resProdutos.ok) {
-        const dadosProdutos = await resProdutos.json();
-        const promocoesFormatadas = dadosProdutos
-          .filter(p => p.precoPromocional && p.dataInicioPromocao && p.dataFimPromocao)
-          .map(p => ({
-            ...p,
-            inicioLimpo: String(p.dataInicioPromocao).split('T')[0],
-            fimLimpo: String(p.dataFimPromocao).split('T')[0]
-          }));
-        setProdutosPromo(promocoesFormatadas);
-      }
-    } catch (e) {
-      console.error('Erro ao buscar produtos', e);
-    }
-  }, [anoAtual]);
+    await buscarProdutos();
+  }, [anoAtual, buscarProdutos]);
 
   useEffect(() => {
     let ativo = true;
     Promise.resolve().then(() => { if (ativo) void buscarDadosAutomatizados(); });
     return () => { ativo = false; };
   }, [buscarDadosAutomatizados]);
+
+  useEffect(() => {
+    const atualizar = () => { if (document.visibilityState !== 'hidden') void buscarProdutos(); };
+    window.addEventListener('focus', atualizar);
+    document.addEventListener('visibilitychange', atualizar);
+    const intervalo = setInterval(atualizar, 30000);
+    const relogio = setInterval(() => setAgora(Date.now()), 1000);
+    return () => {
+      window.removeEventListener('focus', atualizar);
+      document.removeEventListener('visibilitychange', atualizar);
+      clearInterval(intervalo);
+      clearInterval(relogio);
+    };
+  }, [buscarProdutos]);
+
+  const validades = produtosValidade.filter(p => new Date(p.validadeComercial).getTime() > agora).map(p => {
+    const prazo = new Date(p.validadeComercial);
+    return {
+      id: `validade-${p.id}`, tipo: 'validade',
+      data: `${prazo.getFullYear()}-${String(prazo.getMonth() + 1).padStart(2, '0')}-${String(prazo.getDate()).padStart(2, '0')}`,
+      hora: prazo.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      titulo: `Validade: ${p.nome}`,
+      descricao: `${p.estoque} un. em estoque. Venda permitida até ${prazo.toLocaleString('pt-BR')}.`,
+      corPrimaria: '#b45309', corSecundaria: '#fff7ed',
+    };
+  });
 
   const mostrarNotificacao = (titulo, mensagem, icone = '📌') => {
     setNotificacao({ titulo, mensagem, icone });
@@ -114,7 +142,7 @@ function Calendario() {
   };
 
   const abrirModalEditar = (evento) => {
-    if (evento.tipo === 'feriado' || evento.tipo === 'promo') {
+    if (evento.tipo !== 'manual') {
       mostrarNotificacao('Ação Bloqueada', 'Eventos automáticos não podem ser editados manualmente.', '🔒');
       return;
     }
@@ -196,7 +224,7 @@ function Calendario() {
   const manuaisDoDia = eventos.filter(ev => ev.data === diaSelecionado).map(ev => ({
     ...ev, tipo: 'manual', corPrimaria: '#8e44ad', corSecundaria: '#fcf9ff'
   }));
-  const agendaUnificadaDoDia = [...feriadosDoDia, ...promocoesDoDia, ...manuaisDoDia].sort((a, b) => a.hora.localeCompare(b.hora));
+  const agendaUnificadaDoDia = [...feriadosDoDia, ...promocoesDoDia, ...validades.filter(v => v.data === diaSelecionado), ...manuaisDoDia].sort((a, b) => a.hora.localeCompare(b.hora));
 
   // --- UNIFICAÇÃO PARA A LISTAGEM DOS PRÓXIMOS EVENTOS ---
   const proximosFeriados = feriados.filter(f => f.date >= hojeStr).map((f, i) => ({
@@ -208,7 +236,7 @@ function Calendario() {
   const proximosManuais = eventos.filter(ev => ev.data >= hojeStr).map(ev => ({
     ...ev, tipo: 'manual', corPrimaria: '#8e44ad'
   }));
-  const proximasAtividades = [...proximosFeriados, ...proximasPromocoes, ...proximosManuais]
+  const proximasAtividades = [...proximosFeriados, ...proximasPromocoes, ...validades, ...proximosManuais]
     .sort((a, b) => a.data.localeCompare(b.data) || a.hora.localeCompare(b.hora))
     .slice(0, 3);
 
@@ -240,7 +268,7 @@ function Calendario() {
             <div>
               <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#8e44ad', letterSpacing: '0.5px', marginBottom: '8px', textTransform: 'uppercase' }}>Gestão de Tempo</div>
               <h1 style={{ margin: 0, color: '#333', fontSize: '28px', letterSpacing: '-0.5px' }}>Agenda Operacional</h1>
-              <p style={{ margin: '5px 0 0 0', color: '#888', fontSize: '14px' }}>Feriados, promoções e rotinas integradas ao banco de dados.</p>
+              <p style={{ margin: '5px 0 0 0', color: '#888', fontSize: '14px' }}>Feriados, promoções, validades de produtos e rotinas integradas ao banco de dados.</p>
             </div>
             <button onClick={() => abrirModalNovo()} style={{ padding: '12px 24px', backgroundColor: '#8e44ad', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 10px rgba(142,68,173,0.3)' }}>
               + Novo evento
@@ -261,6 +289,7 @@ function Calendario() {
               {diasDoMesArray.map(dia => {
                 const dataString = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
                 
+                const validadesDoDia = validades.filter(v => v.data === dataString);
                 const eventosDoDia = eventos.filter(ev => ev.data === dataString);
                 const feriadoDoDia = feriados.find(f => f.date === dataString);
                 const promocoesDoDia = produtosPromo.filter(p => dataString >= p.inicioLimpo && dataString <= p.fimLimpo);
@@ -281,6 +310,7 @@ function Calendario() {
                     <div style={{ fontWeight: 'bold', color: isHoje ? '#d35400' : (feriadoDoDia ? '#e74c3c' : '#555'), fontSize: '14px', marginBottom: '5px' }}>{dia}</div>
                     {feriadoDoDia && <div style={{ fontSize: '9px', backgroundColor: '#ffecec', color: '#c0392b', padding: '3px 5px', borderRadius: '4px', fontWeight: 'bold', marginBottom: '4px', lineHeight: '1.2' }}>🎉 {feriadoDoDia.name}</div>}
                     {eventosDoDia.map(ev => <div key={ev.id} style={{ fontSize: '9px', backgroundColor: '#e0c3fc', color: '#551a8b', padding: '3px 5px', borderRadius: '4px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }}>📌 {ev.hora} - {ev.titulo}</div>)}
+                    {validadesDoDia.map(v => <div key={v.id} title={v.descricao} style={{ fontSize: '9px', backgroundColor: '#fff7ed', color: '#b45309', padding: '3px 5px', borderRadius: '4px', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }}>⏳ {v.hora} - {v.titulo}</div>)}
                     {promocoesDoDia.map(promo => <div key={`promo-${promo.id}`} style={{ fontSize: '9px', backgroundColor: '#e8f8f5', color: '#117a65', padding: '3px 5px', borderRadius: '4px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }}>🏷️ Promo: {promo.nome}</div>)}
                   </div>
                 );

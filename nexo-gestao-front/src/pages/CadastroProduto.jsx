@@ -1,3 +1,4 @@
+import { garantirSuporteControleEstoque, validarControlePersistido } from '../services/produtos';
 import ControleEstoqueForm from '../components/ControleEstoqueForm';
 import { controleInicial, controleDoProduto, payloadControle, indicadorEstoque } from '../utils/controleEstoque';
 import { useState, useEffect, useCallback } from 'react';
@@ -148,10 +149,12 @@ function CadastroProduto() {
   };
 
   // SALVAR EDIÇÃO DO PRODUTO NO BANCO DE DADOS
-  const salvarEdicaoProduto = async (produtoEditado, mensagemSucesso = 'Alteração salva com sucesso!') => {
+  const salvarEdicaoProduto = async (produtoEditado, mensagemSucesso = 'Alteração salva com sucesso!', verificarControle = false) => {
     const token = sessionStorage.getItem('token');
     try {
-      // CORREÇÃO: Utilizando a BASE_URL
+      if (verificarControle && (produtoEditado.tipoEstoque !== 'PADRAO' || produtoEncontrado?.tipoEstoque === 'COTA_TEMPO' || produtoEncontrado?.tipoEstoque === 'VALIDADE')) {
+        await garantirSuporteControleEstoque(token);
+      }
       const resposta = await fetch(`${BASE_URL}/api/produtos/${produtoEditado.id}`, {
         method: 'PUT',
         headers: {
@@ -167,16 +170,19 @@ function CadastroProduto() {
         });
         if (consulta.ok) {
           const atualizado = await consulta.json();
+          if (verificarControle) validarControlePersistido(atualizado, produtoEditado);
           setProdutoEncontrado(atualizado);
           setControleEdicao(controleDoProduto(atualizado));
+        } else {
+          throw new Error('Não foi possível confirmar os dados salvos. Recarregue o produto antes de continuar.');
         }
         alert(mensagemSucesso);
       } else {
         const erro = await resposta.json().catch(() => ({}));
         alert(erro.erro || 'Erro ao salvar as alterações no banco de dados.');
       }
-    } catch {
-      alert('Erro de conexão ao atualizar os dados.');
+    } catch (erro) {
+      alert(erro.message || 'Erro de conexão ao atualizar os dados.');
     }
   };
 
@@ -260,6 +266,7 @@ function CadastroProduto() {
     };
 
     try {
+      if (novoProduto.tipoEstoque !== 'PADRAO') await garantirSuporteControleEstoque(token);
       const resposta = await fetch(BASE_URL + '/api/produtos', {
         method: 'POST',
         headers: {
@@ -270,13 +277,15 @@ function CadastroProduto() {
       });
 
       if (resposta.status === 201 || resposta.ok) {
+        const salvo = await resposta.json();
+        if (novoProduto.tipoEstoque !== 'PADRAO') validarControlePersistido(salvo, novoProduto);
         navigate('/admin');
       } else {
         const erro = await resposta.json().catch(() => ({}));
         alert(erro.erro || 'Erro ao cadastrar o produto. Verifique os campos.');
       }
-    } catch {
-      alert('Erro de conexão com o servidor.');
+    } catch (erro) {
+      alert(erro.message || 'Erro de conexão com o servidor.');
     }
   };
 
@@ -502,9 +511,9 @@ function CadastroProduto() {
 
                   <form onSubmit={async e => {
                     e.preventDefault();
-                    await salvarEdicaoProduto({ ...produtoEncontrado, ...payloadControle(controleEdicao) }, 'Controle de estoque atualizado!');
+                    await salvarEdicaoProduto({ ...produtoEncontrado, ...payloadControle(controleEdicao) }, 'Controle de estoque atualizado!', true);
                   }} style={{ display: 'grid', gap: '12px' }}>
-                    <ControleEstoqueForm value={controleEdicao} onChange={setControleEdicao} edicao />
+                    <ControleEstoqueForm value={controleEdicao} onChange={setControleEdicao} edicao tipoOriginal={produtoEncontrado.tipoEstoque || 'PADRAO'} />
                     <button type="submit" style={{ padding: '12px', background: '#8e44ad', color: 'white', border: 0, borderRadius: '8px', cursor: 'pointer' }}>Salvar controle de estoque</button>
                   </form>
 
