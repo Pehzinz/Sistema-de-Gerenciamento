@@ -57,7 +57,7 @@ function Caixa() {
     
     try {
       const resposta = await fetch(`${BASE_URL}/api/produtos/catalogo/${codigoProduto}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` }, cache: 'no-store'
       });
 
       if (resposta.ok) {
@@ -112,6 +112,7 @@ function Caixa() {
             precoUnitario: precoFinal,    
             subtotal: precoFinal * 1,
             estoque: produto.estoque,
+            tipoEstoque: produto.tipoEstoque,
             imagemUrl: produto.imagemUrl,
             emPromocao: isPromocaoValida
           };
@@ -129,21 +130,36 @@ function Caixa() {
     }
   };
 
-  const tentarAlterarQuantidade = (index, novaQtd) => {
+  const tentarAlterarQuantidade = async (index, novaQtd) => {
     if (novaQtd < 1) return; 
 
     const itemAtual = carrinho[index];
 
     if (novaQtd > itemAtual.quantidade) {
-      if (novaQtd > itemAtual.estoque) {
-        alert(`Atenção: Limite de stock atingido. Só temos ${itemAtual.estoque} unidade(s) de "${itemAtual.nome}".`);
+      let disponivel = itemAtual.estoque;
+      if (itemAtual.tipoEstoque === 'COTA_TEMPO') {
+        try {
+          const token = sessionStorage.getItem('token');
+          const resposta = await fetch(`${BASE_URL}/api/produtos/catalogo/${itemAtual.produtoId}`, {
+            headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
+          });
+          if (!resposta.ok) return alert(await readApiError(resposta, 'Não foi possível consultar a cota'));
+          const produto = await resposta.json();
+          if (!Number.isInteger(produto.quantidadeDisponivel)) return alert('O servidor não informou a cota disponível. Tente novamente.');
+          disponivel = produto.quantidadeDisponivel;
+        } catch (erro) {
+          alert(erro.message || 'Não foi possível atualizar a cota.');
+          return;
+        }
+      }
+      if (novaQtd > disponivel) {
+        alert(`Atenção: Limite de stock atingido. Só temos ${disponivel} unidade(s) de "${itemAtual.nome}".`);
         return;
       }
 
-      const novoCarrinho = [...carrinho];
-      novoCarrinho[index].quantidade = novaQtd;
-      novoCarrinho[index].subtotal = novaQtd * novoCarrinho[index].precoUnitario;
-      setCarrinho(novoCarrinho);
+      setCarrinho(atual => atual.map(item => item.produtoId === itemAtual.produtoId
+        ? { ...item, estoque: disponivel, quantidade: novaQtd, subtotal: novaQtd * item.precoUnitario }
+        : item));
     } else if (novaQtd < itemAtual.quantidade) {
       setAcaoPendente({ tipo: 'DIMINUIR', index: index, novaQtd: novaQtd });
       setModalAberto(true);

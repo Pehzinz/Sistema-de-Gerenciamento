@@ -1,3 +1,4 @@
+import useAtualizacaoCotas from '../hooks/useAtualizacaoCotas';
 import { garantirSuporteControleEstoque, validarControlePersistido } from '../services/produtos';
 import ControleEstoqueForm from '../components/ControleEstoqueForm';
 import { controleInicial, controleDoProduto, payloadControle, indicadorEstoque } from '../utils/controleEstoque';
@@ -44,6 +45,22 @@ function CadastroProduto() {
   const [nomeNovaCategoria, setNomeNovaCategoria] = useState('');
 
   const navigate = useNavigate();
+  const idProdutoEncontrado = produtoEncontrado?.id;
+  const atualizarDisponibilidade = useCallback(async () => {
+    if (!idProdutoEncontrado) return;
+    const token = sessionStorage.getItem('token');
+    if (!token) return;
+    const resposta = await fetch(`${BASE_URL}/api/produtos/${idProdutoEncontrado}`, {
+      headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
+    });
+    if (resposta.ok) {
+      const atualizado = await resposta.json();
+      // Mantém os campos que o usuário está editando; atualiza apenas o produto consultado.
+      setProdutoEncontrado(atual => atual?.id === idProdutoEncontrado ? atualizado : atual);
+    }
+  }, [idProdutoEncontrado]);
+  useAtualizacaoCotas(produtoEncontrado ? [produtoEncontrado] : [], atualizarDisponibilidade);
+
 
 
   const buscarCategorias = useCallback(async () => {
