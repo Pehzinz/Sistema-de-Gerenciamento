@@ -1,3 +1,4 @@
+import useAtualizacaoCotas from '../hooks/useAtualizacaoCotas';
 import { indicadorEstoque } from '../utils/controleEstoque';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -24,7 +25,7 @@ function Admin() {
 
     try {
       const resposta = await fetch(BASE_URL + '/api/produtos', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` }, cache: 'no-store'
       });
       if (resposta.ok) {
         const dados = await resposta.json();
@@ -41,6 +42,8 @@ function Admin() {
     return () => { ativo = false; };
   }, [buscarProdutos]);
 
+
+  useAtualizacaoCotas(produtos, buscarProdutos);
 
   // --- LÓGICA DE FILTRAGEM ---
   

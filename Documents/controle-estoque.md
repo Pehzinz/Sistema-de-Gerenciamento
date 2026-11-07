@@ -50,3 +50,10 @@ No calendário, a validade aparece automaticamente no dia e horário do vencimen
 5. Para validade, confirme `tipoEstoque: VALIDADE`, `validadeComercial` com fuso e `quantidadeDisponivel` igual ao saldo enquanto válido. Confira o aviso no calendário e sua remoção após a última unidade vendida.
 
 Os testes HTTP agora também verificam a serialização JSON, gravação real no H2 e consulta/venda autenticada dos três tipos, inclusive com colaborador. Eles distinguem 404 para produto indisponível de 401 para token inválido. O acesso ao banco e ao deploy de produção não é realizado por esses testes.
+
+
+## Atualização automática das cotas na interface
+
+A tabela de estoque e o produto consultado na edição buscam novamente a disponibilidade no servidor na virada de cada janela (verificada a cada segundo). Enquanto houver produtos de cota na tela, também sincronizam a cada 30 segundos e ao retornar à aba. Abas ocultas suspendem as consultas automáticas. O saldo é sempre o devolvido pelo back-end; a interface não restaura unidades por conta própria. Campos de edição ainda não salvos são preservados.
+
+O caixa consulta a disponibilidade a cada inclusão de produto e antes de aumentar a quantidade de um item de cota já no carrinho. O POST da venda mantém a validação transacional. Essa atualização exige apenas publicar o front-end; não altera o esquema do banco.
