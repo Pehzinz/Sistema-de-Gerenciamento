@@ -1,3 +1,4 @@
+import { filtrarVendasPeriodo, descricaoPeriodo, dataHoraGeracao, formatarDataVenda } from '../utils/relatorioVendas';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
@@ -13,6 +14,8 @@ function Dashboard() {
   const [vendas, setVendas] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [gerandoPdf, setGerandoPdf] = useState(false);
+  const [dataInicioRelatorio, setDataInicioRelatorio] = useState('');
+  const [dataFimRelatorio, setDataFimRelatorio] = useState('');
   const navigate = useNavigate();
   
   const graficosRef = useRef(null);
@@ -49,11 +52,20 @@ function Dashboard() {
   }, [buscarDados]);
 
 
+  const [hoje] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }));
+  const erroPeriodo = dataInicioRelatorio && dataFimRelatorio && dataInicioRelatorio > dataFimRelatorio
+    ? 'A data inicial deve ser anterior ou igual à data final.'
+    : (dataInicioRelatorio > hoje || dataFimRelatorio > hoje ? 'O período não pode ultrapassar a data de hoje.' : '');
+  const vendasRelatorio = filtrarVendasPeriodo(vendas, dataInicioRelatorio, dataFimRelatorio, hoje);
+  const periodoRelatorio = descricaoPeriodo(dataInicioRelatorio, dataFimRelatorio, hoje);
+  const faturamentoRelatorio = vendasRelatorio.reduce((acc, venda) => acc + (venda.total || 0), 0);
+
   const gerarBalancoPDF = async () => {
+    if (gerandoPdf || erroPeriodo) return;
     setGerandoPdf(true);
     try {
       const doc = new jsPDF('l', 'mm', 'a4');
-      const dataAtual = new Date().toLocaleString('pt-BR');
+      const dataAtual = dataHoraGeracao();
 
       doc.setFontSize(22);
       doc.setTextColor(142, 68, 173);
@@ -64,33 +76,36 @@ function Dashboard() {
       const nomeEmpresa = localStorage.getItem('empresaNome') || 'Nexo Gestão';
       doc.text(`Empresa: ${nomeEmpresa} | Documento gerado em: ${dataAtual}`, 14, 28);
 
-      const faturamentoTotal = vendas.reduce((acc, v) => acc + (v.total || 0), 0);
-      const totalPedidos = vendas.length;
+      doc.text(`Período: ${periodoRelatorio} (datas inclusivas)`, 14, 34);
+      const faturamentoTotal = faturamentoRelatorio;
+      const totalPedidos = vendasRelatorio.length;
       
       doc.setFontSize(12);
       doc.setTextColor(50, 50, 50);
-      doc.text(`Faturamento Bruto: R$ ${faturamentoTotal.toFixed(2).replace('.', ',')}`, 14, 40);
-      doc.text(`Total de Transações: ${totalPedidos}`, 14, 46);
+      doc.text(`Faturamento Bruto: R$ ${faturamentoTotal.toFixed(2).replace('.', ',')}`, 14, 44);
+      doc.text(`Total de Transações: ${totalPedidos}`, 14, 50);
 
-      let startY = 55;
+      let startY = 61;
       if (graficosRef.current) {
         const canvas = await html2canvas(graficosRef.current, { scale: 2 });
         const imgData = canvas.toDataURL('image/png');
-        const imgWidth = 260; 
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        const escala = Math.min(260 / canvas.width, 120 / canvas.height);
+        const imgWidth = canvas.width * escala;
+        const imgHeight = canvas.height * escala;
         
         doc.addImage(imgData, 'PNG', 14, startY, imgWidth, imgHeight);
         startY += imgHeight + 15;
       }
 
+      if (startY > 170) { doc.addPage(); startY = 25; }
       doc.setFontSize(14);
       doc.setTextColor(142, 68, 173);
       doc.text('Livro Razão - Detalhamento de Transações', 14, startY - 5);
 
       const colunas = ['Data/Hora', 'ID', 'Forma Pag.', 'Produtos Vendidos (Qtd | Nome | Valor)', 'Total (R$)'];
       
-      const linhas = vendas.map(v => {
-        const dataVenda = v.dataVenda ? new Date(v.dataVenda).toLocaleString('pt-BR') : 'Data não registrada';
+      const linhas = vendasRelatorio.map(v => {
+        const dataVenda = formatarDataVenda(v.dataVenda);
         const itensDaVenda = v.itens || [];
         
         let detalhesProdutos = '';
@@ -128,7 +143,14 @@ function Dashboard() {
         alternateRowStyles: { fillColor: [249, 245, 250] }
       });
 
-      doc.save('Relatorio_Contabil_Nexo.pdf');
+      if (!linhas.length) {
+        doc.setFontSize(11);
+        doc.setTextColor(100, 100, 100);
+        doc.text('Nenhuma venda encontrada neste período.', 14, (doc.lastAutoTable?.finalY || startY) + 10);
+      }
+      doc.save(dataInicioRelatorio || dataFimRelatorio
+        ? `Relatorio_Contabil_Nexo_${dataInicioRelatorio || 'inicio'}_a_${dataFimRelatorio || hoje}.pdf`
+        : 'Relatorio_Contabil_Nexo.pdf');
     } catch (erro) {
       console.error('Erro ao gerar o relatório:', erro);
       alert('Ocorreu um erro ao processar o PDF.');
@@ -137,7 +159,6 @@ function Dashboard() {
     }
   };
 
-  const [hoje] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }));
   const ofertasAtivas = produtos.filter(p => 
     p.precoPromocional && p.dataInicioPromocao && p.dataFimPromocao && 
     hoje >= p.dataInicioPromocao && hoje <= p.dataFimPromocao
@@ -160,7 +181,7 @@ function Dashboard() {
   }));
 
   const receitaPorCategoria = {};
-  vendas.forEach(venda => {
+  vendasRelatorio.forEach(venda => {
       const listaItens = venda.itens || [];
       listaItens.forEach(item => {
       const idDoProduto = item.produtoId || item.produto?.id;
@@ -202,13 +223,31 @@ function Dashboard() {
             
             <button 
               onClick={gerarBalancoPDF} 
-              disabled={gerandoPdf}
+              disabled={gerandoPdf || !!erroPeriodo}
               style={{ 
                 padding: '12px 24px', backgroundColor: gerandoPdf ? '#ccc' : '#8e44ad', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: gerandoPdf ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 10px rgba(142,68,173,0.3)', transition: 'background 0.3s ease' 
               }}>
               {gerandoPdf ? 'A processar documento...' : '📄 Baixar Relatório Contábil'}
             </button>
           </div>
+
+          <section aria-label="Período do relatório contábil" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e0c3fc' }}>
+            <h2 style={{ margin: '0 0 14px', fontSize: '16px', color: '#71358b' }}>Período do relatório contábil</h2>
+            <div className="responsive-row" style={{ display: 'flex', gap: '16px', alignItems: 'flex-end' }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>Data inicial
+                <input type="date" max={hoje} value={dataInicioRelatorio} disabled={gerandoPdf} onChange={e => setDataInicioRelatorio(e.target.value)} style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', width: '100%' }} />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>Data final
+                <input type="date" max={hoje} value={dataFimRelatorio} disabled={gerandoPdf} onChange={e => setDataFimRelatorio(e.target.value)} style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', width: '100%' }} />
+              </label>
+              <button type="button" disabled={gerandoPdf} onClick={() => { setDataInicioRelatorio(''); setDataFimRelatorio(''); }} style={{ padding: '10px 16px', border: '1px solid #e0c3fc', borderRadius: '6px', color: '#71358b', backgroundColor: '#fcf9ff' }}>Todo o histórico</button>
+            </div>
+            <p style={{ marginBottom: '8px', fontSize: '13px', color: '#666' }}>Sem datas, o PDF inclui todo o histórico até hoje. Você também pode preencher apenas o início ou o fim. O dia final é incluído por completo.</p>
+            {erroPeriodo ? <p role="alert" style={{ color: '#b91c1c', marginBottom: 0 }}>{erroPeriodo}</p> : <p role="status" style={{ marginBottom: 0, color: '#555' }}>
+              {periodoRelatorio} · {vendasRelatorio.length} venda(s) · Faturamento: R$ {faturamentoRelatorio.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {vendasRelatorio.length === 0 && ' · Nenhuma venda encontrada neste período.'}
+            </p>}
+          </section>
 
           <div className="responsive-row" style={{ display: 'flex', gap: '20px' }}>
             <div style={{ flex: 1, backgroundColor: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', borderLeft: '5px solid #2ecc71' }}>
@@ -243,7 +282,7 @@ function Dashboard() {
           <div ref={graficosRef} style={{ display: 'flex', gap: '20px', marginTop: '10px', backgroundColor: '#f4f7f6', padding: '10px', borderRadius: '15px' }}>
             <div style={{ flex: 2, backgroundColor: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
               <h3 style={{ marginTop: 0, color: '#333', fontSize: '16px', marginBottom: '5px' }}>Receita por Categoria (R$)</h3>
-              <p style={{ fontSize: '13px', color: '#888', marginBottom: '20px', marginTop: 0 }}>Quais categorias geram mais faturação</p>
+              <p style={{ fontSize: '13px', color: '#888', marginBottom: '20px', marginTop: 0 }}>Receita das vendas no período selecionado</p>
               <div style={{ height: '300px', width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={dadosGraficoBarras} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -254,7 +293,7 @@ function Dashboard() {
                       contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 10px rgba(0,0,0,0.1)'}} 
                       formatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     />
-                    <Bar dataKey="receita" fill="#2ecc71" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="receita" fill="#2ecc71" radius={[4, 4, 0, 0]} isAnimationActive={false} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -262,11 +301,11 @@ function Dashboard() {
 
             <div style={{ flex: 1, backgroundColor: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
               <h3 style={{ marginTop: 0, color: '#333', fontSize: '16px', marginBottom: '5px' }}>Volume do Catálogo</h3>
-              <p style={{ fontSize: '13px', color: '#888', marginBottom: '20px', marginTop: 0 }}>Quantidade de produtos registados</p>
+              <p style={{ fontSize: '13px', color: '#888', marginBottom: '20px', marginTop: 0 }}>Quantidade de produtos registados atualmente</p>
               <div style={{ height: '300px', width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={dadosGraficoPizza} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="quantidade">
+                    <Pie data={dadosGraficoPizza} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="quantidade" isAnimationActive={false}>
                       {dadosGraficoPizza.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={CORES[index % CORES.length]} />
                       ))}
