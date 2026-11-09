@@ -44,6 +44,26 @@ for (const width of [320, 390, 768, 1024, 1440]) {
     }
   });
 }
+test('collaborator creation buttons fit the form on a narrow screen with larger text', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 900 });
+  await seed(page);
+  await page.goto('/colaboradores');
+  const admin = page.getByRole('button', { name: '+ Administrador', exact: true });
+  const collaborator = page.getByRole('button', { name: '+ Colaborador', exact: true });
+  await expect(admin).toBeVisible();
+  await page.addStyleTag({ content: 'main form button { font-size: 18px; }' });
+  const form = await admin.locator('xpath=ancestor::form').boundingBox();
+  const first = await admin.boundingBox();
+  const second = await collaborator.boundingBox();
+  for (const button of [first, second]) {
+    expect(button.x).toBeGreaterThanOrEqual(form.x);
+    expect(button.x + button.width).toBeLessThanOrEqual(form.x + form.width + 1);
+  }
+  expect(second.y).toBeGreaterThanOrEqual(first.y + first.height);
+  await fits(page);
+  await page.screenshot({ path: 'test-results/mobile-colaboradores.png', fullPage: true });
+});
+
 test('mobile menu opens, navigates and closes', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 }); await seed(page); await page.goto('/admin');
   const menu = page.getByRole('button', { name: '☰ Menu' }); await menu.click();
