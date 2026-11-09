@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { BASE_URL, readApiError, apiFetch as fetch } from '../services/api';
-import AnaliseMargens from '../components/AnaliseMargens';
-import AnaliseCatalogo from '../components/AnaliseCatalogo';
 import Navbar from '../components/Navbar';
 import { 
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  LineChart, Line, BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 
@@ -12,9 +10,6 @@ function Tendencias() {
   const [carregando, setCarregando] = useState(false);
   const [erroDados, setErroDados] = useState('');
   const [dadosProntos, setDadosProntos] = useState(false);
-  const [margens, setMargens] = useState(null);
-  const [catalogoMargens, setCatalogoMargens] = useState(null);
-  const [erroCatalogo, setErroCatalogo] = useState('');
 
   const [produtosReais, setProdutosReais] = useState([]);
   const [ticketMedioReal, setTicketMedioReal] = useState(0);
@@ -34,19 +29,11 @@ function Tendencias() {
     try {
       const headers = { Authorization: `Bearer ${sessionStorage.getItem('token')}` };
       const paths = ['/api/produtos', '/api/vendas', '/api/tendencias/previsao-vendas', '/api/tendencias/curva-fluxo', '/api/tendencias/trafego'];
-      const [results, catalogo] = await Promise.all([Promise.all(paths.map(async path => {
+      const results = await Promise.all(paths.map(async path => {
         const response = await fetch(BASE_URL + path, { headers, cache: 'no-store' });
         if (!response.ok) throw new Error(await readApiError(response, 'Não foi possível carregar a análise'));
         return response.json();
-      })), (async () => {
-        try {
-          const resposta = await fetch(BASE_URL + '/api/tendencias/margens-catalogo', { headers, cache: 'no-store' });
-          if (!resposta.ok) throw new Error(await readApiError(resposta, 'A API não confirmou suporte à análise do catálogo'));
-          const dados = await resposta.json();
-          if (dados?.versao !== 1 || !Array.isArray(dados.produtos)) throw new Error('A API conectada ainda não oferece esta versão da análise de margens.');
-          return { dados, erro: '' };
-        } catch (erro) { return { dados: null, erro: erro.message || 'Falha de conexão ao consultar custos.' }; }
-      })()]);
+      }));
       const [produtos, vendas, previsao, curva, trafego] = results;
       setProdutosReais(produtos);
       const total = vendas.reduce((acc, venda) => acc + (venda.total || 0), 0);
@@ -54,9 +41,6 @@ function Tendencias() {
       setDadosPrevisao(previsao); setCurvaABC(curva.curva); setFluxoCaixa(curva.fluxo);
       setProdutoAltaTendencia(curva.produtoAltaTendencia); setProdutoParado(curva.produtoParado);
       setDadosHorarios(trafego.grafico);
-      setMargens(curva.margens ?? null);
-      setCatalogoMargens(catalogo.dados);
-      setErroCatalogo(catalogo.erro);
       setDadosProntos(true);
       setErroDados('');
     } catch (error) { setErroDados(error.message || 'Erro de conexão ao carregar a análise.'); }
@@ -121,23 +105,37 @@ function Tendencias() {
           </div>
 
           <div className="responsive-row" style={{ display: 'flex', gap: '20px' }}>
-            <div style={{ flex: 1, backgroundColor: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ marginTop: 0, color: '#333', fontSize: '16px', marginBottom: '5px' }}>Faturamento real por semana</h3>
-              <p style={{ fontSize: 12, color: '#666' }}>Total das vendas registradas em cada semana com movimento. Não representa lucro nem saldo em caixa. A semana atual pode estar incompleta.</p>
+            <section aria-label="Receitas e custos semanais" style={{ flex: 1, minWidth: 0, backgroundColor: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
+              <h3 style={{ marginTop: 0, color: '#333', fontSize: '16px', marginBottom: '5px' }}>Receitas e custos dos produtos vendidos</h3>
+              <p style={{ fontSize: 12, color: '#666' }}>Valores por semana, de segunda a domingo. Custos registrados nas vendas; não inclui despesas da loja. A semana atual pode estar incompleta.</p>
               <div style={{ height: '250px', width: '100%' }}>
                 {fluxoCaixa.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={fluxoCaixa} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                    <AreaChart data={fluxoCaixa} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="receitasSemanais" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2ecc71" stopOpacity={0.3}/><stop offset="95%" stopColor="#2ecc71" stopOpacity={0}/></linearGradient>
+                        <linearGradient id="custosSemanais" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#e74c3c" stopOpacity={0.3}/><stop offset="95%" stopColor="#e74c3c" stopOpacity={0}/></linearGradient>
+                      </defs>
                       <XAxis dataKey="mes" tick={{fontSize: 12, fill: '#888'}} axisLine={false} tickLine={false} />
                       <YAxis tick={{fontSize: 11, fill: '#888'}} axisLine={false} tickLine={false} tickFormatter={v => Number(v).toLocaleString('pt-BR', { notation: 'compact', style: 'currency', currency: 'BRL', maximumFractionDigits: 1 })}/>
-                      <Tooltip formatter={value => Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} />
+                      <Tooltip content={({ active, payload, label }) => {
+                        const semana = payload?.[0]?.payload;
+                        if (!active || !semana) return null;
+                        return <div style={{ background: 'white', padding: 12, border: '1px solid #ddd', fontSize: 12 }}>
+                          <strong>{label}</strong>
+                          <p style={{ color: '#16a34a' }}>Receitas: {Number(semana.receitas).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                          <p style={{ color: '#dc2626' }}>{semana.custos == null ? 'Custo indisponível: há vendas sem custo registrado.' : `Custos: ${Number(semana.custos).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`}</p>
+                        </div>;
+                      }} />
                       <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
-                      <Bar name="Faturamento" dataKey="receitas" fill="#2ecc71" radius={[4, 4, 0, 0]} maxBarSize={70} isAnimationActive={false} />
-                    </BarChart>
+                      <Area type="linear" name="Receitas" dataKey="receitas" stroke="#2ecc71" fill="url(#receitasSemanais)" dot={{ r: 3 }} isAnimationActive={false} />
+                      <Area type="linear" name="Custos dos produtos" dataKey="custos" stroke="#e74c3c" fill="url(#custosSemanais)" dot={{ r: 3 }} connectNulls={false} isAnimationActive={false} />
+                    </AreaChart>
                   </ResponsiveContainer>
                 ) : <div style={{ textAlign: 'center', color: '#888', paddingTop: '80px' }}>Sem dados de vendas</div>}
               </div>
-            </div>
+              {fluxoCaixa.some(s => s.custos == null) && <p role="note" style={{ fontSize: 12, color: '#854d0e', marginBottom: 0 }}>O custo não é exibido nas semanas com vendas sem custo registrado. Cadastrar o custo agora vale para as próximas vendas.</p>}
+            </section>
 
             <div style={{ flex: 1, backgroundColor: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
               <h3 style={{ marginTop: 0, color: '#333', fontSize: '16px', marginBottom: '5px' }}>Projeção Financeira (Regressão Linear)</h3>
@@ -159,8 +157,6 @@ function Tendencias() {
             </div>
           </div>
 
-          <AnaliseCatalogo dados={catalogoMargens} erro={erroCatalogo} />
-          <AnaliseMargens dados={margens} />
           <div className="responsive-row" style={{ display: 'flex', gap: '20px' }}>
             
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>

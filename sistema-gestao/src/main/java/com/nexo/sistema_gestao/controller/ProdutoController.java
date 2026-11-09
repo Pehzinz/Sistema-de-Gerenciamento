@@ -92,7 +92,7 @@ public class ProdutoController {
 
     @GetMapping("/recursos")
     public java.util.Map<String, Object> recursos() {
-        return java.util.Map.of("versaoControleEstoque", 1, "versaoCustosProdutos", 1, "versaoMargensCatalogo", 1, "tiposEstoque", TipoEstoque.values());
+        return java.util.Map.of("versaoControleEstoque", 1, "versaoCustosProdutos", 1, "tiposEstoque", TipoEstoque.values());
     }
 
     @GetMapping("/catalogo")

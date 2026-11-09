@@ -98,15 +98,9 @@ public class EstatisticaService {
         List<Venda> vendas = vendaRepository.findByEmpresaId(empresaId);
         Map<String, Double> faturamentoPorProduto = new HashMap<>();
         Map<String, String> nomesProdutos = new HashMap<>();
-        Map<LocalDate, BigDecimal> faturamentoPorSemana = new TreeMap<>();
         double faturamentoTotal = 0;
 
         for (Venda v : vendas) {
-            if (v.getDataVenda() != null) {
-                LocalDate inicioSemana = v.getDataVenda().toLocalDate().with(java.time.DayOfWeek.MONDAY);
-                faturamentoPorSemana.merge(inicioSemana, v.getTotal(), BigDecimal::add);
-            }
-
             for (ItemVenda item : v.getItens()) {
                 var produto = item.getProduto();
                 String chave = produto == null ? "desconhecido" : produto.getIdInterno();
@@ -140,11 +134,7 @@ public class EstatisticaService {
             Map.of("name", "Curva C", "value", Math.round(valC), "color", "#e74c3c", "produtos", prodC.isEmpty() ? "Nenhum" : String.join(", ", prodC.subList(0, Math.min(3, prodC.size()))))
         );
 
-        List<Map<String, Object>> fluxo = new ArrayList<>();
-        for (Map.Entry<LocalDate, BigDecimal> sem : faturamentoPorSemana.entrySet()) {
-            String label = "Sem " + sem.getKey().getDayOfMonth() + "/" + sem.getKey().getMonthValue();
-            fluxo.add(Map.of("mes", label + "/" + sem.getKey().getYear(), "receitas", sem.getValue()));
-        }
+        List<Map<String, Object>> fluxo = FluxoSemanal.calcular(vendas);
 
         String produtoAltaTendencia = "Aguardando Vendas";
         String produtoParado = "Aguardando vendas";
