@@ -197,6 +197,52 @@ input[type="file"]::file-selector-button { border: 0; border-radius: 6px; paddin
 .kiosk-exit { position: fixed; left: 12px; bottom: 12px; z-index: 20; width: 36px; min-height: 36px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 10px; background: #ffffffc9; color: #8b8292; }
 .kiosk-exit:hover, .kiosk-exit:focus-visible { color: var(--primary); background: white; }
 
+/* Larger reading and touch scale for the collaborator's self-service terminal. */
+.kiosk-shell .pdv-content { max-width: 1600px !important; gap: 32px !important; font-size: 18px; }
+.kiosk-shell .app-main h1 { font-size: clamp(32px, 2.6vw, 44px) !important; }
+.kiosk-shell .app-main h3 { font-size: 24px !important; line-height: 1.35; }
+.kiosk-shell .pdv-eyebrow { font-size: 13px !important; letter-spacing: 1px !important; }
+.kiosk-shell .pdv-columns { gap: 32px !important; }
+.kiosk-shell .pdv-columns > div { padding: 32px !important; }
+.kiosk-shell .pdv-step { font-size: 18px !important; }
+.kiosk-shell .pdv-step > span { width: 32px !important; height: 32px !important; font-size: 16px !important; flex-shrink: 0; }
+.kiosk-shell .pdv-idle > span:first-child { font-size: 12px !important; }
+.kiosk-shell .pdv-idle > span:last-child { font-size: 24px !important; }
+.kiosk-shell .label-input__control { height: 64px; font-size: 18px !important; padding: 20px 16px 12px; }
+.kiosk-shell .label-input__label { font-size: 14px; }
+.kiosk-shell .label-input__control:placeholder-shown:not(:focus) + .label-input__label { top: 32px; font-size: 18px; }
+.kiosk-shell .label-input__visibility { top: 11px; }
+.kiosk-shell .app-main button { min-height: 64px; font-size: 18px !important; padding: 16px 24px !important; }
+.kiosk-shell .table-scroll table { min-width: 680px; }
+.kiosk-shell .table-scroll th { font-size: 12px !important; padding: 20px 16px !important; }
+.kiosk-shell .table-scroll td { font-size: 18px !important; padding: 20px 12px !important; }
+.kiosk-shell .pdv-product-name { font-size: 20px !important; }
+.kiosk-shell .pdv-product-details { font-size: 14px !important; }
+.kiosk-shell .button-group--stepper > button { flex-basis: 48px !important; width: 48px !important; min-height: 48px; padding: 8px !important; }
+.kiosk-shell .button-group--stepper > div { font-size: 18px !important; }
+.kiosk-shell .pdv-payment-options > label { min-height: 76px; padding: 22px 24px !important; }
+.kiosk-shell .pdv-payment-options span { font-size: 20px !important; }
+.kiosk-shell input[type="radio"] { width: 24px; height: 24px; flex-shrink: 0; }
+.kiosk-shell .pdv-summary-items { max-height: 340px !important; }
+.kiosk-shell .pdv-summary-items li { font-size: 18px !important; line-height: 1.5; gap: 16px; }
+.kiosk-shell .pdv-summary-items li > span { flex-shrink: 0; }
+.kiosk-shell .pdv-total { font-size: 32px !important; gap: 16px; }
+.kiosk-shell .modal-overlay > div { width: 480px !important; }
+.kiosk-shell .modal-overlay h3 { font-size: 24px !important; }
+.kiosk-shell .modal-overlay p { font-size: 17px !important; }
+.kiosk-shell .modal-overlay .button-group > button,
+.kiosk-shell .modal-overlay > div > div > button { min-height: 52px; font-size: 16px !important; }
+@media (max-width: 1100px) {
+  .kiosk-shell .pdv-columns { flex-direction: column !important; }
+  .kiosk-shell .pdv-columns > div { width: 100% !important; flex-basis: auto !important; }
+}
+@media (max-width: 640px) {
+  .kiosk-shell .pdv-columns > div { padding: 20px !important; }
+  .kiosk-shell .pdv-add-product { flex-direction: column; }
+  .kiosk-shell .app-main h3 { font-size: 22px !important; }
+  .kiosk-shell .pdv-total { flex-direction: row !important; font-size: 28px !important; }
+}
+
 .sidebar-toolbar { display: flex; justify-content: flex-end; margin-bottom: 14px; }
 .sidebar-collapse { display: grid; place-items: center; min-height: 32px; width: 32px; padding: 0; border: 1px solid var(--line); background: white; color: #817389; }
 .sidebar-collapse:hover { background: var(--primary-soft); color: var(--primary); }
