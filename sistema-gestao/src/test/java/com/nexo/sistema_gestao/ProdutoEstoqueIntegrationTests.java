@@ -24,6 +24,8 @@ import static org.junit.jupiter.api.Assertions.*;
 class ProdutoEstoqueIntegrationTests {
     @Autowired com.nexo.sistema_gestao.controller.ProdutoController controller;
     @Autowired ProdutoRepository produtos;
+    @Autowired CategoriaRepository categorias;
+    @Autowired com.nexo.sistema_gestao.controller.CategoriaController categoriaController;
     @Autowired VendaRepository vendas;
     @Autowired VendaService service;
     @Autowired EntityManager em;
@@ -131,7 +133,9 @@ class ProdutoEstoqueIntegrationTests {
         assertEquals(7, recarregar().getEstoque()); assertNull(recarregar().getLimiteCota());
         controller.adicionarEstoque(produto.getId(), Map.of("quantidade", 3));
         assertEquals(10, recarregar().getEstoque());
-        assertEquals(400, controller.inativarProduto(produto.getId()).getStatusCode().value());
+        assertEquals(204, controller.inativarProduto(produto.getId()).getStatusCode().value());
+        assertEquals(10, recarregar().getEstoque());
+        assertEquals(200, controller.salvarProduto(dados).getStatusCode().value());
         dados.setTipoEstoque(TipoEstoque.COTA_TEMPO); dados.setLimiteCota(5); dados.setIntervaloCotaMinutos(60);
         controller.atualizarProduto(produto.getId(), dados);
         assertEquals(204, controller.inativarProduto(produto.getId()).getStatusCode().value());
@@ -141,6 +145,75 @@ class ProdutoEstoqueIntegrationTests {
         assertEquals(200, controller.salvarProduto(reativado).getStatusCode().value());
         assertEquals(TipoEstoque.VALIDADE, recarregar().getTipoEstoque());
         assertEquals(204, controller.inativarProduto(produto.getId()).getStatusCode().value());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"PADRAO,0", "PADRAO,8", "COTA_TEMPO,0", "VALIDADE,0", "VALIDADE,8"})
+    void exclusaoIndividualPersisteSemApagarSaldo(TipoEstoque tipo, int saldo) {
+        tx.executeWithoutResult(status -> {
+            var p = produtos.buscarParaVenda(produto.getId(), empresa.getId()).orElseThrow();
+            p.setTipoEstoque(tipo); p.setEstoque(saldo);
+            if (tipo == TipoEstoque.VALIDADE) p.setValidadeComercial(Instant.now().plusSeconds(3600));
+        });
+        assertEquals(204, controller.inativarProduto(produto.getId()).getStatusCode().value());
+        assertFalse(recarregar().isAtivo()); assertEquals(saldo, recarregar().getEstoque());
+        assertEquals(404, controller.buscarPorId(produto.getId()).getStatusCode().value());
+        assertEquals(404, controller.inativarProduto(produto.getId()).getStatusCode().value());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, 8})
+    void exclusaoCategoriaInativaTodosOsTiposComOuSemSaldo(int saldo) {
+        tx.executeWithoutResult(status -> {
+            for (int n = 1; n <= 2; n++) {
+                var p = novo(n == 1 ? "1111111111" : "2222222222", n == 1 ? TipoEstoque.PADRAO : TipoEstoque.VALIDADE, saldo);
+                if (n == 2) p.setValidadeComercial(Instant.now().plusSeconds(3600));
+                em.persist(p);
+            }
+        });
+        assertEquals(204, categoriaController.inativarCategoria(categoria.getId()).getStatusCode().value());
+        assertTrue(categoriaController.listarTodas().getBody().isEmpty());
+        assertTrue(controller.listarTodos().getBody().isEmpty());
+        assertFalse(categorias.findById(categoria.getId()).orElseThrow().isAtivo());
+        var todos = produtos.findByEmpresaId(empresa.getId());
+        assertEquals(3, todos.size()); assertTrue(todos.stream().noneMatch(Produto::isAtivo));
+        assertEquals(saldo * 2, todos.stream().mapToInt(Produto::getEstoque).sum());
+    }
+
+    @Test void exclusaoPreservaVendaEImpedeNovaVenda() {
+        var venda = vender(List.of(item(produto, 1)), "10.00");
+        assertEquals(204, categoriaController.inativarCategoria(categoria.getId()).getStatusCode().value());
+        assertEquals(1, vendas.findByEmpresaId(empresa.getId()).size());
+        assertEquals(venda.getId(), vendas.findByEmpresaId(empresa.getId()).getFirst().getId());
+        assertThrows(RuntimeException.class, () -> vender(List.of(item(produto, 1)), "10.00"));
+        assertEquals(1, recarregar().getVendasNaJanela());
+    }
+
+    @Test void exclusaoPorIdNaoConfundeNomesDuplicadosNemEmpresas() {
+        Long[] ids = new Long[2];
+        tx.executeWithoutResult(status -> {
+            var duplicada = new Categoria("Categoria"); duplicada.setEmpresa(empresa); em.persist(duplicada); ids[0] = duplicada.getId();
+            var outraEmpresa = new Empresa("Outra", UUID.randomUUID().toString().substring(0, 15)); em.persist(outraEmpresa);
+            var outra = new Categoria("Categoria"); outra.setEmpresa(outraEmpresa); em.persist(outra); ids[1] = outra.getId();
+        });
+        assertEquals(404, categoriaController.inativarCategoria(ids[1]).getStatusCode().value());
+        assertEquals(204, categoriaController.inativarCategoria(ids[0]).getStatusCode().value());
+        assertTrue(recarregar().isAtivo());
+        assertTrue(categorias.findById(categoria.getId()).orElseThrow().isAtivo());
+        assertTrue(categorias.findById(ids[1]).orElseThrow().isAtivo());
+    }
+
+    @Test void categoriaSalvaPodeSerListadaExcluidaEReativadaSemDuplicar() {
+        var resposta = categoriaController.criarCategoria(new Categoria("  Nova categoria  "));
+        assertEquals(201, resposta.getStatusCode().value());
+        var salva = (Categoria) resposta.getBody();
+        assertEquals("Nova categoria", categorias.findById(salva.getId()).orElseThrow().getNome());
+        assertTrue(categoriaController.listarTodas().getBody().stream().anyMatch(c -> c.getId().equals(salva.getId())));
+        assertEquals(204, categoriaController.inativarCategoriaPorNome("  nova CATEGORIA ").getStatusCode().value());
+        var reativada = categoriaController.criarCategoria(new Categoria("Nova categoria"));
+        assertEquals(200, reativada.getStatusCode().value());
+        assertEquals(salva.getId(), ((Categoria) reativada.getBody()).getId());
+        assertEquals(400, categoriaController.criarCategoria(new Categoria("Nova categoria")).getStatusCode().value());
     }
 
 }

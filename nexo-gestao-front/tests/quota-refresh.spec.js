@@ -54,6 +54,8 @@ test('retornar à aba sincroniza a cota e sair da tela encerra as consultas', as
   await expect(page.getByText(/Cota: 4\/5/)).toBeVisible();
   await page.getByRole('link', { name: 'Cadastrar produto', exact: true }).click();
   await expect(page).toHaveURL(/cadastrar-produto$/);
+  // A rota é carregada sob demanda: a URL muda antes de a tela anterior desmontar.
+  await expect(page.getByRole('heading', { name: 'Gestão de Estoque e Produtos' })).toBeVisible();
   const antes = consultas; await page.clock.runFor(65000);
   expect(consultas).toBe(antes);
 });

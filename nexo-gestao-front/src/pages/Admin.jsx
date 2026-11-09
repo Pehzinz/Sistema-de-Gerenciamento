@@ -3,7 +3,7 @@ import { indicadorEstoque } from '../utils/controleEstoque';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { BASE_URL, apiFetch as fetch } from '../services/api';
+import { BASE_URL, readApiError, apiFetch as fetch } from '../services/api';
 
 // --- CORREÇÃO AQUI: Importação moderna do PDF ---
 import { jsPDF } from 'jspdf';               
@@ -11,6 +11,9 @@ import autoTable from 'jspdf-autotable';
 
 function Admin() {
   const [produtos, setProdutos] = useState([]);
+  const [categorias, setCategorias] = useState([]);
+  const [erroDados, setErroDados] = useState('');
+  const [filtroTipoEstoque, setFiltroTipoEstoque] = useState('');
   
   // NOVOS ESTADOS PARA OS FILTROS
   const [filtroMarca, setFiltroMarca] = useState('');
@@ -24,15 +27,18 @@ function Admin() {
     if (!token) return navigate('/');
 
     try {
-      const resposta = await fetch(BASE_URL + '/api/produtos', {
-        headers: { 'Authorization': `Bearer ${token}` }, cache: 'no-store'
-      });
-      if (resposta.ok) {
-        const dados = await resposta.json();
-        setProdutos(dados);
-      }
+      const opcoes = { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' };
+      const [resposta, resCategorias] = await Promise.all([
+        fetch(BASE_URL + '/api/produtos', opcoes), fetch(BASE_URL + '/api/categorias', opcoes),
+      ]);
+      if (!resposta.ok) throw new Error(await readApiError(resposta, 'Erro ao carregar produtos'));
+      if (!resCategorias.ok) throw new Error(await readApiError(resCategorias, 'Erro ao carregar categorias'));
+      const [dados, categoriasAtivas] = await Promise.all([resposta.json(), resCategorias.json()]);
+      setProdutos(dados);
+      setCategorias(categoriasAtivas);
+      setErroDados('');
     } catch (erro) {
-      console.error('Erro ao buscar produtos', erro);
+      setErroDados(erro.message || 'Erro ao carregar estoque.');
     }
   }, [navigate]);
 
@@ -51,15 +57,17 @@ function Admin() {
   const marcasUnicas = [...new Set(produtos.map(p => p.marca).filter(Boolean))];
   
   // 2. Extrai as categorias únicas
-  const categoriasUnicas = [...new Set(produtos.map(p => p.categoria ? p.categoria.nome : 'Sem Categoria'))];
+  const categoriasUnicas = categorias;
+  const categoriaDoProduto = produto => categorias.find(c => c.id === produto.categoria?.id);
+  const tiposEstoque = { PADRAO: 'Estoque Padrão', COTA_TEMPO: 'Estoque de Cotas', VALIDADE: 'Estoque de Validade' };
 
   // 3. Aplica os filtros na lista para exibir na tabela
   const produtosFiltrados = produtos.filter(produto => {
     const matchMarca = filtroMarca === '' || produto.marca === filtroMarca;
-    const nomeCategoria = produto.categoria ? produto.categoria.nome : 'Sem Categoria';
-    const matchCategoria = filtroCategoria === '' || nomeCategoria === filtroCategoria;
+    const matchCategoria = filtroCategoria === '' || String(categoriaDoProduto(produto)?.id ?? 'sem-categoria') === filtroCategoria;
+    const matchTipo = filtroTipoEstoque === '' || (produto.tipoEstoque || 'PADRAO') === filtroTipoEstoque;
     
-    return matchMarca && matchCategoria;
+    return matchMarca && matchCategoria && matchTipo;
   });
 
 
@@ -90,7 +98,7 @@ function Admin() {
         p.id,
         p.nome,
         p.marca || '-',
-        p.categoria ? p.categoria.nome : '-',
+        categoriaDoProduto(p)?.nome || 'Sem categoria ativa',
         indicadorEstoque(p),
         precoFinal
       ];
@@ -132,7 +140,7 @@ function Admin() {
             </div>
             
             <div className="responsive-row" style={{ display: 'flex', gap: '15px' }}>
-              <button onClick={() => { setFiltroMarca(''); setFiltroCategoria(''); }} style={{ padding: '10px 20px', backgroundColor: '#f9f5fa', color: '#8e44ad', border: '1px solid #e0c3fc', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: (filtroMarca || filtroCategoria) ? 'block' : 'none' }}>
+              <button onClick={() => { setFiltroMarca(''); setFiltroCategoria(''); setFiltroTipoEstoque(''); }} style={{ padding: '10px 20px', backgroundColor: '#f9f5fa', color: '#8e44ad', border: '1px solid #e0c3fc', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: (filtroMarca || filtroCategoria || filtroTipoEstoque) ? 'block' : 'none' }}>
                 ✕ Limpar Filtros
               </button>
               
@@ -142,6 +150,17 @@ function Admin() {
               </button>
             </div>
           </div>
+
+          {erroDados && <p role="alert">{erroDados}</p>}
+          {produtos.some(p => p.categoria && !categoriaDoProduto(p)) && <p role="status">
+            Há produtos vinculados a categorias ausentes da lista ativa. Consulte o diagnóstico de categorias antes de recadastrá-las.
+          </p>}
+          <label style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>Tipo de Estoque
+            <select aria-label="Tipo de Estoque" value={filtroTipoEstoque} onChange={e => setFiltroTipoEstoque(e.target.value)} style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '8px' }}>
+              <option value="">Todos os tipos</option>
+              {Object.entries(tiposEstoque).map(([valor, nome]) => <option key={valor} value={valor}>{nome}</option>)}
+            </select>
+          </label>
 
           <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #f0f0f0', borderRadius: '15px', backgroundColor: 'white', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
             <div className="table-scroll" tabIndex={0} role="region" aria-label="Tabela com rolagem horizontal"><table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
@@ -154,7 +173,7 @@ function Admin() {
                   <th style={{ padding: '20px', color: '#888', fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                       MARCA
-                      <select 
+                      <select aria-label="Filtrar por marca"
                         value={filtroMarca} 
                         onChange={(e) => setFiltroMarca(e.target.value)}
                         style={{ 
@@ -181,7 +200,7 @@ function Admin() {
                   <th style={{ padding: '20px', color: '#888', fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                       CATEGORIA
-                      <select 
+                      <select aria-label="Filtrar por categoria"
                         value={filtroCategoria} 
                         onChange={(e) => setFiltroCategoria(e.target.value)}
                         style={{ 
@@ -197,8 +216,9 @@ function Admin() {
                         }}
                       >
                         <option value="" style={{ color: '#888' }}>Sem filtro</option>
+                        <option value="sem-categoria">Sem categoria ativa</option>
                         {categoriasUnicas.map(cat => (
-                          <option key={cat} value={cat} style={{ color: '#333' }}>{cat}</option>
+                          <option key={cat.id} value={cat.id} style={{ color: '#333' }}>{cat.nome}</option>
                         ))}
                       </select>
                     </div>
@@ -223,7 +243,7 @@ function Admin() {
                     </td>
                     
                     <td style={{ padding: '15px 20px', color: '#666', fontSize: '14px' }}>
-                      {produto.categoria ? produto.categoria.nome : 'Sem Categoria'}
+                      {categoriaDoProduto(produto)?.nome || 'Sem categoria ativa'}
                     </td>
                     
                     <td style={{ padding: '15px 20px' }}>
