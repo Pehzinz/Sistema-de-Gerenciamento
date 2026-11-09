@@ -198,7 +198,19 @@ function ExcluirProduto() {
                 </select>
                 {erroCategorias && <p role="alert">{erroCategorias}</p>}
                 {!erroCategorias && categorias.length === 0 && <p>Nenhuma categoria ativa cadastrada.</p>}
-                <button type="button" onClick={buscarCategorias} disabled={excluindoCategoria}>Atualizar categorias</button>
+                <button type="button" onClick={buscarCategorias} disabled={excluindoCategoria} style={{
+                  alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: '8px',
+                  marginTop: '12px', padding: '10px 16px', backgroundColor: '#f9f5fa', color: '#8e44ad',
+                  border: '1px solid #e0c3fc', borderRadius: '8px', fontWeight: 'bold', fontSize: '14px',
+                  cursor: excluindoCategoria ? 'not-allowed' : 'pointer', opacity: excluindoCategoria ? 0.6 : 1
+                }}>
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 7v5h-5" />
+                    <path d="M4 17v-5h5" />
+                    <path d="M6.1 7a7 7 0 0 1 11.6-1L20 12M4 12l2.3 6A7 7 0 0 0 17.9 17" />
+                  </svg>
+                  Atualizar categorias
+                </button>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', marginTop: '10px' }}>

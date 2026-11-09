@@ -155,13 +155,6 @@ function Admin() {
           {produtos.some(p => p.categoria && !categoriaDoProduto(p)) && <p role="status">
             Há produtos vinculados a categorias ausentes da lista ativa. Consulte o diagnóstico de categorias antes de recadastrá-las.
           </p>}
-          <label style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>Tipo de Estoque
-            <select aria-label="Tipo de Estoque" value={filtroTipoEstoque} onChange={e => setFiltroTipoEstoque(e.target.value)} style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '8px' }}>
-              <option value="">Todos os tipos</option>
-              {Object.entries(tiposEstoque).map(([valor, nome]) => <option key={valor} value={valor}>{nome}</option>)}
-            </select>
-          </label>
-
           <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #f0f0f0', borderRadius: '15px', backgroundColor: 'white', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
             <div className="table-scroll" tabIndex={0} role="region" aria-label="Tabela com rolagem horizontal"><table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
               
@@ -224,7 +217,31 @@ function Admin() {
                     </div>
                   </th>
 
-                  <th style={{ padding: '20px', color: '#888', fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px' }}>ESTOQUE</th>
+                  <th style={{ padding: '20px', color: '#888', fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                      ESTOQUE
+                      <select aria-label="Tipo de Estoque"
+                        value={filtroTipoEstoque}
+                        onChange={e => setFiltroTipoEstoque(e.target.value)}
+                        style={{
+                          border: 'none',
+                          backgroundColor: filtroTipoEstoque ? '#f3e8ff' : 'transparent',
+                          color: filtroTipoEstoque ? '#8e44ad' : '#888',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          outline: 'none',
+                          borderRadius: '5px',
+                          width: filtroTipoEstoque ? 'auto' : '20px',
+                          padding: filtroTipoEstoque ? '2px 5px' : '0'
+                        }}
+                      >
+                        <option value="" style={{ color: '#888' }}>Sem filtro</option>
+                        {Object.entries(tiposEstoque).map(([valor, nome]) => (
+                          <option key={valor} value={valor} style={{ color: '#333' }}>{nome}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </th>
                   <th style={{ padding: '20px', color: '#888', fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px' }}>PREÇO</th>
                 </tr>
               </thead>
