@@ -18,6 +18,15 @@ public class TendenciasController {
     @Autowired
     private EstatisticaService estatisticaService;
 
+    @Autowired
+    private com.nexo.sistema_gestao.service.AnaliseCatalogoService analiseCatalogo;
+
+    @GetMapping("/margens-catalogo")
+    public ResponseEntity<Map<String, Object>> obterMargensCatalogo() {
+        return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore())
+                .body(analiseCatalogo.calcular(getEmpresaId()));
+    }
+
     private Long getEmpresaId() {
         var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         return ((Usuario) auth.getPrincipal()).getEmpresa().getId();

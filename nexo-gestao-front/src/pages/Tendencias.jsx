@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { BASE_URL, readApiError, apiFetch as fetch } from '../services/api';
 import AnaliseMargens from '../components/AnaliseMargens';
+import AnaliseCatalogo from '../components/AnaliseCatalogo';
 import Navbar from '../components/Navbar';
 import { 
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -12,6 +13,8 @@ function Tendencias() {
   const [erroDados, setErroDados] = useState('');
   const [dadosProntos, setDadosProntos] = useState(false);
   const [margens, setMargens] = useState(null);
+  const [catalogoMargens, setCatalogoMargens] = useState(null);
+  const [erroCatalogo, setErroCatalogo] = useState('');
 
   const [produtosReais, setProdutosReais] = useState([]);
   const [ticketMedioReal, setTicketMedioReal] = useState(0);
@@ -31,11 +34,19 @@ function Tendencias() {
     try {
       const headers = { Authorization: `Bearer ${sessionStorage.getItem('token')}` };
       const paths = ['/api/produtos', '/api/vendas', '/api/tendencias/previsao-vendas', '/api/tendencias/curva-fluxo', '/api/tendencias/trafego'];
-      const results = await Promise.all(paths.map(async path => {
+      const [results, catalogo] = await Promise.all([Promise.all(paths.map(async path => {
         const response = await fetch(BASE_URL + path, { headers, cache: 'no-store' });
         if (!response.ok) throw new Error(await readApiError(response, 'Não foi possível carregar a análise'));
         return response.json();
-      }));
+      })), (async () => {
+        try {
+          const resposta = await fetch(BASE_URL + '/api/tendencias/margens-catalogo', { headers, cache: 'no-store' });
+          if (!resposta.ok) throw new Error(await readApiError(resposta, 'A API não confirmou suporte à análise do catálogo'));
+          const dados = await resposta.json();
+          if (dados?.versao !== 1 || !Array.isArray(dados.produtos)) throw new Error('A API conectada ainda não oferece esta versão da análise de margens.');
+          return { dados, erro: '' };
+        } catch (erro) { return { dados: null, erro: erro.message || 'Falha de conexão ao consultar custos.' }; }
+      })()]);
       const [produtos, vendas, previsao, curva, trafego] = results;
       setProdutosReais(produtos);
       const total = vendas.reduce((acc, venda) => acc + (venda.total || 0), 0);
@@ -44,6 +55,8 @@ function Tendencias() {
       setProdutoAltaTendencia(curva.produtoAltaTendencia); setProdutoParado(curva.produtoParado);
       setDadosHorarios(trafego.grafico);
       setMargens(curva.margens ?? null);
+      setCatalogoMargens(catalogo.dados);
+      setErroCatalogo(catalogo.erro);
       setDadosProntos(true);
       setErroDados('');
     } catch (error) { setErroDados(error.message || 'Erro de conexão ao carregar a análise.'); }
@@ -146,6 +159,7 @@ function Tendencias() {
             </div>
           </div>
 
+          <AnaliseCatalogo dados={catalogoMargens} erro={erroCatalogo} />
           <AnaliseMargens dados={margens} />
           <div className="responsive-row" style={{ display: 'flex', gap: '20px' }}>
             

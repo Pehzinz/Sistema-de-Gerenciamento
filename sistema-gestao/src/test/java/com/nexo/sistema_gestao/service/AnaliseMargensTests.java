@@ -25,6 +25,7 @@ class AnaliseMargensTests {
         assertEquals(new BigDecimal("51.00"), dados.get("receitaSemCusto"));
         assertEquals(new BigDecimal("30.00"), dados.get("custoProdutosVendidos"));
         assertEquals(new BigDecimal("-22.00"), dados.get("margemBruta"));
+        assertEquals(new BigDecimal("-275.00"), dados.get("margemPercentual"));
         assertEquals(2L, dados.get("produtosComMargemNegativa"));
         assertEquals(4L, dados.get("unidadesComCusto"));
         assertEquals(11L, dados.get("unidadesSemCusto"));

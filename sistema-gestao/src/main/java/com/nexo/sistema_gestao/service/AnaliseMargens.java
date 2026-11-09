@@ -24,6 +24,8 @@ final class AnaliseMargens {
             dados.put("receitaSemCusto", receitaSemCusto);
             dados.put("custoProdutosVendidos", custo);
             dados.put("margemBruta", unidadesComCusto == 0 ? null : margem());
+            dados.put("margemPercentual", unidadesComCusto == 0 || receitaComCusto.signum() == 0 ? null
+                    : margem().multiply(BigDecimal.valueOf(100)).divide(receitaComCusto, 2, java.math.RoundingMode.HALF_UP));
             dados.put("unidadesComCusto", unidadesComCusto);
             dados.put("unidadesSemCusto", unidadesSemCusto);
             return dados;
