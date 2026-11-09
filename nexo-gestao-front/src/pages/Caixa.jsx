@@ -350,11 +350,11 @@ function Caixa() {
 
       <main className="app-main" style={{ flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
         
-        <div style={{ width: '100%', maxWidth: '1300px', display: 'flex', flexDirection: 'column', gap: '25px' }}>   
+        <div className="pdv-content" style={{ width: '100%', maxWidth: '1300px', display: 'flex', flexDirection: 'column', gap: '25px' }}>
           
           <div className="responsive-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#8e44ad', letterSpacing: '0.5px', marginBottom: '8px', textTransform: 'uppercase' }}>
+              <div className="pdv-eyebrow" style={{ fontSize: '11px', fontWeight: 'bold', color: '#8e44ad', letterSpacing: '0.5px', marginBottom: '8px', textTransform: 'uppercase' }}>
                 Ponto de Venda (PDV)
               </div>
               <h1 style={{ margin: 0, color: '#333', fontSize: '28px' }}>Caixa Livre</h1>
@@ -362,19 +362,19 @@ function Caixa() {
 
             <div className="responsive-row" style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
               
-              <div className="responsive-row" style={{ display: 'flex', gap: '15px', backgroundColor: 'white', padding: '10px 20px', borderRadius: '10px', boxShadow: '0 2px 5px rgba(0,0,0,0.02)', border: '1px solid #eee' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: etapa === 1 ? '#8e44ad' : '#aaa', fontWeight: 'bold', fontSize: '14px' }}>
+              <div className="responsive-row pdv-steps" style={{ display: 'flex', gap: '15px', backgroundColor: 'white', padding: '10px 20px', borderRadius: '10px', boxShadow: '0 2px 5px rgba(0,0,0,0.02)', border: '1px solid #eee' }}>
+                <div className="pdv-step" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: etapa === 1 ? '#8e44ad' : '#aaa', fontWeight: 'bold', fontSize: '14px' }}>
                   <span style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: etapa === 1 ? '#8e44ad' : '#eee', color: etapa === 1 ? 'white' : '#aaa', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '12px' }}>1</span>
                   Produtos
                 </div>
                 <span style={{ color: '#ddd' }}>|</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: etapa === 2 ? '#8e44ad' : '#aaa', fontWeight: 'bold', fontSize: '14px' }}>
+                <div className="pdv-step" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: etapa === 2 ? '#8e44ad' : '#aaa', fontWeight: 'bold', fontSize: '14px' }}>
                   <span style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: etapa === 2 ? '#8e44ad' : '#eee', color: etapa === 2 ? 'white' : '#aaa', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '12px' }}>2</span>
                   Pagamento
                 </div>
               </div>
 
-              <div style={{ 
+              <div className="pdv-idle" style={{
                 display: 'flex', 
                 flexDirection: 'column', 
                 alignItems: 'center', 
@@ -393,7 +393,7 @@ function Caixa() {
             </div>
           </div>
 
-          <div className="responsive-row" style={{ display: 'flex', gap: '25px', alignItems: 'flex-start' }}>
+          <div className="responsive-row pdv-columns" style={{ display: 'flex', gap: '25px', alignItems: 'flex-start' }}>
             
             <div style={{ flex: 2, backgroundColor: 'white', padding: '30px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
               
@@ -401,7 +401,7 @@ function Caixa() {
                 <>
                   <h3 style={{ marginTop: 0, color: '#333', fontSize: '18px' }}>Adicionar produto à venda</h3>
                   
-                  <form onSubmit={adicionarAoCarrinho} style={{ display: 'flex', gap: '12px', marginBottom: '30px' }}>
+                  <form className="pdv-add-product" onSubmit={adicionarAoCarrinho} style={{ display: 'flex', gap: '12px', marginBottom: '30px' }}>
                     <LabelInput
                       type="text" 
                       maxLength="10"
@@ -448,8 +448,8 @@ function Caixa() {
                                 )}
                                 
                                 <div>
-                                  <div style={{ fontWeight: 'bold', color: '#333', fontSize: '15px' }}>{item.nome}</div>
-                                  <div style={{ fontSize: '12px', color: '#aaa', marginTop: '3px' }}>{item.marca} | ID: {item.produtoId}</div>
+                                  <div className="pdv-product-name" style={{ fontWeight: 'bold', color: '#333', fontSize: '15px' }}>{item.nome}</div>
+                                  <div className="pdv-product-details" style={{ fontSize: '12px', color: '#aaa', marginTop: '3px' }}>{item.marca} | ID: {item.produtoId}</div>
                                 </div>
                                 
                               </div>
@@ -503,7 +503,7 @@ function Caixa() {
               ) : (
                 <>
                   <h3 style={{ marginTop: 0, color: '#333', fontSize: '18px' }}>Como será o pagamento?</h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
+                  <div className="pdv-payment-options" style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
                     {['Crédito', 'Débito', 'Pix', 'Vale Alimentação'].map((forma) => (
                       <label key={forma} style={{ display: 'flex', alignItems: 'center', gap: '15px', padding: '18px 20px', border: formaPagamento === forma ? '2px solid #8e44ad' : '1px solid #e0e0e0', backgroundColor: formaPagamento === forma ? '#fcf9ff' : 'white', borderRadius: '10px', cursor: 'pointer', transition: 'all 0.2s ease' }}>
                         <input type="radio" name="pagamento" value={forma} checked={formaPagamento === forma} onChange={(e) => setFormaPagamento(e.target.value)} />
@@ -522,7 +522,7 @@ function Caixa() {
             <div style={{ flex: 1, backgroundColor: 'white', padding: '30px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
               <h3 style={{ marginTop: 0, color: '#333', fontSize: '18px' }}>Resumo da venda</h3>
               
-              <ul style={{ listStyle: 'none', padding: 0, margin: '20px 0', maxHeight: '250px', overflowY: 'auto' }}>
+              <ul className="pdv-summary-items" style={{ listStyle: 'none', padding: 0, margin: '20px 0', maxHeight: '250px', overflowY: 'auto' }}>
                 {carrinho.length > 0 ? carrinho.map((item, index) => (
                   <li key={index} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', color: '#555', fontSize: '14px', borderBottom: '1px dashed #f0f0f0', paddingBottom: '8px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -541,7 +541,7 @@ function Caixa() {
               </ul>
 
               <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '2px solid #f0f0f0' }}>
-                <div className="responsive-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '22px', fontWeight: 'bold', marginBottom: '25px', color: '#333' }}>
+                <div className="responsive-row pdv-total" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '22px', fontWeight: 'bold', marginBottom: '25px', color: '#333' }}>
                   <span>Total</span>
                   <span style={{ color: '#8e44ad' }}>R$ {total.toFixed(2).replace('.', ',')}</span>
                 </div>

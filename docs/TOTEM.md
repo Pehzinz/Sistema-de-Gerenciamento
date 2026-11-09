@@ -2,6 +2,10 @@
 
 O perfil `COLABORADOR` usa o Caixa PDV sem Navbar, ocupando toda a área disponível. Um botão discreto no canto inferior esquerdo abre a autorização de saída. O administrador continua com o Caixa e a navegação habituais.
 
+## Escala visual do totem
+
+A interface do colaborador usa uma área de conteúdo de até 1600 px, tipografia maior, campos e ações principais com 64 px de altura, controles de quantidade de 48 px e opções de pagamento com pelo menos 76 px. O total e as informações dos produtos têm maior destaque. Telas de até 1100 px organizam os painéis verticalmente; em telas menores, o formulário de inclusão também se empilha. O botão de saída permanece discreto. Esses estilos são exclusivos do perfil de autoatendimento e não alteram a escala do Caixa do administrador.
+
 ## Saída autorizada
 
 O responsável informa CPF e senha de administrador da empresa configurada no terminal. A validação usa o endpoint de login existente, sujeito ao limite de tentativas do servidor. Credenciais de colaborador, administrador de outra empresa, resposta inválida, falha de rede ou erro do servidor não liberam a saída.
