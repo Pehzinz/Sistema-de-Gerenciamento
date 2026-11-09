@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { uploadImage } from '../services/upload';
-import { BASE_URL, apiFetch as fetch } from '../services/api';
+import { BASE_URL, readApiError, apiFetch as fetch } from '../services/api';
 
 function CadastroProduto() {
   const [modo, setModo] = useState('CADASTRAR');
@@ -69,7 +69,7 @@ function CadastroProduto() {
 
     try {
       const resposta = await fetch(BASE_URL + '/api/categorias', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` }, cache: 'no-store'
       });
       if (resposta.ok) {
         const dados = await resposta.json();
@@ -109,16 +109,24 @@ function CadastroProduto() {
 
       if (resposta.ok || resposta.status === 201) {
         const categoriaSalva = await resposta.json();
+        const consulta = await fetch(BASE_URL + '/api/categorias', {
+          headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
+        });
+        if (!consulta.ok) throw new Error('Não foi possível conferir a gravação. Atualize a lista antes de tentar novamente.');
+        const persistidas = await consulta.json();
+        setCategorias(persistidas);
+        if (!categoriaSalva.id || !persistidas.some(c => c.id === categoriaSalva.id && c.nome === categoriaSalva.nome)) {
+          throw new Error('O servidor não confirmou a categoria na lista cadastrada. Atualize a lista e confira o banco antes de tentar novamente.');
+        }
         alert('Categoria criada com sucesso!');
-        setCategorias([...categorias, categoriaSalva]);
         setCategoriaSelecionada(categoriaSalva.id);
         setModalCategoriaAberto(false);
         setNomeNovaCategoria('');
       } else {
-        alert('Erro ao criar categoria.');
+        alert(await readApiError(resposta, 'Erro ao criar categoria'));
       }
-    } catch {
-      alert('Erro de conexão ao criar categoria.');
+    } catch (erro) {
+      alert(erro.message || 'Erro de conexão ao criar categoria.');
     }
   };
 

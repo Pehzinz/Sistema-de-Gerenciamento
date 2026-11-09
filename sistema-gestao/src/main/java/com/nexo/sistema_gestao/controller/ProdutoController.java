@@ -151,11 +151,6 @@ public class ProdutoController {
 
         Produto produto = prodOpt.get();
 
-        if (produto.getTipoEstoque() != TipoEstoque.COTA_TEMPO && produto.getEstoque() > 0) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body("{\"erro\": \"Ação negada: Só é possível inativar produtos com estoque zerado.\"}");
-        }
-
         produto.setAtivo(false);
         produtoRepository.save(produto);
 

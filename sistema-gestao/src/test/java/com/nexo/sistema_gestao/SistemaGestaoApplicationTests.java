@@ -185,9 +185,10 @@ class SistemaGestaoApplicationTests {
         assertNotNull(categorias.saveAndFlush(cat).getId());
     }
 
-    @Test void categoryWithStockCannotBeDeletedById() throws Exception {
-        assertEquals(400, call("DELETE", "/api/categorias/" + produto.getCategoria().getId(), adminToken, null).statusCode());
-        assertTrue(categorias.findById(produto.getCategoria().getId()).orElseThrow().isAtivo());
+    @Test void categoryWithStockCanBeDeletedById() throws Exception {
+        assertEquals(204, call("DELETE", "/api/categorias/" + produto.getCategoria().getId(), adminToken, null).statusCode());
+        assertFalse(categorias.findById(produto.getCategoria().getId()).orElseThrow().isAtivo());
+        assertFalse(produtos.findByIdAndEmpresaId(produto.getId(), empresa.getId()).orElseThrow().isAtivo());
     }
 
     @Test void registrationAndLoginUseRealPasswordHashing() throws Exception {

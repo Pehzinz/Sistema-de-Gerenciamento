@@ -37,6 +37,7 @@ public class CategoriaController {
     }
 
     @PostMapping
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> criarCategoria(@RequestBody Categoria novaCategoria) {
         com.nexo.sistema_gestao.security.RequestValidation.text(novaCategoria.getNome(), 255, "Nome");
         novaCategoria.setId(null);
@@ -66,11 +67,11 @@ public class CategoriaController {
     @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> inativarCategoria(@PathVariable Long id) {
         Optional<Categoria> catOpt = categoriaRepository.findByIdAndEmpresaId(id, getEmpresaId());
-        if (catOpt.isEmpty()) {
+        if (catOpt.isEmpty() || !catOpt.get().isAtivo()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
 
-        return inativarCategoriaPorNome(catOpt.get().getNome());
+        return inativar(catOpt.get());
     }
     
     @DeleteMapping("/nome/{nome}")
@@ -83,16 +84,11 @@ public class CategoriaController {
                 .body("{\"erro\": \"Categoria não encontrada ou já excluída.\"}");
         }
 
-        Categoria categoria = catOpt.get();
-        // A CORREÇÃO DA BUSCA EM CASCATA:
-        List<com.nexo.sistema_gestao.model.Produto> produtos = produtoRepository.findByCategoriaIdAndEmpresaIdAndAtivoTrue(categoria.getId(), getEmpresaId());
+        return inativar(catOpt.get());
+    }
 
-        for (com.nexo.sistema_gestao.model.Produto p : produtos) {
-            if (p.getEstoque() > 0) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("{\"erro\": \"Ação negada: O produto '" + p.getNome() + "' pertencente a esta categoria ainda possui " + p.getEstoque() + " unidades em estoque.\"}");
-            }
-        }
+    private ResponseEntity<?> inativar(Categoria categoria) {
+        List<com.nexo.sistema_gestao.model.Produto> produtos = produtoRepository.buscarCategoriaParaExclusao(categoria.getId(), getEmpresaId());
 
         categoria.setAtivo(false);
         categoriaRepository.save(categoria);

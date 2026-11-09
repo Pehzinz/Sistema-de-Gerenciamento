@@ -23,6 +23,11 @@ public interface ProdutoRepository extends JpaRepository<Produto, String> {
     // Busca produtos de uma categoria específica dentro de uma empresa
     List<Produto> findByCategoriaIdAndEmpresaIdAndAtivoTrue(Long categoriaId, Long empresaId);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select p from Produto p where p.categoria.id = :categoriaId and p.empresa.id = :empresaId and p.ativo = true order by p.id")
+    List<Produto> buscarCategoriaParaExclusao(@org.springframework.data.repository.query.Param("categoriaId") Long categoriaId,
+                                           @org.springframework.data.repository.query.Param("empresaId") Long empresaId);
+
     // Necessário para o POST (quando verificamos se um código de barras já existe na empresa, mesmo inativo)
     Optional<Produto> findByIdAndEmpresaId(String id, Long empresaId);
 

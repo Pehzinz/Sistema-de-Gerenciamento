@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { BASE_URL, apiFetch as fetch } from '../services/api';
+import { BASE_URL, readApiError, apiFetch as fetch } from '../services/api';
 
 function ExcluirProduto() {
   // Estados do Produto
@@ -9,14 +9,41 @@ function ExcluirProduto() {
   const [confirmacaoProduto, setConfirmacaoProduto] = useState('');
   
   // Estados da Categoria
-  const [nomeCategoria, setNomeCategoria] = useState('');
+  const [categoriaId, setCategoriaId] = useState('');
+  const [categorias, setCategorias] = useState([]);
+  const [erroCategorias, setErroCategorias] = useState('');
+  const [excluindoProduto, setExcluindoProduto] = useState(false);
+  const [excluindoCategoria, setExcluindoCategoria] = useState(false);
   const [confirmacaoCategoria, setConfirmacaoCategoria] = useState('');
   
   const navigate = useNavigate();
 
+  const buscarCategorias = useCallback(async () => {
+    const token = sessionStorage.getItem('token');
+    if (!token) return navigate('/');
+    try {
+      const resposta = await fetch(`${BASE_URL}/api/categorias`, {
+        headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
+      });
+      if (!resposta.ok) throw new Error(await readApiError(resposta, 'Erro ao carregar categorias'));
+      setCategorias(await resposta.json());
+      setErroCategorias('');
+    } catch (erro) {
+      setCategorias([]);
+      setErroCategorias(erro.message || 'Erro de conexão ao carregar categorias.');
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    let ativo = true;
+    Promise.resolve().then(() => { if (ativo) void buscarCategorias(); });
+    return () => { ativo = false; };
+  }, [buscarCategorias]);
+
   // EXCLUSÃO DE PRODUTO
   const handleExcluirProduto = async (e) => {
     e.preventDefault();
+    if (excluindoProduto) return;
 
     if (idProduto.length !== 10) {
       alert('Ação negada: O código do produto deve ter exatamente 10 dígitos.');
@@ -31,34 +58,36 @@ function ExcluirProduto() {
     const token = sessionStorage.getItem('token');
     if (!token) return navigate('/');
 
+    setExcluindoProduto(true);
     try {
-      // CORREÇÃO: Utilizando a BASE_URL
       const resposta = await fetch(`${BASE_URL}/api/produtos/${idProduto}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (resposta.ok || resposta.status === 204) {
-        alert('Produto excluído permanentemente do catálogo!');
+        alert('Produto excluído do catálogo. O histórico de vendas foi preservado.');
         setIdProduto(''); 
         setConfirmacaoProduto(''); 
       } else if (resposta.status === 404) {
         alert('Erro: Produto não encontrado no banco de dados.');
       } else {
-        const erro = await resposta.json();
-        alert(erro.erro || 'Erro ao excluir produto.');
+        alert(await readApiError(resposta, 'Erro ao excluir produto'));
       }
     } catch {
       alert('Erro de conexão ao tentar excluir o produto.');
+    } finally {
+      setExcluindoProduto(false);
     }
   };
 
   // EXCLUSÃO DE CATEGORIA
   const handleExcluirCategoria = async (e) => {
     e.preventDefault();
+    if (excluindoCategoria) return;
 
-    if (!nomeCategoria.trim()) {
-      alert('Ação negada: Informe o nome da categoria.');
+    if (!categoriaId) {
+      alert('Ação negada: Selecione uma categoria cadastrada.');
       return;
     }
 
@@ -70,23 +99,26 @@ function ExcluirProduto() {
     const token = sessionStorage.getItem('token');
     if (!token) return navigate('/');
 
+    setExcluindoCategoria(true);
     try {
-      // CORREÇÃO: Utilizando a BASE_URL
-      const resposta = await fetch(`${BASE_URL}/api/categorias/nome/${encodeURIComponent(nomeCategoria)}`, {
+      const resposta = await fetch(`${BASE_URL}/api/categorias/${categoriaId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (resposta.ok || resposta.status === 204) {
         alert('Categoria excluída com sucesso do sistema!');
-        setNomeCategoria('');
+        setCategoriaId('');
+        await buscarCategorias();
         setConfirmacaoCategoria('');
       } else {
-        const erro = await resposta.json();
-        alert(erro.erro || 'Erro ao excluir a categoria.');
+        alert(await readApiError(resposta, 'Erro ao excluir a categoria'));
+        if (resposta.status === 404) { setCategoriaId(''); await buscarCategorias(); }
       }
     } catch {
       alert('Erro de conexão ao tentar excluir a categoria.');
+    } finally {
+      setExcluindoCategoria(false);
     }
   };
 
@@ -105,7 +137,7 @@ function ExcluirProduto() {
              Excluir Produto ou Categoria
           </h2>
           <div style={{ backgroundColor: '#fff0f0', borderLeft: '5px solid #d63031', padding: '15px', borderRadius: '5px', color: '#555', fontSize: '14px', lineHeight: '1.5' }}>
-            <strong>Atenção:</strong> Ao confirmar a exclusão, o item será inativado no catálogo da loja. Produtos com estoque físico exigem saldo zerado. Produtos com cota de tempo podem ser inativados a qualquer momento. Esta ação exige confirmação de segurança.
+            <strong>Atenção:</strong> Ao confirmar a exclusão, o item será inativado no catálogo da loja. A exclusão é permitida com ou sem estoque, em todos os tipos. Excluir uma categoria também inativa todos os seus produtos. O saldo registrado e o histórico de vendas são preservados. Esta ação exige confirmação de segurança.
           </div>
         </div>
 
@@ -144,7 +176,7 @@ function ExcluirProduto() {
                 />
               </div>
 
-              <button type="submit" style={{ padding: '15px', backgroundColor: '#d63031', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', marginTop: '20px', fontSize: '16px' }}>
+              <button type="submit" disabled={excluindoProduto} style={{ padding: '15px', backgroundColor: '#d63031', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', marginTop: '20px', fontSize: '16px' }}>
                 DELETAR PRODUTO
               </button>
             </form>
@@ -154,20 +186,19 @@ function ExcluirProduto() {
           <div style={{ flex: 1, backgroundColor: 'white', padding: '30px', borderRadius: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
             <h3>Excluir categoria</h3>
             <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
-              Digite o nome da categoria e confirme com "Delete".
+              Selecione uma categoria cadastrada e confirme com "Delete". Todos os produtos dessa categoria também serão retirados do catálogo, mesmo com estoque.
             </p>
             
             <form onSubmit={handleExcluirCategoria} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>Nome da Categoria</label>
-                <input 
-                  type="text" 
-                  placeholder="Ex: Monitores" 
-                  value={nomeCategoria} 
-                  onChange={(e) => setNomeCategoria(e.target.value)} 
-                  style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} 
-                  required 
-                />
+                <label htmlFor="categoria-exclusao" style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>Categoria cadastrada</label>
+                <select id="categoria-exclusao" value={categoriaId} onChange={e => setCategoriaId(e.target.value)} required disabled={excluindoCategoria || !!erroCategorias} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', width: '100%' }}>
+                  <option value="">Selecione uma categoria</option>
+                  {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
+                {erroCategorias && <p role="alert">{erroCategorias}</p>}
+                {!erroCategorias && categorias.length === 0 && <p>Nenhuma categoria ativa cadastrada.</p>}
+                <button type="button" onClick={buscarCategorias} disabled={excluindoCategoria}>Atualizar categorias</button>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', marginTop: '10px' }}>
@@ -182,7 +213,7 @@ function ExcluirProduto() {
                 />
               </div>
 
-              <button type="submit" style={{ padding: '15px', backgroundColor: '#d63031', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', marginTop: '20px', fontSize: '16px' }}>
+              <button type="submit" disabled={excluindoCategoria || !categoriaId || !!erroCategorias} style={{ padding: '15px', backgroundColor: '#d63031', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', marginTop: '20px', fontSize: '16px' }}>
                 DELETAR CATEGORIA
               </button>
             </form>
