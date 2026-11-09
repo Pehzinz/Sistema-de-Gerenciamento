@@ -40,7 +40,7 @@ function Confirmacao({ item, concluir }) {
     }
   };
   return <div className="modal-overlay" onKeyDown={teclado}>
-    <div role="alertdialog" aria-modal="true" aria-labelledby="notification-confirm-title" aria-describedby="notification-confirm-message">
+    <div role="alertdialog" aria-modal="true" aria-labelledby="notification-confirm-title" aria-describedby="notification-confirm-message" style={{ width: '480px', padding: '24px', backgroundColor: 'white' }}>
       <h3 id="notification-confirm-title">{item.titulo || 'Confirmar ação'}</h3>
       <p id="notification-confirm-message">{item.mensagem}</p>
       <div className="button-group">
@@ -56,7 +56,6 @@ export function NotificacoesProvider({ children }) {
   const [confirmacao, setConfirmacao] = useState(null);
   const resolverRef = useRef(null);
   const proximoId = useRef(0);
-  const listaRef = useRef(null);
   const { key: rota } = useLocation();
   const [rotaConfirmacao, setRotaConfirmacao] = useState(rota);
   if (rotaConfirmacao !== rota) {
@@ -102,21 +101,10 @@ export function NotificacoesProvider({ children }) {
     document.addEventListener('invalid', validar, true);
     return () => document.removeEventListener('invalid', validar, true);
   }, [notificar]);
-  useEffect(() => {
-    const lista = listaRef.current;
-    const medir = () => {
-      const altura = lista?.getBoundingClientRect().height || 0;
-      document.documentElement.style.setProperty('--notification-stack-height', `${altura > 0 ? altura + 12 : 0}px`);
-    };
-    medir();
-    const observer = new ResizeObserver(medir);
-    if (lista) observer.observe(lista);
-    return () => { observer.disconnect(); document.documentElement.style.removeProperty('--notification-stack-height'); };
-  }, []);
   return <ContextoNotificacoes.Provider value={{ notificar, confirmar }}>
     {children}
     {createPortal(<>
-      <div className="notification-viewport" ref={listaRef} aria-label="Notificações">{itens.map(item => <Notificacao key={item.id} item={item} remover={remover} />)}</div>
+      <div className="notification-viewport" aria-label="Notificações">{itens.map(item => <Notificacao key={item.id} item={item} remover={remover} />)}</div>
       {confirmacao?.rota === rota && <Confirmacao item={confirmacao} concluir={concluir} />}
     </>, document.body)}
   </ContextoNotificacoes.Provider>;

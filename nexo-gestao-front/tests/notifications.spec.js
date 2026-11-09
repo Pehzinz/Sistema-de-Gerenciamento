@@ -49,7 +49,7 @@ test('a notification pauses while being read and dismisses after leaving it', as
   await expect(notice).toHaveCount(0);
 });
 
-test('floating form stays open, preserves fields and makes room for error notices', async ({ page }) => {
+test('centered form stays open and preserves fields while notices stay at the top right', async ({ page }) => {
   await page.clock.install();
   await adminSession(page);
   await page.route('**/api/categorias', route => route.fulfill(route.request().method() === 'POST'
@@ -61,11 +61,11 @@ test('floating form stays open, preserves fields and makes room for error notice
   await page.getByRole('button', { name: 'Salvar Categoria' }).click();
   const notice = page.locator('.notification-card');
   await expect(notice).toContainText('Não foi possível criar a categoria');
-  await expect.poll(async () => {
-    const toastBox = await notice.boundingBox(); const panelBox = await panel.boundingBox();
-    return panelBox.y - (toastBox.y + toastBox.height);
-  }).toBeGreaterThanOrEqual(10);
-  await page.screenshot({ path: 'test-results/floating-form-and-notice.png' });
+  const centered = await panel.boundingBox();
+  expect(Math.abs(centered.x + centered.width / 2 - page.viewportSize().width / 2)).toBeLessThanOrEqual(1);
+  expect(Math.abs(centered.y + centered.height / 2 - page.viewportSize().height / 2)).toBeLessThanOrEqual(1);
+  expect((await notice.boundingBox()).y).toBeLessThan(50);
+  await page.screenshot({ path: 'test-results/centered-form-and-notice.png' });
   await page.mouse.move(0, 0);
   await page.clock.fastForward(10000);
   await expect(notice).toHaveCount(0);
@@ -86,6 +86,9 @@ test('stock cleanup requires explicit confirmation and never auto-confirms', asy
   await page.getByRole('button', { name: 'Limpar Estoque', exact: true }).click();
   const confirm = page.getByRole('alertdialog', { name: 'Confirmar ação' });
   await expect(confirm).toBeVisible();
+  const box = await confirm.boundingBox();
+  expect(Math.abs(box.x + box.width / 2 - page.viewportSize().width / 2)).toBeLessThanOrEqual(1);
+  expect(Math.abs(box.y + box.height / 2 - page.viewportSize().height / 2)).toBeLessThanOrEqual(1);
   await page.clock.fastForward(60000);
   await expect(confirm).toBeVisible(); expect(cleared).toBe(0);
   await confirm.getByRole('button', { name: 'Cancelar', exact: true }).click();
