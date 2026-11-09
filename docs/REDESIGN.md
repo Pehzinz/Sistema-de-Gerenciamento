@@ -28,3 +28,26 @@ npm run test:e2e
 ```
 
 Os testes usam respostas simuladas da API. O conjunto cobre todas as rotas em 320, 390, 768, 1024 e 1440 pixels, além dos fluxos existentes. `tests/design.spec.js` verifica os novos campos, a visibilidade de senha e o login sem WebGL. Capturas de revisão são geradas em `test-results/`.
+
+## Ajustes de padronização
+
+Os campos de preço e custo agora começam na mesma altura. O seletor do controle de estoque usa o mesmo padrão de rótulo flutuante e altura dos demais campos. Os filtros das colunas do estoque mantêm o formato compacto anterior, sem receber as dimensões dos seletores de formulário.
+
+Grupos de ações adjacentes compartilham um contorno arredondado com segmentos internos, na paleta roxa do projeto. Ações de exclusão continuam identificadas em vermelho. O texto dos botões permanece em uma linha; em espaços insuficientes, os segmentos podem ocupar outra linha dentro do grupo.
+
+O login e a navegação usam o mesmo símbolo de camadas do Nexo. No desktop, o botão no topo da barra lateral alterna entre o menu completo e os ícones. A escolha é lembrada neste navegador. No celular, o botão Menu continua abrindo a navegação com os nomes das páginas.
+
+## Publicar estes ajustes na Vercel
+
+Os checks compartilhados mostram a integração do repositório com a Vercel. Para enviar os arquivos locais, execute na raiz do repositório:
+
+```powershell
+git status
+git add nexo-gestao-front docs/REDESIGN.md
+git commit -m "Padroniza formularios, botoes e barra lateral"
+git push -u origin HEAD
+```
+
+Se a branch tiver um pull request aberto, o push o atualiza. Aguarde os checks de frontend/backend e o deploy de Preview da Vercel. Abra o link do Preview e confira as telas. Depois faça merge na branch configurada como produção na Vercel, normalmente `main`, para iniciar a publicação no endereço principal. Aguarde o deployment ficar Ready antes de conferir o site.
+
+O comportamento depende da integração Git e da branch de produção configuradas no projeto. Consulte [Deploying Git Repositories with Vercel](https://vercel.com/docs/git). Estes ajustes alteram somente o frontend e não exigem migração do banco ou novas variáveis de ambiente.

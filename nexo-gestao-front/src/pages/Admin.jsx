@@ -139,7 +139,7 @@ function Admin() {
               <h1 style={{ margin: 0, color: '#333', fontSize: '28px' }}>Estoque Atual</h1>
             </div>
             
-            <div className="responsive-row" style={{ display: 'flex', gap: '15px' }}>
+            <div className="button-group" style={{ display: 'flex', gap: '15px' }}>
               <button onClick={() => { setFiltroMarca(''); setFiltroCategoria(''); setFiltroTipoEstoque(''); }} style={{ padding: '10px 20px', backgroundColor: '#f9f5fa', color: '#8e44ad', border: '1px solid #e0c3fc', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: (filtroMarca || filtroCategoria || filtroTipoEstoque) ? 'block' : 'none' }}>
                 ✕ Limpar Filtros
               </button>
@@ -166,7 +166,7 @@ function Admin() {
                   <th style={{ padding: '20px', color: '#888', fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                       MARCA
-                      <select aria-label="Filtrar por marca"
+                      <select className="table-filter" aria-label="Filtrar por marca"
                         value={filtroMarca} 
                         onChange={(e) => setFiltroMarca(e.target.value)}
                         style={{ 
@@ -193,7 +193,7 @@ function Admin() {
                   <th style={{ padding: '20px', color: '#888', fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                       CATEGORIA
-                      <select aria-label="Filtrar por categoria"
+                      <select className="table-filter" aria-label="Filtrar por categoria"
                         value={filtroCategoria} 
                         onChange={(e) => setFiltroCategoria(e.target.value)}
                         style={{ 
@@ -220,7 +220,7 @@ function Admin() {
                   <th style={{ padding: '20px', color: '#888', fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                       ESTOQUE
-                      <select aria-label="Tipo de Estoque"
+                      <select className="table-filter" aria-label="Tipo de Estoque"
                         value={filtroTipoEstoque}
                         onChange={e => setFiltroTipoEstoque(e.target.value)}
                         style={{

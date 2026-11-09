@@ -118,8 +118,8 @@ button:disabled { cursor: not-allowed; }
 .table-scroll th { color: #82778b !important; font-size: 10px !important; letter-spacing: 1px !important; padding: 18px 20px !important; }
 .table-scroll td { border-bottom-color: #f0edf3 !important; }
 .table-scroll tbody tr:hover { background: #fcfafe; }
-select, textarea { border: 1px solid #ded8e5 !important; border-radius: 10px !important; background-color: white; color: var(--ink); padding: 12px 14px !important; min-height: 46px; }
-select:focus, textarea:focus { border-color: var(--primary) !important; box-shadow: 0 0 0 3px #8e44ad12; outline: none; }
+select:not(.table-filter), textarea { border: 1px solid #ded8e5 !important; border-radius: 10px !important; background-color: white; color: var(--ink); padding: 12px 14px !important; min-height: 46px; }
+select:not(.table-filter):focus, textarea:focus { border-color: var(--primary) !important; box-shadow: 0 0 0 3px #8e44ad12; outline: none; }
 fieldset { border-color: var(--line) !important; border-radius: 14px !important; }
 legend { font-size: 13px; font-weight: 600; color: var(--primary-dark); padding: 0 8px; }
 input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); }
@@ -131,6 +131,8 @@ input[type="file"]::file-selector-button { border: 0; border-radius: 6px; paddin
 /* Spell floating-label field, adapted to CSS and the Nexo palette. */
 .label-input { position: relative; min-width: 0; width: 100%; text-align: left; font-weight: 400; align-self: stretch; }
 .label-input__control { display: block; width: 100%; min-width: 0; height: 52px; padding: 17px 14px 9px; border: 1px solid #ded8e5; border-radius: 10px; background: var(--surface); color: var(--ink); font-size: 14px; outline: none; transition: border-color .2s, box-shadow .2s; }
+.label-input__select { height: 52px; padding: 14px !important; }
+.table-filter { height: 22px; min-height: 0; font-size: 12px !important; }
 .label-input__control::placeholder { color: transparent; }
 .label-input__control:focus::placeholder { color: #a49aa9; }
 .label-input__control:focus { border-color: var(--field-ring); box-shadow: 0 0 0 3px #8e44ad12; outline: none !important; }
@@ -165,8 +167,49 @@ input[type="file"]::file-selector-button { border: 0; border-radius: 6px; paddin
 .login-card button[type="submit"] { background: var(--primary) !important; color: white; min-height: 48px; font-size: 14px !important; box-shadow: 0 4px 12px #8e44ad24; }
 .login-card button[type="submit"]:hover { background: var(--primary-dark) !important; }
 .login-card button:not([type="submit"])[style*="color: rgb(0, 123, 255)"] { color: var(--primary) !important; }
+
+/* Adjacent actions share a pill, while each segment keeps its own action and focus. */
+.button-group {
+  display: flex !important; flex-direction: row !important; flex-wrap: wrap !important;
+  align-items: center !important; gap: 4px !important; width: fit-content; max-width: 100%;
+  padding: 4px !important; background: var(--primary-soft) !important;
+  border: 1px solid #e4d6ec; border-radius: 26px !important;
+}
+.button-group > button {
+  flex: 1 1 auto !important; min-height: 40px; padding: 10px 12px !important;
+  border: 0 !important; border-radius: 22px !important; background: transparent !important;
+  color: var(--primary-dark) !important; box-shadow: none !important;
+  font-size: 13px; line-height: 1.35; white-space: nowrap;
+  justify-content: center; align-items: center; gap: 6px;
+}
+.button-group > button:not([style*="display: none"]) { display: inline-flex !important; }
+.button-group:not(.button-group--tabs) > button { background: #ffffff80 !important; }
+.button-group > button:hover:not(:disabled), .button-group > button:focus-visible,
+.button-group > button[aria-pressed="true"], .button-group > button[type="submit"] { background: white !important; box-shadow: 0 1px 5px #4223510d !important; }
+.button-group > button.button-danger { color: #b72c37 !important; }
+.button-group > button.button-danger:hover:not(:disabled) { background: #fff0f1 !important; }
+.button-group--queries { border-radius: 24px !important; }
+.button-group--queries > button { font-size: 12px; }
+.button-group--stepper { flex-wrap: nowrap !important; }
+.button-group--stepper > button { flex: 0 0 32px !important; width: 32px !important; min-height: 32px; padding: 4px !important; }
+
+.sidebar-toolbar { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+.sidebar-collapse { display: grid; place-items: center; min-height: 32px; width: 32px; padding: 0; border: 1px solid var(--line); background: white; color: #817389; }
+.sidebar-collapse:hover { background: var(--primary-soft); color: var(--primary); }
+@media (min-width: 1025px) {
+  .sidebar.is-collapsed { width: 76px !important; padding: 18px 10px !important; }
+  .sidebar.is-collapsed .sidebar-toolbar { justify-content: center; }
+  .sidebar.is-collapsed .sidebar-brand { padding: 0; justify-content: center; }
+  .sidebar.is-collapsed .sidebar-brand > div:first-child { flex-shrink: 0; margin-right: 0 !important; }
+  .sidebar.is-collapsed .sidebar-brand-copy, .sidebar.is-collapsed .sidebar-caption,
+  .sidebar.is-collapsed .menu-item-label, .sidebar.is-collapsed .sidebar-profile > div { display: none !important; }
+  .sidebar.is-collapsed .menu-item { justify-content: center; padding: 8px !important; }
+  .sidebar.is-collapsed .menu-item > div { margin-right: 0 !important; }
+  .sidebar.is-collapsed .sidebar-profile { justify-content: center !important; }
+}
 @media (max-width: 1200px) { .app-main { padding: 26px !important; } .login-page { gap: 40px; } }
 @media (max-width: 1024px) {
+  .sidebar-toolbar { display: none; }
   .sidebar { width: 100% !important; padding: 12px 20px !important; }
   .sidebar-brand { padding: 0; margin-bottom: 0 !important; }
   .sidebar-profile { margin-top: 16px !important; }

@@ -1,11 +1,12 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
+import NexoMark from './NexoMark';
 
 function MenuItem({ to, icon, label, onNavigate }) {
     const active = useLocation().pathname === to;
     
     return (
-      <Link className="menu-item" to={to} onClick={onNavigate} aria-current={active ? 'page' : undefined} style={{
+      <Link className="menu-item" to={to} title={label} aria-label={label} onClick={onNavigate} aria-current={active ? 'page' : undefined} style={{
         display: 'flex', 
         alignItems: 'center', 
         padding: '12px 15px', 
@@ -32,7 +33,7 @@ function MenuItem({ to, icon, label, onNavigate }) {
         }}>
           {icon}
         </div>
-        {label}
+        <span className="menu-item-label">{label}</span>
       </Link>
     );
   };
@@ -40,6 +41,11 @@ function MenuItem({ to, icon, label, onNavigate }) {
 
 function Navbar() {
   const [menuAberto, setMenuAberto] = useState(false);
+  const [recolhida, setRecolhida] = useState(() => localStorage.getItem('nexoSidebarCollapsed') === 'true');
+  const alternarBarra = () => {
+    setRecolhida(!recolhida);
+    localStorage.setItem('nexoSidebarCollapsed', String(!recolhida));
+  };
 
   const nomeUsuario = sessionStorage.getItem('nome') || 'Usuário';
   const perfil = sessionStorage.getItem('perfil');
@@ -66,7 +72,7 @@ function Navbar() {
 
 
   return (
-    <nav className={`sidebar ${menuAberto ? 'is-open' : ''}`} aria-label="Menu principal" style={{
+    <nav className={`sidebar ${menuAberto ? 'is-open' : ''} ${recolhida ? 'is-collapsed' : ''}`} aria-label="Menu principal" style={{
       width: '280px', 
       height: '100vh', 
       backgroundColor: '#ffffff', 
@@ -78,6 +84,11 @@ function Navbar() {
       fontFamily: 'sans-serif'
     }}>
       
+      <div className="sidebar-toolbar">
+        <button className="sidebar-collapse" type="button" onClick={alternarBarra} aria-label={recolhida ? 'Expandir barra lateral' : 'Recolher barra lateral'} title={recolhida ? 'Expandir barra lateral' : 'Recolher barra lateral'} aria-expanded={!recolhida} aria-controls="navigation-links">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M9 4v16" /></svg>
+        </button>
+      </div>
       {/* LOGO */}
       <div className="sidebar-brand" style={{ display: 'flex', alignItems: 'center', marginBottom: '40px' }}>
         <div style={{ 
@@ -85,14 +96,9 @@ function Navbar() {
           display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'white', marginRight: '15px',
           boxShadow: '0 4px 12px rgba(142, 68, 173, 0.4)'
         }}>
-          {/* Ícone improvisado do Nexo (Três camadas) */}
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-            <polyline points="2 12 12 17 22 12"></polyline>
-            <polyline points="2 17 12 22 22 17"></polyline>
-          </svg>
+          <NexoMark />
         </div>
-        <div>
+        <div className="sidebar-brand-copy">
           <h1 style={{ margin: 0, fontSize: '22px', color: '#2d3436', letterSpacing: '-0.5px' }}>nexo</h1>
           <span style={{ fontSize: '10px', color: '#888', fontWeight: 'bold', letterSpacing: '0.5px' }}>GESTÃO DE PRODUTOS</span>
         </div>

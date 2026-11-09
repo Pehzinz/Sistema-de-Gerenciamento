@@ -264,7 +264,7 @@ function Dashboard() {
               <h1 style={{ margin: 0, color: '#333', fontSize: '28px' }}>Dashboard Analítico</h1>
             </div>
             
-            <div className="responsive-row" style={{ display: 'flex', gap: '12px' }}>
+            <div className="button-group" style={{ display: 'flex', gap: '12px' }}>
               <button type="button" onClick={buscarDados} disabled={gerandoPdf} style={{ padding: '12px 20px', backgroundColor: '#f9f5fa', color: '#8e44ad', border: '1px solid #e0c3fc', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Atualizar Dashboard</button>
             <button 
               onClick={gerarBalancoPDF} 

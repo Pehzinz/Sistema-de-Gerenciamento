@@ -204,11 +204,11 @@ function Configuracoes() {
                 style={{ width: '100%', padding: '12px', marginBottom: '25px', boxSizing: 'border-box', border: '1px solid #ffcdd2', borderRadius: '8px', outline: 'none', fontSize: '14px', backgroundColor: '#fff5f5' }} 
               />
               
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <div className="button-group" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                 <button type="button" onClick={() => { setModalExclusaoAberto(false); setConfirmacaoExclusao(''); }} style={{ padding: '12px 20px', border: 'none', background: '#f5f5f5', color: '#555', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                   Cancelar
                 </button>
-                <button type="submit" style={{ padding: '12px 20px', border: 'none', background: '#d63031', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                <button className="button-danger" type="submit" style={{ padding: '12px 20px', border: 'none', background: '#d63031', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                   Apagar Empresa
                 </button>
               </div>

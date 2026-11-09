@@ -1,3 +1,4 @@
+import NexoMark from '../components/NexoMark';
 import { LabelInput } from '../components/label-input';
 import AnimatedGradient from '../components/animated-gradient';
 import { useState } from 'react';
@@ -102,7 +103,7 @@ function Login() {
     <div className="login-page" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif' }}>
       <AnimatedGradient config={mistConfig} className="login-gradient" />
       <div className="login-intro">
-        <a className="login-brand" href="/" aria-label="Nexo Gestão, início"><span className="brand-symbol">n</span> nexo<span className="brand-tag">GESTÃO</span></a>
+        <a className="login-brand" href="/" aria-label="Nexo Gestão, início"><span className="brand-symbol"><NexoMark /></span> nexo<span className="brand-tag">GESTÃO</span></a>
         <div className="login-intro-copy"><span className="login-eyebrow">SEU NEGÓCIO, EM SINTONIA</span><h1>Mais clareza.<br />Novas possibilidades.</h1><p>Produtos, vendas e decisões conectados em um só lugar. Simplifique a rotina e dê espaço ao que vem a seguir.</p><div className="login-features"><span>Estoque organizado</span><span>Gestão inteligente</span></div></div>
         <span className="login-footer">Um novo olhar para a sua gestão.</span>
       </div>

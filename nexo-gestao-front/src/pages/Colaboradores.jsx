@@ -316,7 +316,7 @@ function Colaboradores() {
                   <LabelInput label="Endereço" type="text" placeholder="Rua, número, bairro, cidade e CEP" value={endereco} onChange={(e) => setEndereco(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
                 </div>
                 
-                <div className="responsive-row" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <div className="button-group" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                   <button onClick={(e) => cadastrarColaborador(e, 'ADMIN')} style={{ flex: 1, padding: '15px', backgroundColor: '#8e44ad', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                     + Administrador
                   </button>
@@ -360,12 +360,12 @@ function Colaboradores() {
                         </span>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: '10px' }}>
+                        <div className="button-group" style={{ display: 'flex', gap: '10px' }}>
                           <button onClick={() => iniciarEdicao(usuario)} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 12px', backgroundColor: '#fcf9ff', color: '#8e44ad', border: '1px solid #e0c3fc', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                             ✏️ Editar
                           </button>
                           
-                          <button onClick={() => tentarRemover(usuario)} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 12px', backgroundColor: 'transparent', color: '#e31b0c', border: '1px solid #ffccd5', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                          <button className="button-danger" onClick={() => tentarRemover(usuario)} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 12px', backgroundColor: 'transparent', color: '#e31b0c', border: '1px solid #ffccd5', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                             🗑 Remover
                           </button>
                         </div>
@@ -402,11 +402,11 @@ function Colaboradores() {
               Ao confirmar, o funcionário será removido da equipe e perderá o acesso à loja. Suas vendas e o histórico contábil serão preservados.
             </p>
             
-            <div className="responsive-row" style={{ display: 'flex', justifyContent: 'center', gap: '15px' }}>
+            <div className="button-group" style={{ display: 'flex', justifyContent: 'center', gap: '15px' }}>
               <button onClick={() => setModalAberto(false)} style={{ padding: '12px 25px', border: 'none', background: 'white', color: '#8e44ad', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
                 Cancelar
               </button>
-              <button onClick={confirmarRemocao} style={{ padding: '12px 25px', border: 'none', background: '#e31b0c', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 2px 5px rgba(227,27,12,0.2)' }}>
+              <button className="button-danger" onClick={confirmarRemocao} style={{ padding: '12px 25px', border: 'none', background: '#e31b0c', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 2px 5px rgba(227,27,12,0.2)' }}>
                 Confirmar remoção
               </button>
             </div>
@@ -452,7 +452,7 @@ function Colaboradores() {
                 required
               />
               
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <div className="button-group" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                 <button type="button" onClick={() => { setModalAdminEditAberto(false); setColaboradorEditando(null); }} style={{ padding: '12px 20px', border: 'none', background: '#f5f5f5', color: '#555', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                   Cancelar
                 </button>
@@ -497,7 +497,7 @@ function Colaboradores() {
                 <LabelInput label="Endereço" type="text" value={enderecoEdit} onChange={(e) => setEnderecoEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
               </div>
               
-              <div className="responsive-row" style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px', marginTop: '20px' }}>
+              <div className="button-group" style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px', marginTop: '20px' }}>
                 <button type="button" onClick={() => { setModalEdicaoAberto(false); setColaboradorEditando(null); }} style={{ padding: '15px 25px', border: 'none', background: '#f5f5f5', color: '#555', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                   Cancelar
                 </button>
