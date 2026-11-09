@@ -54,7 +54,8 @@ public class Produto implements java.io.Serializable {
     private Empresa empresa;
 
     @Enumerated(EnumType.STRING)
-    @Column(columnDefinition = "varchar(32) default 'PADRAO'")
+    @Column(length = 32)
+    @org.hibernate.annotations.ColumnDefault("'PADRAO'")
     private TipoEstoque tipoEstoque = TipoEstoque.PADRAO;
     private Integer limiteCota;
     private Integer intervaloCotaMinutos;

@@ -37,7 +37,7 @@ public class Venda {
     // MÁGICA DO JPA: Antes de salvar no banco, ele crava o relógio do exato segundo da venda
     @PrePersist
     protected void onCreate() {
-        this.dataVenda = LocalDateTime.now();
+        this.dataVenda = LocalDateTime.now(java.time.ZoneId.of("America/Sao_Paulo"));
     }
 
     public Venda(){}
