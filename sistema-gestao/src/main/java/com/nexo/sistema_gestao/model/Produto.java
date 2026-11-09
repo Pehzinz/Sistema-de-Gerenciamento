@@ -27,6 +27,19 @@ public class Produto implements java.io.Serializable {
     @Column(nullable = false)
     private Double preco;
 
+    // Nulo significa custo desconhecido; zero é um custo informado explicitamente.
+    @Column(name = "custo_unitario", precision = 12, scale = 2)
+    private java.math.BigDecimal custoUnitario;
+
+    @Transient
+    @JsonIgnore
+    private boolean custoUnitarioInformado;
+
+    public java.math.BigDecimal getCustoUnitario() { return custoUnitario; }
+    public void setCustoUnitario(java.math.BigDecimal custoUnitario) { this.custoUnitario = custoUnitario; this.custoUnitarioInformado = true; }
+    @JsonIgnore
+    public boolean isCustoUnitarioInformado() { return custoUnitarioInformado; }
+
     @Column(nullable = false)
     private Integer estoque;
 

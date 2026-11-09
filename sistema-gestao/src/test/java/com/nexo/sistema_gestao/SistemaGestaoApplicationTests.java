@@ -68,6 +68,112 @@ class SistemaGestaoApplicationTests {
             + ",\"itens\":[{\"produtoId\":\"1234567890\",\"quantidade\":" + qty + ",\"precoUnitario\":0.01,\"subtotal\":0.01}]}";
     }
 
+    String produtoComCusto(String custo) {
+        return "{\"nome\":\"Produto\",\"preco\":10,\"estoque\":5,\"categoria\":{\"id\":"
+                + produto.getCategoria().getId() + "},\"custoUnitario\":" + custo + "}";
+    }
+
+    @Test void productCostsRespectTenantAndValidateMoney() throws Exception {
+        Empresa outra = empresas.save(new Empresa("Outra", "custos-" + empresa.getId()));
+        Produto externo = new Produto(); externo.setId(produto.getId()); externo.setIdInterno(outra.getId() + "-" + produto.getId());
+        externo.setNome("Outro produto"); externo.setEmpresa(outra); externo.setPreco(10.0); externo.setEstoque(1);
+        externo.setCustoUnitario(new java.math.BigDecimal("99.00")); produtos.save(externo);
+        Venda vendaExterna = new Venda(); vendaExterna.setEmpresa(outra); vendaExterna.setTotal(new java.math.BigDecimal("10.00")); vendaExterna.setFormaPagamento("PIX");
+        ItemVenda itemExterno = new ItemVenda(); itemExterno.setProduto(externo); itemExterno.setQuantidade(1);
+        itemExterno.setPrecoUnitario(new java.math.BigDecimal("10.00")); itemExterno.setSubtotal(new java.math.BigDecimal("10.00"));
+        itemExterno.setCustoUnitario(new java.math.BigDecimal("99.00")); itemExterno.setVenda(vendaExterna);
+        vendaExterna.setItens(List.of(itemExterno)); vendas.save(vendaExterna);
+        var isolado = json.readTree(call("GET", "/api/tendencias/curva-fluxo?empresaId=" + outra.getId(), adminToken, null).body());
+        assertEquals(0, isolado.path("margens").path("produtos").size());
+        assertTrue(isolado.path("margens").path("margemBruta").isNull());
+        String caminho = "/api/produtos/" + produto.getId();
+        String adulterado = produtoComCusto("7.25").replace("{\"nome\"", "{\"empresa\":{\"id\":" + outra.getId() + "},\"nome\"");
+        assertEquals(200, call("PUT", caminho, adminToken, adulterado).statusCode());
+        assertEquals(0, produtos.findById(produto.getIdInterno()).orElseThrow().getCustoUnitario().compareTo(new java.math.BigDecimal("7.25")));
+        assertEquals(0, produtos.findById(externo.getIdInterno()).orElseThrow().getCustoUnitario().compareTo(new java.math.BigDecimal("99.00")));
+        assertFalse(call("GET", "/api/produtos", adminToken, null).body().contains("99.00"));
+        assertEquals(403, call("PUT", caminho, colaboradorToken, produtoComCusto("1")).statusCode());
+        for (String invalido : List.of("-1", "1.001", "10000000000")) {
+            assertEquals(400, call("PUT", caminho, adminToken, produtoComCusto(invalido)).statusCode());
+            String cadastro = produtoComCusto(invalido).replace("{\"nome\"", "{\"id\":\"8888888888\",\"nome\"");
+            assertEquals(400, call("POST", "/api/produtos", adminToken, cadastro).statusCode());
+        }
+        // Clientes antigos que omitem custo não apagam o valor existente.
+        assertEquals(200, call("PUT", caminho, adminToken, produtoComCusto("null").replace(",\"custoUnitario\":null", "")).statusCode());
+        assertEquals(0, produtos.findById(produto.getIdInterno()).orElseThrow().getCustoUnitario().compareTo(new java.math.BigDecimal("7.25")));
+        assertEquals(200, call("PUT", caminho, adminToken, produtoComCusto("null")).statusCode());
+        assertNull(produtos.findById(produto.getIdInterno()).orElseThrow().getCustoUnitario());
+        String cadastro = produtoComCusto("0").replace("{\"nome\"", "{\"id\":\"8888888888\",\"nome\"");
+        assertEquals(201, call("POST", "/api/produtos", adminToken, cadastro).statusCode());
+        assertEquals(0, produtos.findByIdAndEmpresaId("8888888888", empresa.getId()).orElseThrow().getCustoUnitario().signum());
+    }
+
+    @Test void salesKeepCostSnapshotsAndAccountingAfterChangesAndDeletion() throws Exception {
+        produto.setEstoque(5); produto.setCustoUnitario(new java.math.BigDecimal("12.00"));
+        produto.setPrecoPromocional(7.0);
+        var hoje = java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo"));
+        produto.setDataInicioPromocao(hoje); produto.setDataFimPromocao(hoje); produtos.save(produto);
+        // O custo enviado pelo cliente é ignorado; o servidor lê o produto da empresa autenticada.
+        String adulterado = sale(2, "14.00").replace("\"subtotal\":0.01", "\"subtotal\":0.01,\"custoUnitario\":0");
+        assertEquals(201, call("POST", "/api/vendas", colaboradorToken, adulterado).statusCode());
+        var item = vendas.findByEmpresaId(empresa.getId()).getFirst().getItens().getFirst();
+        assertEquals(0, item.getCustoUnitario().compareTo(new java.math.BigDecimal("12.00")));
+        String historico = call("GET", "/api/vendas", adminToken, null).body();
+        var antes = json.readTree(call("GET", "/api/tendencias/curva-fluxo", adminToken, null).body());
+        assertEquals(-10.0, antes.path("margens").path("margemBruta").asDouble());
+        assertEquals(24.0, antes.path("margens").path("custoProdutosVendidos").asDouble());
+        assertEquals(1, antes.path("margens").path("produtosComMargemNegativa").asInt());
+        assertFalse(antes.path("fluxo").get(0).has("despesas"));
+        // Retira a promoção e altera somente o custo das vendas futuras.
+        assertEquals(200, call("PUT", "/api/produtos/" + produto.getId(), adminToken, produtoComCusto("1.00")).statusCode());
+        assertEquals(antes, json.readTree(call("GET", "/api/tendencias/curva-fluxo", adminToken, null).body()));
+        assertEquals(historico, call("GET", "/api/vendas", adminToken, null).body());
+        assertEquals(204, call("DELETE", "/api/produtos/" + produto.getId(), adminToken, null).statusCode());
+        assertEquals(historico, call("GET", "/api/vendas", adminToken, null).body());
+        assertEquals(antes, json.readTree(call("GET", "/api/tendencias/curva-fluxo", adminToken, null).body()));
+        // Lê também sem cache para garantir a preservação persistida.
+        var novoServico = new com.nexo.sistema_gestao.service.EstatisticaService();
+        org.springframework.test.util.ReflectionTestUtils.setField(novoServico, "vendaRepository", vendas);
+        assertEquals(new java.math.BigDecimal("-10.00"), ((Map<?, ?>) novoServico.calcularCurvaABCFluxo(empresa.getId()).get("margens")).get("margemBruta"));
+    }
+
+    @Test void missingCostsStayUnknownAndZeroCostIsExplicit() throws Exception {
+        produto.setEstoque(3); produtos.save(produto);
+        assertEquals(201, call("POST", "/api/vendas", colaboradorToken, sale(1, "10.00")).statusCode());
+        var antes = json.readTree(call("GET", "/api/tendencias/curva-fluxo", adminToken, null).body()).path("margens");
+        assertTrue(antes.path("margemBruta").isNull());
+        assertEquals(10.0, antes.path("receitaSemCusto").asDouble());
+        assertEquals(200, call("PUT", "/api/produtos/" + produto.getId(), adminToken, produtoComCusto("0")).statusCode());
+        assertEquals(201, call("POST", "/api/vendas", colaboradorToken, sale(1, "10.00")).statusCode());
+        var depois = json.readTree(call("GET", "/api/tendencias/curva-fluxo", adminToken, null).body()).path("margens");
+        assertEquals(1, depois.path("unidadesComCusto").asInt());
+        assertEquals(1, depois.path("unidadesSemCusto").asInt());
+        assertEquals(10.0, depois.path("margemBruta").asDouble());
+        assertEquals(10.0, depois.path("receitaSemCusto").asDouble());
+        assertEquals(0.0, depois.path("custoProdutosVendidos").asDouble());
+        assertNull(vendas.findByEmpresaId(empresa.getId()).getFirst().getItens().getFirst().getCustoUnitario());
+        assertEquals(403, call("GET", "/api/tendencias/curva-fluxo", colaboradorToken, null).statusCode());
+        var previsao = json.readTree(call("GET", "/api/tendencias/previsao-vendas", adminToken, null).body());
+        assertEquals(1, previsao.size());
+        assertTrue(previsao.get(0).path("previsto").isNull());
+    }
+
+    @Test void costOnlyUpdatePreservesStockAndPriceAfterSale() throws Exception {
+        assertEquals(201, call("POST", "/api/vendas", colaboradorToken, sale(1, "10.00")).statusCode());
+        String caminho = "/api/produtos/" + produto.getId() + "/custo";
+        assertEquals(200, call("PATCH", caminho, adminToken, "{\"custoUnitario\":8.75}").statusCode());
+        var salvo = produtos.findById(produto.getIdInterno()).orElseThrow();
+        assertEquals(0, salvo.getEstoque()); assertEquals(10.0, salvo.getPreco());
+        assertEquals(0, salvo.getCustoUnitario().compareTo(new java.math.BigDecimal("8.75")));
+        assertNull(vendas.findByEmpresaId(empresa.getId()).getFirst().getItens().getFirst().getCustoUnitario());
+        assertEquals(403, call("PATCH", caminho, colaboradorToken, "{\"custoUnitario\":0}").statusCode());
+        assertEquals(404, call("PATCH", "/api/produtos/0000000000/custo", adminToken, "{\"custoUnitario\":0}").statusCode());
+        assertEquals(400, call("PATCH", caminho, adminToken, "{}").statusCode());
+        assertEquals(400, call("PATCH", caminho, adminToken, "{\"custoUnitario\":-1}").statusCode());
+        assertEquals(200, call("PATCH", caminho, adminToken, "{\"custoUnitario\":null}").statusCode());
+        assertNull(produtos.findById(produto.getIdInterno()).orElseThrow().getCustoUnitario());
+    }
+
     @Test void removedEmployeesKeepSalesAndLoseAccess() throws Exception {
         Usuario outroAdmin = user("ADMIN");
         String outroToken = tokens.gerarToken(outroAdmin);

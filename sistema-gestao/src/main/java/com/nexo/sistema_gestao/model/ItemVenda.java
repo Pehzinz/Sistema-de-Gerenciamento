@@ -32,6 +32,14 @@ public class ItemVenda {
     @Column(nullable = false)
     private BigDecimal subtotal;
 
+    // Fotografia do custo no momento da venda. Nunca preencher com o custo atual em vendas antigas.
+    @Column(name = "custo_unitario", precision = 12, scale = 2)
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    private BigDecimal custoUnitario;
+
+    public BigDecimal getCustoUnitario() { return custoUnitario; }
+    public void setCustoUnitario(BigDecimal custoUnitario) { this.custoUnitario = custoUnitario; }
+
 
     //Construtor para o JPA conseguir trabalhar no banco de dados
     public ItemVenda(){}

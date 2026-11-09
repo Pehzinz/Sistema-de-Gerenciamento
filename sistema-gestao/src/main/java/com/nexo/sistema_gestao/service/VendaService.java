@@ -73,6 +73,7 @@ public class VendaService {
                 var unitario = java.math.BigDecimal.valueOf(preco).setScale(2, java.math.RoundingMode.HALF_UP);
                 item.setProduto(produto);
                 item.setPrecoUnitario(unitario);
+                item.setCustoUnitario(produto.getCustoUnitario());
                 item.setSubtotal(unitario.multiply(java.math.BigDecimal.valueOf(item.getQuantidade())));
                 total = total.add(item.getSubtotal());
             }
