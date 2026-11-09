@@ -1,10 +1,9 @@
-# Custos e análises de margem
+# Receitas e custos semanais
 
 ## Corrigir o ambiente publicado
 
-A mensagem “A análise de custos ainda não está disponível” significa que a resposta de
-`GET /api/tendencias/curva-fluxo` não contém `margens`. Ela não significa simplesmente
-ausência de vendas novas. Uma API desta versão retorna a estrutura mesmo sem vendas.
+O gráfico de áreas da Inteligência usa a lista `fluxo` retornada por
+`GET /api/tendencias/curva-fluxo`, com os campos `receitas` e `custos` por semana.
 
 Na verificação remota de 09/11/2026 em
 `https://sistema-de-gerenciamento-production-9d42.up.railway.app`, usando a origem
@@ -16,8 +15,8 @@ cabeçalhos HTTP, sem login, leitura de registros ou alteração de dados.
 1. Confirme que o serviço **backend** publica a branch com estas alterações e usa a raiz
    `sistema-gestao`. Verifique o commit do deployment ativo, não apenas um deploy do frontend.
 2. Confirme que `VITE_API_URL` no frontend aponta para esse backend. Alterá-la exige novo build.
-3. Na sessão autenticada, `GET /api/produtos/recursos` deve retornar `versaoCustosProdutos: 1`
-   e `versaoMargensCatalogo: 1`. `GET /api/tendencias/margens-catalogo` deve retornar `versao: 1`.
+3. Na sessão autenticada, `GET /api/produtos/recursos` deve retornar `versaoCustosProdutos: 1`.
+   `GET /api/tendencias/curva-fluxo` deve retornar `custos` nos pontos da lista `fluxo`.
 4. A nova API autoriza o preflight CORS de **PATCH**, necessário para salvar a edição do custo.
    O endpoint só altera o custo do produto da empresa autenticada, sem reenviar estoque.
 5. O schema precisa de `produtos.custo_unitario` e `itens_venda.custo_unitario`, ambos
@@ -31,22 +30,19 @@ cabeçalhos HTTP, sem login, leitura de registros ou alteração de dados.
 Este trabalho não acessou credenciais nem executou SQL no banco de produção. O sucesso
 dos testes locais não confirma qual deployment ou banco está ativo em produção.
 
-## O que cada gráfico representa
+## Cálculo do gráfico
 
-- **Catálogo atual:** margem unitária = preço vigente menos custo cadastrado. Promoções
-  são aplicadas apenas no período válido, no fuso de São Paulo. Disponível sem novas vendas.
-- **Margem percentual atual:** margem unitária / preço vigente × 100. Não é markup sobre custo.
-- **Mediana e Q1:** estatística descritiva entre produtos com custo conhecido, sem ponderação
-  por vendas. Quantis interpolam as posições `(n - 1) × p`; Q1 exige ao menos quatro produtos.
-  O quartil inferior é relativo ao catálogo, não uma afirmação de prejuízo. Margem negativa
-  identifica preço abaixo do custo; margem zero identifica ausência de sobra bruta.
-- **Volume × margem:** cruza unidades vendidas em todo o histórico com a margem atual.
-  Não é lucro histórico, previsão de demanda nem inferência causal. Produtos sem vendas
-  continuam representados em volume zero; não há exclusão por falta de histórico.
-- **Resultado realizado:** soma subtotal vendido menos custo registrado no item da venda
-  multiplicado pela quantidade. Margem ponderada = resultado / receita dos itens com custo.
-  Não usa a média simples das porcentagens de produtos. A cobertura incompleta é explícita.
+- Semanas de segunda a domingo, identificadas pela data inicial com ano. As vendas já
+  são registradas no horário de São Paulo; datas históricas não são reinterpretadas.
+- Receitas: soma do total efetivamente vendido em cada semana, incluindo promoções.
+- Custos: soma do custo unitário registrado em cada item de venda × quantidade vendida.
+- Se algum item não tiver custo, o custo da semana fica nulo (lacuna na área vermelha).
+  Uma indicação discreta explica a ausência. Não há estimativa de 60%, nem substituição
+  pelo custo atual do cadastro. Vendas sem itens também têm custo desconhecido.
+- Semanas sem vendas entre a primeira e a última semana registrada têm receita e custo zero.
+- Custo zero informado explicitamente é válido. Empresas consultam apenas suas próprias vendas.
 
-Atualizar o custo do catálogo não reescreve os custos anteriores, não cria uma perda
-realizada e não altera os totais do Relatório Contábil. Nenhuma dessas análises desconta
-despesas operacionais ou constitui lucro líquido da empresa.
+Os painéis extras de catálogo, rankings, quartis, dispersão e margens foram removidos.
+O cadastro e a edição de custos, a correção CORS e o histórico das vendas permanecem.
+Atualizar o custo de um produto vale para as próximas vendas e não altera os totais do
+Relatório Contábil. O gráfico não inclui despesas operacionais e não representa lucro líquido.
