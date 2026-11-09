@@ -39,7 +39,7 @@ public class SecurityFilter extends OncePerRequestFilter {
                 Long empresaId = tokenService.extrairEmpresaId(tokenJWT);
                 
                 // 3. Busca todas as contas (em qualquer empresa) que usam este CPF
-                var contasDoCpf = repository.findByCpf(subject);
+                var contasDoCpf = repository.findByCpfAndAtivoTrue(subject);
 
                 // 4. Filtra a lista para encontrar EXATAMENTE a conta que pertence à empresa do Token
                 var usuarioOpt = contasDoCpf.stream()

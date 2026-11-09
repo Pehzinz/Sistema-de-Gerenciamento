@@ -16,6 +16,7 @@ public record VendaResponseDTO(
         String nomeProduto,
         Integer quantidade,
         BigDecimal precoUnitario,
-        BigDecimal precoOriginalProduto 
+        BigDecimal precoOriginalProduto,
+        String nomeCategoria
     ) {}
 }

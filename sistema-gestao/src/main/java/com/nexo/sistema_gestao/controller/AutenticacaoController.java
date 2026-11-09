@@ -38,11 +38,11 @@ public class AutenticacaoController {
 
         // Se o CNPJ foi informado (Terminal já configurado por um ADM)
         if (dadosLogin.cnpj() != null && !dadosLogin.cnpj().trim().isEmpty()) {
-            Optional<Usuario> userOpt = usuarioRepository.findByCpfAndEmpresaCnpj(dadosLogin.cpf(), dadosLogin.cnpj());
+            Optional<Usuario> userOpt = usuarioRepository.findByCpfAndEmpresaCnpjAndAtivoTrue(dadosLogin.cpf(), dadosLogin.cnpj());
             usuariosEncontrados = userOpt.map(List::of).orElseGet(List::of);
         } else {
             // Terminal em branco: busca todas as contas desse CPF no sistema global
-            usuariosEncontrados = usuarioRepository.findByCpf(dadosLogin.cpf());
+            usuariosEncontrados = usuarioRepository.findByCpfAndAtivoTrue(dadosLogin.cpf());
         }
 
         if (usuariosEncontrados.isEmpty()) {

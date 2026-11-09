@@ -68,6 +68,39 @@ class SistemaGestaoApplicationTests {
             + ",\"itens\":[{\"produtoId\":\"1234567890\",\"quantidade\":" + qty + ",\"precoUnitario\":0.01,\"subtotal\":0.01}]}";
     }
 
+    @Test void removedEmployeesKeepSalesAndLoseAccess() throws Exception {
+        Usuario outroAdmin = user("ADMIN");
+        String outroToken = tokens.gerarToken(outroAdmin);
+        assertEquals(201, call("POST", "/api/vendas", adminToken, sale(1, "10.00")).statusCode());
+        String historico = call("GET", "/api/vendas", outroToken, null).body();
+        assertTrue(historico.contains("nomeCategoria"));
+        assertEquals(200, call("DELETE", "/api/usuarios/" + admin.getId(), outroToken, null).statusCode());
+        assertFalse(usuarios.findById(admin.getId()).orElseThrow().isAtivo());
+        assertEquals(401, call("GET", "/api/vendas", adminToken, null).statusCode());
+        assertEquals(historico, call("GET", "/api/vendas", outroToken, null).body());
+        assertEquals(admin.getId(), vendas.findByEmpresaId(empresa.getId()).getFirst().getUsuario().getId());
+        assertEquals(400, call("DELETE", "/api/usuarios/" + outroAdmin.getId(), outroToken, null).statusCode());
+        assertEquals(200, call("DELETE", "/api/usuarios/" + colaborador.getId(), outroToken, null).statusCode());
+        assertEquals(1, json.readTree(call("GET", "/api/usuarios", outroToken, null).body()).size());
+        assertEquals(401, call("GET", "/api/vendas", colaboradorToken, null).statusCode());
+        assertEquals(204, call("DELETE", "/api/produtos/" + produto.getId(), outroToken, null).statusCode());
+        assertEquals(historico, call("GET", "/api/vendas", outroToken, null).body());
+    }
+
+    @Test void concurrentAdminDeletionsKeepOneActiveAdmin() throws Exception {
+        Usuario outroAdmin = user("ADMIN");
+        String outroToken = tokens.gerarToken(outroAdmin);
+        var inicio = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var a = executor.submit(() -> { inicio.await(); return call("DELETE", "/api/usuarios/" + admin.getId(), outroToken, null).statusCode(); });
+            var b = executor.submit(() -> { inicio.await(); return call("DELETE", "/api/usuarios/" + outroAdmin.getId(), adminToken, null).statusCode(); });
+            inicio.countDown();
+            var respostas = List.of(a.get(15, TimeUnit.SECONDS), b.get(15, TimeUnit.SECONDS));
+            assertEquals(1, respostas.stream().filter(c -> c == 200).count());
+            assertEquals(1, usuarios.countByEmpresaIdAndPerfilAndAtivoTrue(empresa.getId(), "ADMIN"));
+        }
+    }
+
     @Test void anonymousAndInvalidTokenAreRejected() throws Exception {
         assertEquals(401, call("GET", "/api/produtos", null, null).statusCode());
         assertEquals(401, call("GET", "/api/produtos", "forged-token", null).statusCode());

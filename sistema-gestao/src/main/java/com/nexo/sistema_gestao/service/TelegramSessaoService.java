@@ -66,7 +66,7 @@ public class TelegramSessaoService {
         }
         s.ultimaAtividade = agora;
         if (s.usuarioId != null) {
-            Usuario usuario = usuarios.findByIdAndEmpresaId(s.usuarioId, s.empresaId).orElse(null);
+            Usuario usuario = usuarios.findByIdAndEmpresaIdAndAtivoTrue(s.usuarioId, s.empresaId).orElse(null);
             if (!permitido(usuario) || !java.util.Objects.equals(s.hash, usuario.getSenha())) {
                 sessoes.invalidate(chat);
                 return mensagem("Acesso revogado ou credenciais alteradas. Use /start para entrar novamente.");

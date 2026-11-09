@@ -38,7 +38,9 @@ public class VendaService {
                 java.math.BigDecimal precoOrig = item.getProduto() != null ? 
                     java.math.BigDecimal.valueOf(item.getProduto().getPreco()) : item.getPrecoUnitario();
 
-                return new ItemDetalhadoDTO(idProduto, nomeProduto, item.getQuantidade(), item.getPrecoUnitario(), precoOrig);
+                String nomeCategoria = item.getProduto() != null && item.getProduto().getCategoria() != null
+                        ? item.getProduto().getCategoria().getNome() : null;
+                return new ItemDetalhadoDTO(idProduto, nomeProduto, item.getQuantidade(), item.getPrecoUnitario(), precoOrig, nomeCategoria);
             }).collect(Collectors.toList());
 
             return new VendaResponseDTO(venda.getId(), venda.getFormaPagamento(), venda.getTotal(), venda.getDataVenda(), itensDetalhados);
