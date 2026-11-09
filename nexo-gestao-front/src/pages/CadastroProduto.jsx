@@ -1,5 +1,6 @@
 import useAtualizacaoCotas from '../hooks/useAtualizacaoCotas';
-import { garantirSuporteControleEstoque, validarControlePersistido } from '../services/produtos';
+import { garantirSuporteControleEstoque, validarControlePersistido, lerCustoUnitario, garantirSuporteCustos, validarCustoPersistido } from '../services/produtos';
+import CustoProdutoInput from '../components/CustoProdutoInput';
 import ControleEstoqueForm from '../components/ControleEstoqueForm';
 import { controleInicial, controleDoProduto, payloadControle, indicadorEstoque } from '../utils/controleEstoque';
 import { useState, useEffect, useCallback } from 'react';
@@ -16,6 +17,8 @@ function CadastroProduto() {
   const [nome, setNome] = useState('');
   const [marca, setMarca] = useState('');
   const [preco, setPreco] = useState('');
+  const [custoUnitario, setCustoUnitario] = useState('');
+  const [custoEdicao, setCustoEdicao] = useState('');
   const [controle, setControle] = useState(controleInicial);
   const [controleEdicao, setControleEdicao] = useState(controleInicial);
   const [categoriaSelecionada, setCategoriaSelecionada] = useState('');
@@ -180,6 +183,7 @@ function CadastroProduto() {
       if (verificarControle && (produtoEditado.tipoEstoque !== 'PADRAO' || produtoEncontrado?.tipoEstoque === 'COTA_TEMPO' || produtoEncontrado?.tipoEstoque === 'VALIDADE')) {
         await garantirSuporteControleEstoque(token);
       }
+      if (produtoEditado.custoUnitario != null) await garantirSuporteCustos(token);
       const resposta = await fetch(`${BASE_URL}/api/produtos/${produtoEditado.id}`, {
         method: 'PUT',
         headers: {
@@ -196,8 +200,10 @@ function CadastroProduto() {
         if (consulta.ok) {
           const atualizado = await consulta.json();
           if (verificarControle) validarControlePersistido(atualizado, produtoEditado);
+          if ('custoUnitario' in produtoEditado) validarCustoPersistido(atualizado, produtoEditado.custoUnitario);
           setProdutoEncontrado(atualizado);
           setControleEdicao(controleDoProduto(atualizado));
+          setCustoEdicao(atualizado.custoUnitario == null ? '' : String(atualizado.custoUnitario));
         } else {
           throw new Error('Não foi possível confirmar os dados salvos. Recarregue o produto antes de continuar.');
         }
@@ -291,6 +297,8 @@ function CadastroProduto() {
     };
 
     try {
+      novoProduto.custoUnitario = lerCustoUnitario(custoUnitario);
+      if (novoProduto.custoUnitario != null) await garantirSuporteCustos(token);
       if (novoProduto.tipoEstoque !== 'PADRAO') await garantirSuporteControleEstoque(token);
       const resposta = await fetch(BASE_URL + '/api/produtos', {
         method: 'POST',
@@ -303,6 +311,7 @@ function CadastroProduto() {
 
       if (resposta.status === 201 || resposta.ok) {
         const salvo = await resposta.json();
+        validarCustoPersistido(salvo, novoProduto.custoUnitario);
         if (novoProduto.tipoEstoque !== 'PADRAO') validarControlePersistido(salvo, novoProduto);
         navigate('/admin');
       } else {
@@ -334,6 +343,7 @@ function CadastroProduto() {
         
         // CARREGA A PROMOÇÃO PARA OS INPUTS
         setPrecoPromoEdicao(prod.precoPromocional ? prod.precoPromocional.toString() : '');
+        setCustoEdicao(prod.custoUnitario == null ? '' : String(prod.custoUnitario));
         setDataInicioPromoEdicao(prod.dataInicioPromocao || ''); 
         setDataFimPromoEdicao(prod.dataFimPromocao || '');
       } else {
@@ -469,6 +479,7 @@ function CadastroProduto() {
                     <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>Valor do Produto (R$) *</label>
                     <input type="text" value={preco} onChange={(e) => setPreco(e.target.value)} required placeholder="R$ 0,00" style={{ padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#fafafa', fontSize: '15px', outline: 'none' }} />
                   </div>
+                  <CustoProdutoInput value={custoUnitario} onChange={setCustoUnitario} preco={preco.replace(',', '.')} />
 
                 </div>
                 <ControleEstoqueForm value={controle} onChange={setControle} />
@@ -562,6 +573,32 @@ function CadastroProduto() {
                           <button type="button" onClick={confirmarReposicaoEstoque} style={{ backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '5px', padding: '0 20px', fontWeight: 'bold', cursor: 'pointer' }}>Confirmar</button>
                         </div>
                       </div>}
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0, padding: 20, border: '1px solid #e0c3fc', borderRadius: 10 }}>
+                      <CustoProdutoInput value={custoEdicao} onChange={setCustoEdicao} preco={produtoEncontrado.preco} />
+                      <p style={{ fontSize: 12, color: '#666' }}>Atualize este valor quando o custo de reposição mudar. Vendas anteriores mantêm o custo registrado na época.</p>
+                      <button type="button" onClick={async () => {
+                        try {
+                          const custo = lerCustoUnitario(custoEdicao);
+                          const token = sessionStorage.getItem('token');
+                          await garantirSuporteCustos(token);
+                          const resposta = await fetch(`${BASE_URL}/api/produtos/${produtoEncontrado.id}/custo`, {
+                            method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ custoUnitario: custo }),
+                          });
+                          if (!resposta.ok) throw new Error(await readApiError(resposta, 'Não foi possível atualizar o custo'));
+                          const consulta = await fetch(`${BASE_URL}/api/produtos/${produtoEncontrado.id}`, {
+                            headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
+                          });
+                          if (!consulta.ok) throw new Error('Não foi possível confirmar o custo salvo. Recarregue o produto.');
+                          const atualizado = await consulta.json();
+                          validarCustoPersistido(atualizado, custo);
+                          setProdutoEncontrado(atualizado);
+                          setCustoEdicao(atualizado.custoUnitario == null ? '' : String(atualizado.custoUnitario));
+                          alert('Custo atualizado para as próximas vendas.');
+                        } catch (erro) { alert(erro.message); }
+                      }} style={{ padding: '12px 18px', background: '#8e44ad', color: 'white', border: 0, borderRadius: 8, cursor: 'pointer' }}>Salvar custo unitário</button>
                     </div>
 
                     {/* COLUNA DIREITA: GESTÃO DE PROMOÇÕES */}

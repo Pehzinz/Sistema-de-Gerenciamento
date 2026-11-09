@@ -33,6 +33,7 @@ public class ProdutoController {
         if (produto.getPreco() == null || !Double.isFinite(produto.getPreco()) || produto.getPreco() <= 0) {
             throw new IllegalArgumentException("O preço deve ser positivo.");
         }
+        validarCusto(produto.getCustoUnitario());
         if (produto.getCategoria() == null || produto.getCategoria().getId() == null) {
             throw new IllegalArgumentException("Informe a categoria.");
         }
@@ -55,6 +56,25 @@ public class ProdutoController {
         }
     }
 
+    private void validarCusto(java.math.BigDecimal custo) {
+        if (custo != null && (custo.signum() < 0 || custo.stripTrailingZeros().scale() > 2
+                || custo.compareTo(new java.math.BigDecimal("9999999999.99")) > 0)) {
+            throw new IllegalArgumentException("O custo deve ser de 0 a 9.999.999.999,99, com até duas casas decimais.");
+        }
+    }
+
+    @PatchMapping("/{id}/custo")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<?> atualizarCusto(@PathVariable String id, @RequestBody java.util.Map<String, java.math.BigDecimal> dados) {
+        if (!dados.containsKey("custoUnitario")) throw new IllegalArgumentException("Informe custoUnitario ou null para remover a informação.");
+        var custo = dados.get("custoUnitario");
+        validarCusto(custo);
+        return produtoRepository.buscarParaVenda(id, getEmpresaId()).map(produto -> {
+            produto.setCustoUnitario(custo);
+            return ResponseEntity.ok(produtoRepository.save(produto));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
     private Long getEmpresaId() {
         var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         return ((Usuario) auth.getPrincipal()).getEmpresa().getId();
@@ -72,7 +92,7 @@ public class ProdutoController {
 
     @GetMapping("/recursos")
     public java.util.Map<String, Object> recursos() {
-        return java.util.Map.of("versaoControleEstoque", 1, "tiposEstoque", TipoEstoque.values());
+        return java.util.Map.of("versaoControleEstoque", 1, "versaoCustosProdutos", 1, "tiposEstoque", TipoEstoque.values());
     }
 
     @GetMapping("/catalogo")
@@ -114,6 +134,7 @@ public class ProdutoController {
                 existente.setNome(produto.getNome());
                 existente.setMarca(produto.getMarca());
                 existente.setPreco(produto.getPreco());
+                existente.setCustoUnitario(produto.getCustoUnitario());
                 ControleEstoque.configurar(existente, produto, java.time.Instant.now(), true);
                 existente.setImagemUrl(produto.getImagemUrl());
                 existente.setCategoria(produto.getCategoria());
@@ -195,6 +216,7 @@ public class ProdutoController {
             produto.setNome(produtoAtualizado.getNome());
             produto.setMarca(produtoAtualizado.getMarca());
             produto.setPreco(produtoAtualizado.getPreco());
+            if (produtoAtualizado.isCustoUnitarioInformado()) produto.setCustoUnitario(produtoAtualizado.getCustoUnitario());
             produto.setCategoria(produtoAtualizado.getCategoria());
             
             if (produtoAtualizado.getImagemUrl() != null) {

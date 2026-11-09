@@ -1,13 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
-import { BASE_URL, apiFetch as fetch } from '../services/api';
+import { BASE_URL, readApiError, apiFetch as fetch } from '../services/api';
+import AnaliseMargens from '../components/AnaliseMargens';
 import Navbar from '../components/Navbar';
 import { 
-  LineChart, Line, BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell,
+  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 
 function Tendencias() {
   const [carregando, setCarregando] = useState(false);
+  const [erroDados, setErroDados] = useState('');
+  const [dadosProntos, setDadosProntos] = useState(false);
+  const [margens, setMargens] = useState(null);
 
   const [produtosReais, setProdutosReais] = useState([]);
   const [ticketMedioReal, setTicketMedioReal] = useState(0);
@@ -28,8 +32,8 @@ function Tendencias() {
       const headers = { Authorization: `Bearer ${sessionStorage.getItem('token')}` };
       const paths = ['/api/produtos', '/api/vendas', '/api/tendencias/previsao-vendas', '/api/tendencias/curva-fluxo', '/api/tendencias/trafego'];
       const results = await Promise.all(paths.map(async path => {
-        const response = await fetch(BASE_URL + path, { headers });
-        if (!response.ok) throw new Error('Não foi possível carregar a análise.');
+        const response = await fetch(BASE_URL + path, { headers, cache: 'no-store' });
+        if (!response.ok) throw new Error(await readApiError(response, 'Não foi possível carregar a análise'));
         return response.json();
       }));
       const [produtos, vendas, previsao, curva, trafego] = results;
@@ -39,7 +43,10 @@ function Tendencias() {
       setDadosPrevisao(previsao); setCurvaABC(curva.curva); setFluxoCaixa(curva.fluxo);
       setProdutoAltaTendencia(curva.produtoAltaTendencia); setProdutoParado(curva.produtoParado);
       setDadosHorarios(trafego.grafico);
-    } catch (error) { console.error('Erro ao buscar análise', error); }
+      setMargens(curva.margens ?? null);
+      setDadosProntos(true);
+      setErroDados('');
+    } catch (error) { setErroDados(error.message || 'Erro de conexão ao carregar a análise.'); }
     finally { setCarregando(false); }
   }, []);
   useEffect(() => {
@@ -56,7 +63,7 @@ function Tendencias() {
           
           <div className="responsive-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#8e44ad', letterSpacing: '0.5px', marginBottom: '8px', textTransform: 'uppercase' }}>Machine Learning & Controladoria</div>
+              <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#8e44ad', letterSpacing: '0.5px', marginBottom: '8px', textTransform: 'uppercase' }}>Análise de vendas e margens</div>
               <h1 style={{ margin: 0, color: '#333', fontSize: '28px' }}>Centro de Inteligência de Mercado</h1>
             </div>
             <button type="button" onClick={buscarDados} disabled={carregando} style={{ padding: '12px 24px', backgroundColor: '#8e44ad', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', boxShadow: '0 4px 10px rgba(142,68,173,0.3)' }}>
@@ -64,6 +71,8 @@ function Tendencias() {
             </button>
           </div>
 
+          {erroDados ? <p role="alert">Não foi possível atualizar os dados. {erroDados} Use “Atualizar Análise Completa” para tentar novamente.</p> : !dadosProntos ? <p role="status">Carregando análise...</p> : <>
+          <p style={{ margin: 0, fontSize: 13, color: '#666' }}>Dados da sua empresa · Todo o histórico de vendas registrado no sistema.</p>
           <div className="responsive-row" style={{ display: 'flex', gap: '20px' }}>
             <div style={{ flex: 1, backgroundColor: 'white', padding: '25px', borderRadius: '15px', borderLeft: '5px solid #2ecc71', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
               <div style={{ fontSize: '12px', color: '#888', fontWeight: 'bold', marginBottom: '5px' }}>FATURAMENTO REAL (BRUTO)</div>
@@ -83,40 +92,35 @@ function Tendencias() {
             <div className="responsive-row" style={{ flex: 1, backgroundColor: '#fcf9ff', padding: '25px', borderRadius: '15px', border: '1px solid #e0c3fc', display: 'flex', alignItems: 'center', gap: '20px' }}>
               <div style={{ fontSize: '35px' }}>🚀</div>
               <div>
-                <div style={{ fontSize: '12px', color: '#8e44ad', fontWeight: 'bold', marginBottom: '5px' }}>PRODUTO EM ALTA TENDÊNCIA</div>
+                <div style={{ fontSize: '12px', color: '#8e44ad', fontWeight: 'bold', marginBottom: '5px' }}>PRODUTO COM MAIOR RECEITA</div>
                 <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#333' }}>{produtoAltaTendencia}</div>
-                <p style={{ fontSize: '13px', color: '#555', margin: '5px 0 0 0' }}>Principal motor de receita (Curva A).</p>
+                <p style={{ fontSize: '13px', color: '#555', margin: '5px 0 0 0' }}>Maior faturamento acumulado. Receita alta não significa maior lucro.</p>
               </div>
             </div>
             <div className="responsive-row" style={{ flex: 1, backgroundColor: '#fff5f5', padding: '25px', borderRadius: '15px', border: '1px solid #ffcccc', display: 'flex', alignItems: 'center', gap: '20px' }}>
               <div style={{ fontSize: '35px' }}>📉</div>
               <div>
-                <div style={{ fontSize: '12px', color: '#c0392b', fontWeight: 'bold', marginBottom: '5px' }}>OPORTUNIDADE</div>
+                <div style={{ fontSize: '12px', color: '#c0392b', fontWeight: 'bold', marginBottom: '5px' }}>MENOR RECEITA ENTRE PRODUTOS VENDIDOS</div>
                 <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#333' }}>{produtoParado}</div>
-                <p style={{ fontSize: '13px', color: '#555', margin: '5px 0 0 0' }}>Produto com menor saída. Ideal para promoções.</p>
+                <p style={{ fontSize: '13px', color: '#555', margin: '5px 0 0 0' }}>Confira giro, preço e margem antes de decidir uma promoção.</p>
               </div>
             </div>
           </div>
 
           <div className="responsive-row" style={{ display: 'flex', gap: '20px' }}>
             <div style={{ flex: 1, backgroundColor: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ marginTop: 0, color: '#333', fontSize: '16px', marginBottom: '5px' }}>Receitas e estimativa de despesas</h3>
-              <p style={{ fontSize: 12, color: '#666' }}>Despesas estimadas em 60% das receitas; não representa o custo real.</p>
+              <h3 style={{ marginTop: 0, color: '#333', fontSize: '16px', marginBottom: '5px' }}>Faturamento real por semana</h3>
+              <p style={{ fontSize: 12, color: '#666' }}>Total das vendas registradas em cada semana com movimento. Não representa lucro nem saldo em caixa. A semana atual pode estar incompleta.</p>
               <div style={{ height: '250px', width: '100%' }}>
                 {fluxoCaixa.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={fluxoCaixa} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="colorRec" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2ecc71" stopOpacity={0.3}/><stop offset="95%" stopColor="#2ecc71" stopOpacity={0}/></linearGradient>
-                        <linearGradient id="colorDesp" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#e74c3c" stopOpacity={0.3}/><stop offset="95%" stopColor="#e74c3c" stopOpacity={0}/></linearGradient>
-                      </defs>
+                    <BarChart data={fluxoCaixa} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                       <XAxis dataKey="mes" tick={{fontSize: 12, fill: '#888'}} axisLine={false} tickLine={false} />
-                      <YAxis tick={{fontSize: 11, fill: '#888'}} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${(v/1000).toFixed(0)}k`}/>
-                      <Tooltip cursor={{fill: '#fcf9ff'}} formatter={(value) => [Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), '']} />
+                      <YAxis tick={{fontSize: 11, fill: '#888'}} axisLine={false} tickLine={false} tickFormatter={v => Number(v).toLocaleString('pt-BR', { notation: 'compact', style: 'currency', currency: 'BRL', maximumFractionDigits: 1 })}/>
+                      <Tooltip formatter={value => Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} />
                       <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
-                      <Area type="monotone" name="Receitas" dataKey="receitas" stroke="#2ecc71" fillOpacity={1} fill="url(#colorRec)" />
-                      <Area type="monotone" name="Despesas Sim." dataKey="despesas" stroke="#e74c3c" fillOpacity={1} fill="url(#colorDesp)" />
-                    </AreaChart>
+                      <Bar name="Faturamento" dataKey="receitas" fill="#2ecc71" radius={[4, 4, 0, 0]} maxBarSize={70} isAnimationActive={false} />
+                    </BarChart>
                   </ResponsiveContainer>
                 ) : <div style={{ textAlign: 'center', color: '#888', paddingTop: '80px' }}>Sem dados de vendas</div>}
               </div>
@@ -124,23 +128,25 @@ function Tendencias() {
 
             <div style={{ flex: 1, backgroundColor: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
               <h3 style={{ marginTop: 0, color: '#333', fontSize: '16px', marginBottom: '5px' }}>Projeção Financeira (Regressão Linear)</h3>
+              <p style={{ fontSize: 12, color: '#666' }}>Estimativa de faturamento, não é receita garantida. Exige ao menos dois períodos distintos com vendas e pode variar com promoções e sazonalidade.</p>
               <div style={{ height: '250px', width: '100%' }}>
                 {dadosPrevisao.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={dadosPrevisao} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                       <XAxis dataKey="periodo" tick={{fontSize: 12, fill: '#888'}} axisLine={false} tickLine={false} />
-                      <YAxis tick={{fontSize: 11, fill: '#888'}} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${(v/1000).toFixed(0)}k`}/>
+                      <YAxis tick={{fontSize: 11, fill: '#888'}} axisLine={false} tickLine={false} tickFormatter={v => Number(v).toLocaleString('pt-BR', { notation: 'compact', style: 'currency', currency: 'BRL', maximumFractionDigits: 1 })}/>
                       <Tooltip cursor={{fill: '#fcf9ff'}} formatter={(value) => value ? [Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), ''] : ['-', '']} />
                       <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
                       <Line type="monotone" name="Realizado" dataKey="realizado" stroke="#2ecc71" strokeWidth={3} dot={{ r: 4 }} />
                       <Line type="monotone" name="Projeção linear" dataKey="previsto" stroke="#8e44ad" strokeWidth={3} strokeDasharray="5 5" />
                     </LineChart>
                   </ResponsiveContainer>
-                ) : <div style={{ textAlign: 'center', color: '#888', paddingTop: '80px' }}>Realize pelo menos uma venda para traçar a projeção.</div>}
+                ) : <div style={{ textAlign: 'center', color: '#888', paddingTop: '80px' }}>Ainda não há histórico de vendas para projetar.</div>}
               </div>
             </div>
           </div>
 
+          <AnaliseMargens dados={margens} />
           <div className="responsive-row" style={{ display: 'flex', gap: '20px' }}>
             
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -187,6 +193,7 @@ function Tendencias() {
               </div>
             </div>
           </div>
+          </>}
         </div>
       </main>
     </div>

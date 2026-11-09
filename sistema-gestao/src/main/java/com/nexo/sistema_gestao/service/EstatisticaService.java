@@ -45,19 +45,12 @@ public class EstatisticaService {
                 }
             }
             for (Map.Entry<LocalDate, Double> entry : vendasPorDia.entrySet()) {
-                dadosAgrupados.put(entry.getKey().getDayOfMonth() + "/" + entry.getKey().getMonthValue(), entry.getValue());
+                dadosAgrupados.put(entry.getKey().getDayOfMonth() + "/" + entry.getKey().getMonthValue() + "/" + entry.getKey().getYear(), entry.getValue());
             }
         } else {
             for (Map.Entry<LocalDate, Double> entry : vendasPorSemana.entrySet()) {
-                dadosAgrupados.put("Sem " + entry.getKey().getDayOfMonth() + "/" + entry.getKey().getMonthValue(), entry.getValue());
+                dadosAgrupados.put("Sem " + entry.getKey().getDayOfMonth() + "/" + entry.getKey().getMonthValue() + "/" + entry.getKey().getYear(), entry.getValue());
             }
-        }
-
-        if (dadosAgrupados.size() == 1) {
-            Map<String, Double> dadosSimulados = new LinkedHashMap<>();
-            dadosSimulados.put(usarDias ? "Ontem" : "Sem. Passada", 0.0);
-            dadosSimulados.putAll(dadosAgrupados);
-            dadosAgrupados = dadosSimulados;
         }
 
         int n = dadosAgrupados.size();
@@ -83,6 +76,8 @@ public class EstatisticaService {
         double m = (denom == 0) ? 0 : (n * somaXY - somaX * somaY) / denom;
         double b = (somaY - m * somaX) / n;
 
+        // Um único período não sustenta uma tendência; não inventa um período anterior.
+        if (n < 2) return resultado;
         resultado.get(resultado.size() - 1).put("previsto", ultimaVendaReal);
 
         for (int i = 1; i <= 2; i++) {
@@ -102,19 +97,23 @@ public class EstatisticaService {
     public Map<String, Object> calcularCurvaABCFluxo(Long empresaId) {
         List<Venda> vendas = vendaRepository.findByEmpresaId(empresaId);
         Map<String, Double> faturamentoPorProduto = new HashMap<>();
-        Map<LocalDate, Double> faturamentoPorSemana = new TreeMap<>(); 
+        Map<String, String> nomesProdutos = new HashMap<>();
+        Map<LocalDate, BigDecimal> faturamentoPorSemana = new TreeMap<>();
         double faturamentoTotal = 0;
 
         for (Venda v : vendas) {
             if (v.getDataVenda() != null) {
                 LocalDate inicioSemana = v.getDataVenda().toLocalDate().with(java.time.DayOfWeek.MONDAY);
-                faturamentoPorSemana.put(inicioSemana, faturamentoPorSemana.getOrDefault(inicioSemana, 0.0) + v.getTotal().doubleValue());
+                faturamentoPorSemana.merge(inicioSemana, v.getTotal(), BigDecimal::add);
             }
 
             for (ItemVenda item : v.getItens()) {
-                String nome = item.getProduto().getNome();
+                var produto = item.getProduto();
+                String chave = produto == null ? "desconhecido" : produto.getIdInterno();
+                String nome = produto == null ? "Produto não identificado" : produto.getNome() + " (" + produto.getId() + ")";
+                nomesProdutos.put(chave, nome);
                 double sub = item.getSubtotal().doubleValue();
-                faturamentoPorProduto.put(nome, faturamentoPorProduto.getOrDefault(nome, 0.0) + sub);
+                faturamentoPorProduto.put(chave, faturamentoPorProduto.getOrDefault(chave, 0.0) + sub);
                 faturamentoTotal += sub;
             }
         }
@@ -129,9 +128,9 @@ public class EstatisticaService {
         for (Map.Entry<String, Double> entry : listaProd) {
             if (faturamentoTotal == 0) break;
             double pct = (entry.getValue() / faturamentoTotal) * 100;
-            if (acumulado < 80) { prodA.add(entry.getKey()); valA += pct; }
-            else if (acumulado < 95) { prodB.add(entry.getKey()); valB += pct; }
-            else { prodC.add(entry.getKey()); valC += pct; }
+            if (acumulado < 80) { prodA.add(nomesProdutos.get(entry.getKey())); valA += pct; }
+            else if (acumulado < 95) { prodB.add(nomesProdutos.get(entry.getKey())); valB += pct; }
+            else { prodC.add(nomesProdutos.get(entry.getKey())); valC += pct; }
             acumulado += pct;
         }
 
@@ -142,20 +141,21 @@ public class EstatisticaService {
         );
 
         List<Map<String, Object>> fluxo = new ArrayList<>();
-        for (Map.Entry<LocalDate, Double> sem : faturamentoPorSemana.entrySet()) {
+        for (Map.Entry<LocalDate, BigDecimal> sem : faturamentoPorSemana.entrySet()) {
             String label = "Sem " + sem.getKey().getDayOfMonth() + "/" + sem.getKey().getMonthValue();
-            fluxo.add(Map.of("mes", label, "receitas", sem.getValue(), "despesas", sem.getValue() * 0.6));
+            fluxo.add(Map.of("mes", label + "/" + sem.getKey().getYear(), "receitas", sem.getValue()));
         }
 
         String produtoAltaTendencia = "Aguardando Vendas";
-        String produtoParado = "Estoque Saudável";
+        String produtoParado = "Aguardando vendas";
         
         if (!listaProd.isEmpty()) {
-            produtoAltaTendencia = listaProd.get(0).getKey(); 
-            produtoParado = listaProd.get(listaProd.size() - 1).getKey(); 
+            produtoAltaTendencia = nomesProdutos.get(listaProd.get(0).getKey());
+            produtoParado = nomesProdutos.get(listaProd.get(listaProd.size() - 1).getKey());
         }
 
-        return Map.of("curva", abc, "fluxo", fluxo, "produtoAltaTendencia", produtoAltaTendencia, "produtoParado", produtoParado);
+        return Map.of("curva", abc, "fluxo", fluxo, "produtoAltaTendencia", produtoAltaTendencia,
+                "produtoParado", produtoParado, "margens", AnaliseMargens.calcular(vendas));
     }
 
     // --- 3. TRÁFEGO POR DIA DA SEMANA POR EMPRESA ---
