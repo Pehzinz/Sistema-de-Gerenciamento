@@ -1,3 +1,4 @@
+import { LabelInput } from './label-input';
 import { controleInicial } from '../utils/controleEstoque';
 const campo = { display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: '180px' };
 const input = { padding: '12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '15px' };
@@ -15,19 +16,11 @@ export default function ControleEstoqueForm({ value, onChange, edicao = false, t
         </select>
       </label>
       {value.tipoEstoque === 'COTA_TEMPO' ? <>
-        <label style={campo}>Limite de vendas por intervalo
-          <input style={input} type="number" min="1" max="2147483647" step="1" required value={value.limiteCota ?? ''} onChange={e => mudar('limiteCota', e.target.value)} />
-        </label>
-        <label style={campo}>Renovar a cada (minutos)
-          <input style={input} type="number" min="1" max="2147483647" step="1" required placeholder="60 = 1 hora; 1440 = 1 dia" value={value.intervaloCotaMinutos ?? ''} onChange={e => mudar('intervaloCotaMinutos', e.target.value)} />
-        </label>
+        <div style={campo}><LabelInput label="Limite de vendas por intervalo" style={input} type="number" min="1" max="2147483647" step="1" required value={value.limiteCota ?? ''} onChange={e => mudar('limiteCota', e.target.value)} /></div>
+        <div style={campo}><LabelInput label="Renovar a cada (minutos)" style={input} type="number" min="1" max="2147483647" step="1" required placeholder="60 = 1 hora; 1440 = 1 dia" value={value.intervaloCotaMinutos ?? ''} onChange={e => mudar('intervaloCotaMinutos', e.target.value)} /></div>
       </> : <>
-        <label style={campo}>{edicao ? (tipoOriginal === value.tipoEstoque ? 'Estoque físico atual (use a reposição para adicionar)' : 'Estoque físico inicial do novo tipo') : 'Estoque Inicial'}
-          <input style={input} type="number" min="0" max="2147483647" step="1" required readOnly={edicao && tipoOriginal === value.tipoEstoque} value={value.estoque ?? ''} onChange={e => mudar('estoque', e.target.value)} />
-        </label>
-        {value.tipoEstoque === 'VALIDADE' && <label style={campo}>Validade comercial (horário local)
-          <input style={input} type="datetime-local" required value={value.validadeComercial || ''} onChange={e => mudar('validadeComercial', e.target.value)} />
-        </label>}
+        <div style={campo}><LabelInput label={edicao ? (tipoOriginal === value.tipoEstoque ? 'Estoque físico atual (use a reposição para adicionar)' : 'Estoque físico inicial do novo tipo') : 'Estoque Inicial'} style={input} type="number" min="0" max="2147483647" step="1" required readOnly={edicao && tipoOriginal === value.tipoEstoque} value={value.estoque ?? ''} onChange={e => mudar('estoque', e.target.value)} /></div>
+        {value.tipoEstoque === 'VALIDADE' && <div style={campo}><LabelInput label="Validade comercial (horário local)" style={input} type="datetime-local" required value={value.validadeComercial || ''} onChange={e => mudar('validadeComercial', e.target.value)} /></div>}
       </>}
     </div>
     {value.tipoEstoque === 'COTA_TEMPO' && <p style={{ color: '#666', fontSize: '13px' }}>Disponibilidade por cota, sem estoque físico. O limite é renovado a cada intervalo, contado a partir da configuração.</p>}

@@ -1,3 +1,4 @@
+import { LabelInput } from '../components/label-input';
 import useAtualizacaoCotas from '../hooks/useAtualizacaoCotas';
 import { garantirSuporteControleEstoque, validarControlePersistido, lerCustoUnitario, garantirSuporteCustos, validarCustoPersistido } from '../services/produtos';
 import CustoProdutoInput from '../components/CustoProdutoInput';
@@ -439,19 +440,16 @@ function CadastroProduto() {
             <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
               <form onSubmit={salvarProduto} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>Código de Barras (10 dígitos) *</label>
-                  <input type="text" value={codigoBarras} onChange={(e) => setCodigoBarras(e.target.value.replace(/\D/g, ''))} required maxLength="10" placeholder="Ex: 7891020304" style={{ padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#fafafa', fontSize: '15px', outline: 'none' }} />
+                  <LabelInput label="Código de Barras (10 dígitos) *" type="text" value={codigoBarras} onChange={(e) => setCodigoBarras(e.target.value.replace(/\D/g, ''))} required maxLength="10" placeholder="Ex: 7891020304" style={{ padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#fafafa', fontSize: '15px', outline: 'none' }} />
                 </div>
 
                 <div className="responsive-row" style={{ display: 'flex', gap: '20px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', flex: 2 }}>
-                    <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>Nome do Produto *</label>
-                    <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} required placeholder="Ex: Mouse Gamer" style={{ padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#fafafa', fontSize: '15px', outline: 'none' }} />
+                    <LabelInput label="Nome do Produto *" type="text" value={nome} onChange={(e) => setNome(e.target.value)} required placeholder="Ex: Mouse Gamer" style={{ padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#fafafa', fontSize: '15px', outline: 'none' }} />
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                    <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>Marca *</label>
-                    <input type="text" value={marca} onChange={(e) => setMarca(e.target.value)} required placeholder="Ex: Razer" style={{ padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#fafafa', fontSize: '15px', outline: 'none' }} />
+                    <LabelInput label="Marca *" type="text" value={marca} onChange={(e) => setMarca(e.target.value)} required placeholder="Ex: Razer" style={{ padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#fafafa', fontSize: '15px', outline: 'none' }} />
                   </div>
                 </div>
 
@@ -476,8 +474,7 @@ function CadastroProduto() {
 
                 <div className="responsive-row" style={{ display: 'flex', gap: '20px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                    <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>Valor do Produto (R$) *</label>
-                    <input type="text" value={preco} onChange={(e) => setPreco(e.target.value)} required placeholder="R$ 0,00" style={{ padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#fafafa', fontSize: '15px', outline: 'none' }} />
+                    <LabelInput label="Valor do Produto (R$) *" type="text" value={preco} onChange={(e) => setPreco(e.target.value)} required placeholder="R$ 0,00" style={{ padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#fafafa', fontSize: '15px', outline: 'none' }} />
                   </div>
                   <CustoProdutoInput value={custoUnitario} onChange={setCustoUnitario} preco={preco.replace(',', '.')} />
 
@@ -491,16 +488,13 @@ function CadastroProduto() {
                     <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#666' }}>Se preenchido, o desconto aplica-se automaticamente no período.</p>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', width: '130px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#d63031', marginBottom: '5px' }}>Preço Promo (R$)</label>
-                    <input type="text" value={precoPromo} onChange={(e) => setPrecoPromo(e.target.value)} placeholder="0.00" style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ffcccc', outline: 'none' }} />
+                    <LabelInput label="Preço Promo (R$)" type="text" value={precoPromo} onChange={(e) => setPrecoPromo(e.target.value)} placeholder="0.00" style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ffcccc', outline: 'none' }} />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', width: '135px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#d63031', marginBottom: '5px' }}>Início</label>
-                    <input type="date" value={dataInicioPromo} onChange={(e) => setDataInicioPromo(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ffcccc', outline: 'none', cursor: 'pointer' }} />
+                    <LabelInput label="Início" type="date" value={dataInicioPromo} onChange={(e) => setDataInicioPromo(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ffcccc', outline: 'none', cursor: 'pointer' }} />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', width: '135px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#d63031', marginBottom: '5px' }}>Válido até</label>
-                    <input type="date" value={dataFimPromo} onChange={(e) => setDataFimPromo(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ffcccc', outline: 'none', cursor: 'pointer' }} />
+                    <LabelInput label="Válido até" type="date" value={dataFimPromo} onChange={(e) => setDataFimPromo(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ffcccc', outline: 'none', cursor: 'pointer' }} />
                   </div>
                 </div>
 
@@ -517,8 +511,7 @@ function CadastroProduto() {
               
               <form onSubmit={buscarProdutoParaReposicao} style={{ display: 'flex', gap: '15px', alignItems: 'flex-end', marginBottom: '30px' }}>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                  <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>Buscar por Código de Barras *</label>
-                  <input type="text" maxLength="10" placeholder="10 dígitos numéricos" value={codigoBarrasReposicao} onChange={(e) => setCodigoBarrasReposicao(e.target.value.replace(/\D/g, ''))} style={{ padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#fafafa', fontSize: '15px', outline: 'none' }} required />
+                  <LabelInput label="Buscar por Código de Barras *" type="text" maxLength="10" placeholder="10 dígitos numéricos" value={codigoBarrasReposicao} onChange={(e) => setCodigoBarrasReposicao(e.target.value.replace(/\D/g, ''))} style={{ padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#fafafa', fontSize: '15px', outline: 'none' }} required />
                 </div>
                 <button type="submit" disabled={buscandoProduto} style={{ padding: '15px 30px', backgroundColor: '#8e44ad', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}>
                   {buscandoProduto ? 'Buscando...' : 'Buscar'}
@@ -567,9 +560,9 @@ function CadastroProduto() {
                       </div>
 
                       {produtoEncontrado.tipoEstoque !== 'COTA_TEMPO' && <div style={{ border: '1px solid #eee', padding: '20px', borderRadius: '10px' }}>
-                        <label style={{ fontSize: '14px', fontWeight: 'bold', display: 'block', marginBottom: '10px' }}>Adicionar ao Estoque</label>
+                        <p style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 16px' }}>Adicionar ao Estoque</p>
                         <div style={{ display: 'flex', gap: '10px' }}>
-                          <input type="number" min="1" value={quantidadeAdicional} onChange={(e) => setQuantidadeAdicional(Math.max(1, parseInt(e.target.value) || 1))} style={{ width: '80px', padding: '10px', border: '1px solid #ccc', borderRadius: '5px', fontSize: '15px' }} />
+                          <LabelInput aria-label="Adicionar ao Estoque" label="Unidades" type="number" min="1" value={quantidadeAdicional} onChange={(e) => setQuantidadeAdicional(Math.max(1, parseInt(e.target.value) || 1))} style={{ width: '80px', padding: '10px', border: '1px solid #ccc', borderRadius: '5px', fontSize: '15px' }} />
                           <button type="button" onClick={confirmarReposicaoEstoque} style={{ backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '5px', padding: '0 20px', fontWeight: 'bold', cursor: 'pointer' }}>Confirmar</button>
                         </div>
                       </div>}
@@ -607,16 +600,13 @@ function CadastroProduto() {
                       
                       <div className="responsive-row" style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
                         <div style={{ flex: 1 }}>
-                          <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#d63031', marginBottom: '5px', display: 'block' }}>Preço Promo (R$)</label>
-                          <input type="text" value={precoPromoEdicao} onChange={(e) => setPrecoPromoEdicao(e.target.value)} placeholder="0.00" style={{ width: '100%', padding: '12px', borderRadius: '5px', border: '1px solid #ffcccc', outline: 'none', boxSizing: 'border-box' }} />
+                          <LabelInput label="Preço Promo (R$)" type="text" value={precoPromoEdicao} onChange={(e) => setPrecoPromoEdicao(e.target.value)} placeholder="0.00" style={{ width: '100%', padding: '12px', borderRadius: '5px', border: '1px solid #ffcccc', outline: 'none', boxSizing: 'border-box' }} />
                         </div>
                         <div style={{ flex: 1 }}>
-                          <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#d63031', marginBottom: '5px', display: 'block' }}>Início</label>
-                          <input type="date" value={dataInicioPromoEdicao} onChange={(e) => setDataInicioPromoEdicao(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '5px', border: '1px solid #ffcccc', outline: 'none', boxSizing: 'border-box' }} />
+                          <LabelInput label="Início" type="date" value={dataInicioPromoEdicao} onChange={(e) => setDataInicioPromoEdicao(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '5px', border: '1px solid #ffcccc', outline: 'none', boxSizing: 'border-box' }} />
                         </div>
                         <div style={{ flex: 1 }}>
-                          <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#d63031', marginBottom: '5px', display: 'block' }}>Fim</label>
-                          <input type="date" value={dataFimPromoEdicao} onChange={(e) => setDataFimPromoEdicao(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '5px', border: '1px solid #ffcccc', outline: 'none', boxSizing: 'border-box' }} />
+                          <LabelInput label="Fim" type="date" value={dataFimPromoEdicao} onChange={(e) => setDataFimPromoEdicao(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '5px', border: '1px solid #ffcccc', outline: 'none', boxSizing: 'border-box' }} />
                         </div>
                       </div>
 
@@ -644,7 +634,7 @@ function CadastroProduto() {
         <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10 }}>
           <div style={{ backgroundColor: 'white', padding: '35px', borderRadius: '15px', width: '380px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
             <h3 style={{ marginTop: 0, color: '#333', fontSize: '20px' }}>Nova Categoria</h3>
-            <input type="text" placeholder="Ex: Monitores" value={nomeNovaCategoria} onChange={(e) => setNomeNovaCategoria(e.target.value)} style={{ width: '100%', padding: '15px', boxSizing: 'border-box', border: '1px solid #ccc', borderRadius: '8px', marginBottom: '25px', outline: 'none' }} />
+            <LabelInput type="text" placeholder="Ex: Monitores" value={nomeNovaCategoria} onChange={(e) => setNomeNovaCategoria(e.target.value)} style={{ width: '100%', padding: '15px', boxSizing: 'border-box', border: '1px solid #ccc', borderRadius: '8px', marginBottom: '25px', outline: 'none' }} />
             <div className="responsive-row" style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px' }}>
               <button onClick={() => setModalCategoriaAberto(false)} style={{ padding: '12px 20px', border: 'none', background: '#f5f5f5', color: '#555', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Cancelar</button>
               <button onClick={salvarNovaCategoria} style={{ padding: '12px 20px', border: 'none', background: '#8e44ad', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Salvar Categoria</button>

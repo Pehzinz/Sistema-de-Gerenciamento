@@ -1,3 +1,4 @@
+import { LabelInput } from '../components/label-input';
 import { useState, useEffect, useCallback } from 'react';
 import Navbar from '../components/Navbar';
 import { BASE_URL, apiFetch as fetch } from '../services/api';
@@ -372,17 +373,14 @@ function Calendario() {
             <h3 style={{ color: '#333', marginTop: 0, fontSize: '20px', marginBottom: '25px' }}>{editandoId ? '✏️ Editar Evento' : '📅 Novo Evento'}</h3>
             <form onSubmit={salvarEvento}>
               <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#888', marginBottom: '5px' }}>TÍTULO DO EVENTO</label>
-                <input type="text" required value={form.titulo} onChange={e => setForm({...form, titulo: e.target.value})} style={{ width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '8px', boxSizing: 'border-box', outlineColor: '#8e44ad' }} placeholder="Ex: Fechar folha de ponto" />
+                <LabelInput label="TÍTULO DO EVENTO" type="text" required value={form.titulo} onChange={e => setForm({...form, titulo: e.target.value})} style={{ width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '8px', boxSizing: 'border-box', outlineColor: '#8e44ad' }} placeholder="Ex: Fechar folha de ponto" />
               </div>
               <div className="responsive-row" style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
                 <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#888', marginBottom: '5px' }}>DATA</label>
-                  <input type="date" required min={hojeStr} value={form.data} onChange={e => setForm({...form, data: e.target.value})} style={{ width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '8px', boxSizing: 'border-box', outlineColor: '#8e44ad', color: '#555' }} />
+                  <LabelInput label="DATA" type="date" required min={hojeStr} value={form.data} onChange={e => setForm({...form, data: e.target.value})} style={{ width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '8px', boxSizing: 'border-box', outlineColor: '#8e44ad', color: '#555' }} />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#888', marginBottom: '5px' }}>HORÁRIO</label>
-                  <input type="time" required value={form.hora} onChange={e => setForm({...form, hora: e.target.value})} style={{ width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '8px', boxSizing: 'border-box', outlineColor: '#8e44ad', color: '#555' }} />
+                  <LabelInput label="HORÁRIO" type="time" required value={form.hora} onChange={e => setForm({...form, hora: e.target.value})} style={{ width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '8px', boxSizing: 'border-box', outlineColor: '#8e44ad', color: '#555' }} />
                 </div>
               </div>
               <div style={{ marginBottom: '30px' }}>

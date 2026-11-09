@@ -1,6 +1,11 @@
+import { LabelInput } from '../components/label-input';
+import AnimatedGradient from '../components/animated-gradient';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BASE_URL, apiFetch as fetch, readApiError } from '../services/api';
+
+// Spell's Mist parameters, recolored with Nexo's purple palette.
+const mistConfig = { preset: 'custom', color1: '#171021', color2: '#8e44ad', color3: '#171021', rotation: 0, proportion: 33, scale: 0.48, speed: 39, distortion: 4, swirl: 65, swirlIterations: 5, softness: 100, offset: -235, shape: 'Edge', shapeSize: 48 };
 
 function Login() {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -95,8 +100,14 @@ function Login() {
 
   return (
     <div className="login-page" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif' }}>
-      
+      <AnimatedGradient config={mistConfig} className="login-gradient" />
+      <div className="login-intro">
+        <a className="login-brand" href="/" aria-label="Nexo Gestão, início"><span className="brand-symbol">n</span> nexo<span className="brand-tag">GESTÃO</span></a>
+        <div className="login-intro-copy"><span className="login-eyebrow">SEU NEGÓCIO, EM SINTONIA</span><h1>Mais clareza.<br />Novas possibilidades.</h1><p>Produtos, vendas e decisões conectados em um só lugar. Simplifique a rotina e dê espaço ao que vem a seguir.</p><div className="login-features"><span>Estoque organizado</span><span>Gestão inteligente</span></div></div>
+        <span className="login-footer">Um novo olhar para a sua gestão.</span>
+      </div>
       <div className="login-card" style={{ backgroundColor: 'white', padding: '40px', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', width: '380px', textAlign: 'center' }}>
+        <span className="login-card-eyebrow">BEM-VINDO AO NEXO</span>
         
         {!isRegistering ? (
           <>
@@ -114,8 +125,8 @@ function Login() {
             )}
 
             <form onSubmit={fazerLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <input type="text" placeholder="CPF do Usuário" value={cpf} onChange={(e) => setCpf(e.target.value)} required style={inputStyle} />
-              <input type="password" placeholder="Senha" value={senha} onChange={(e) => setSenha(e.target.value)} required style={inputStyle} />
+              <LabelInput autoComplete="username" inputMode="numeric" type="text" placeholder="CPF do Usuário" value={cpf} onChange={(e) => setCpf(e.target.value)} required style={inputStyle} />
+              <LabelInput autoComplete="current-password" type="password" placeholder="Senha" value={senha} onChange={(e) => setSenha(e.target.value)} required style={inputStyle} />
               <button type="submit" style={btnStyle}>Entrar no Sistema</button>
             </form>
 
@@ -141,13 +152,13 @@ function Login() {
 
             <form onSubmit={cadastrarEmpresa} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: '#888' }}>DADOS DA EMPRESA</div>
-              <input type="text" placeholder="Nome da Empresa (Fantasia)" value={nomeEmpresa} onChange={(e) => setNomeEmpresa(e.target.value)} required style={inputStyle} />
-              <input type="text" placeholder="CNPJ" value={cnpj} onChange={(e) => setCnpj(e.target.value)} required style={inputStyle} />
+              <LabelInput type="text" placeholder="Nome da Empresa (Fantasia)" value={nomeEmpresa} onChange={(e) => setNomeEmpresa(e.target.value)} required style={inputStyle} />
+              <LabelInput type="text" placeholder="CNPJ" value={cnpj} onChange={(e) => setCnpj(e.target.value)} required style={inputStyle} />
               
               <div style={{ textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: '#888', marginTop: '10px' }}>DADOS DO ADMINISTRADOR</div>
-              <input type="text" placeholder="Seu Nome Completo" value={nomeAdmin} onChange={(e) => setNomeAdmin(e.target.value)} required style={inputStyle} />
-              <input type="text" placeholder="Seu CPF" value={cpfAdmin} onChange={(e) => setCpfAdmin(e.target.value)} required style={inputStyle} />
-              <input type="password" placeholder="Crie uma senha (mín. 12 caracteres)" minLength={12} maxLength={72} value={senhaAdmin} onChange={(e) => setSenhaAdmin(e.target.value)} required style={inputStyle} />
+              <LabelInput type="text" placeholder="Seu Nome Completo" value={nomeAdmin} onChange={(e) => setNomeAdmin(e.target.value)} required style={inputStyle} />
+              <LabelInput type="text" placeholder="Seu CPF" value={cpfAdmin} onChange={(e) => setCpfAdmin(e.target.value)} required style={inputStyle} />
+              <LabelInput autoComplete="new-password" type="password" placeholder="Crie uma senha (mín. 12 caracteres)" minLength={12} maxLength={72} value={senhaAdmin} onChange={(e) => setSenhaAdmin(e.target.value)} required style={inputStyle} />
 
               <button type="submit" style={{...btnStyle, backgroundColor: '#28a745'}}>Concluir Cadastro</button>
             </form>

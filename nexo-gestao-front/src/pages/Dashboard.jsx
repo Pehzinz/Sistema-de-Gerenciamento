@@ -1,3 +1,4 @@
+import { LabelInput } from '../components/label-input';
 import { filtrarVendasPeriodo, descricaoPeriodo, dataHoraGeracao, formatarDataVenda } from '../utils/relatorioVendas';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -279,12 +280,8 @@ function Dashboard() {
           <section aria-label="Período do relatório contábil" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e0c3fc' }}>
             <h2 style={{ margin: '0 0 14px', fontSize: '16px', color: '#71358b' }}>Período do relatório contábil</h2>
             <div className="responsive-row" style={{ display: 'flex', gap: '16px', alignItems: 'flex-end' }}>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>Data inicial
-                <input type="date" max={hoje} value={dataInicioRelatorio} disabled={gerandoPdf} onChange={e => setDataInicioRelatorio(e.target.value)} style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', width: '100%' }} />
-              </label>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>Data final
-                <input type="date" max={hoje} value={dataFimRelatorio} disabled={gerandoPdf} onChange={e => setDataFimRelatorio(e.target.value)} style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', width: '100%' }} />
-              </label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}><LabelInput label="Data inicial" type="date" max={hoje} value={dataInicioRelatorio} disabled={gerandoPdf} onChange={e => setDataInicioRelatorio(e.target.value)} style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', width: '100%' }} /></div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}><LabelInput label="Data final" type="date" max={hoje} value={dataFimRelatorio} disabled={gerandoPdf} onChange={e => setDataFimRelatorio(e.target.value)} style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', width: '100%' }} /></div>
               <button type="button" disabled={gerandoPdf} onClick={() => { setDataInicioRelatorio(''); setDataFimRelatorio(''); }} style={{ padding: '10px 16px', border: '1px solid #e0c3fc', borderRadius: '6px', color: '#71358b', backgroundColor: '#fcf9ff' }}>Todo o histórico</button>
             </div>
             <p style={{ marginBottom: '8px', fontSize: '13px', color: '#666' }}>Sem datas, o PDF inclui todo o histórico até hoje. Você também pode preencher apenas o início ou o fim. O dia final é incluído por completo.</p>

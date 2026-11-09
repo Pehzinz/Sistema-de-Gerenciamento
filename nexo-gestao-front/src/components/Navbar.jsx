@@ -5,7 +5,7 @@ function MenuItem({ to, icon, label, onNavigate }) {
     const active = useLocation().pathname === to;
     
     return (
-      <Link to={to} onClick={onNavigate} aria-current={active ? 'page' : undefined} style={{
+      <Link className="menu-item" to={to} onClick={onNavigate} aria-current={active ? 'page' : undefined} style={{
         display: 'flex', 
         alignItems: 'center', 
         padding: '12px 15px', 

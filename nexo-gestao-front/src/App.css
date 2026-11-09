@@ -65,3 +65,126 @@ img { max-width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+/* Nexo UI. Shared theme also normalizes visual declarations in legacy page layouts. */
+:root {
+  --primary: #8e44ad;
+  --primary-dark: #71358b;
+  --primary-soft: #f5eef9;
+  --ink: #292331;
+  --muted: #787180;
+  --line: #e9e5ed;
+  --surface: #fff;
+  --canvas: #f7f6f9;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+}
+body { background: var(--canvas); color: var(--ink); font-family: 'Segoe UI', system-ui, sans-serif; }
+.app-shell, .sidebar, .login-page { font-family: inherit !important; }
+.app-shell { background: var(--canvas) !important; }
+.app-main { padding: 36px 40px !important; scrollbar-width: thin; scrollbar-color: #d9cde0 transparent; }
+.app-main > div { width: 100%; }
+.app-main h1 { color: var(--ink) !important; font-size: 30px !important; font-weight: 650; letter-spacing: -1px; line-height: 1.25; }
+.app-main h2, .app-main h3 { letter-spacing: -.4px; font-weight: 600; }
+.app-main p { line-height: 1.65; }
+/* White legacy panels keep their individual layout and receive a common surface treatment. */
+.app-main div[style*="background-color: white"][style*="border-radius"],
+.app-main div[style*="background-color: rgb(255, 255, 255)"][style*="border-radius"] {
+  border: 1px solid var(--line) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 3px 16px #29153504 !important;
+}
+button, a, select { transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease, color .18s ease; }
+button { border-radius: 10px !important; font-weight: 600; }
+button:not(:disabled) { cursor: pointer; }
+button:hover:not(:disabled) { filter: brightness(.97); }
+button[style*="background-color: rgb(142, 68, 173)"] { box-shadow: 0 3px 8px #8e44ad16 !important; }
+button[style*="background-color: rgb(142, 68, 173)"]:hover { background: var(--primary-dark) !important; }
+button:disabled { cursor: not-allowed; }
+.sidebar { width: 252px !important; padding: 28px 18px 18px !important; border-right: 1px solid var(--line) !important; }
+.sidebar-brand { padding: 0 10px; margin-bottom: 32px !important; }
+.sidebar-brand > div:first-child { width: 40px !important; height: 40px !important; border-radius: 12px !important; box-shadow: 0 4px 10px #8e44ad20 !important; }
+.sidebar-brand h1 { font-size: 26px !important; letter-spacing: -1px !important; }
+.sidebar-brand span { font-size: 9px !important; letter-spacing: 1.2px !important; }
+.sidebar-caption { color: #958c9d !important; font-size: 10px !important; letter-spacing: 1.5px !important; margin-left: 14px !important; }
+.menu-item { min-height: 47px; padding: 7px 12px !important; margin-bottom: 4px !important; font-size: 13px; color: #716979 !important; border-radius: 10px !important; }
+.menu-item > div { background: transparent !important; box-shadow: none !important; color: #96889e !important; width: 28px !important; height: 30px !important; margin-right: 10px !important; }
+.menu-item:hover { background: #faf7fc !important; color: var(--primary-dark) !important; }
+.menu-item[aria-current="page"] { background: var(--primary-soft) !important; color: var(--primary-dark) !important; font-weight: 650 !important; }
+.menu-item[aria-current="page"] > div { color: var(--primary) !important; }
+.sidebar-profile { border-top: 1px solid var(--line); padding-top: 20px !important; margin-top: 20px !important; }
+.sidebar-profile button { color: var(--muted) !important; }
+.table-scroll { border-radius: 16px; }
+.table-scroll thead { background: #faf9fc !important; box-shadow: none !important; }
+.table-scroll th { color: #82778b !important; font-size: 10px !important; letter-spacing: 1px !important; padding: 18px 20px !important; }
+.table-scroll td { border-bottom-color: #f0edf3 !important; }
+.table-scroll tbody tr:hover { background: #fcfafe; }
+select, textarea { border: 1px solid #ded8e5 !important; border-radius: 10px !important; background-color: white; color: var(--ink); padding: 12px 14px !important; min-height: 46px; }
+select:focus, textarea:focus { border-color: var(--primary) !important; box-shadow: 0 0 0 3px #8e44ad12; outline: none; }
+fieldset { border-color: var(--line) !important; border-radius: 14px !important; }
+legend { font-size: 13px; font-weight: 600; color: var(--primary-dark); padding: 0 8px; }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); }
+input[type="file"] { border-radius: 10px !important; }
+input[type="file"]::file-selector-button { border: 0; border-radius: 6px; padding: 6px 10px; margin-right: 10px; color: var(--primary-dark); background: var(--primary-soft); cursor: pointer; }
+.modal-overlay { background: #21152f70 !important; backdrop-filter: blur(5px); z-index: 30 !important; }
+.modal-overlay > div { border: 1px solid var(--line); border-radius: 20px !important; box-shadow: 0 24px 100px #21152f26 !important; }
+
+/* Spell floating-label field, adapted to CSS and the Nexo palette. */
+.label-input { position: relative; min-width: 0; width: 100%; text-align: left; font-weight: 400; align-self: stretch; }
+.label-input__control { display: block; width: 100%; min-width: 0; height: 52px; padding: 17px 14px 9px; border: 1px solid #ded8e5; border-radius: 10px; background: var(--surface); color: var(--ink); font-size: 14px; outline: none; transition: border-color .2s, box-shadow .2s; }
+.label-input__control::placeholder { color: transparent; }
+.label-input__control:focus::placeholder { color: #a49aa9; }
+.label-input__control:focus { border-color: var(--field-ring); box-shadow: 0 0 0 3px #8e44ad12; outline: none !important; }
+.label-input__label { position: absolute; top: 0; left: 10px; max-width: calc(100% - 26px); padding: 0 4px; background: var(--surface); color: #807687; font-size: 12px; line-height: 1.4; transform: translateY(-50%); pointer-events: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: top .18s, transform .18s, font-size .18s, color .18s; }
+.label-input__control:placeholder-shown:not(:focus):not([type="date"]):not([type="time"]):not([type="datetime-local"]) + .label-input__label { top: 26px; font-size: 14px; background: transparent; }
+.label-input__control:focus + .label-input__label { color: var(--primary); }
+.label-input__control:disabled { background: #f4f2f6; color: #918898; cursor: not-allowed; }
+.label-input__control:read-only { color: #918898; }
+.label-input--password .label-input__control { padding-right: 45px; }
+.label-input--password .label-input__label { max-width: calc(100% - 56px); }
+.label-input__visibility { position: absolute; right: 4px; top: 5px; display: grid; place-items: center; height: 42px; min-height: 42px; width: 38px; padding: 0; background: transparent; border: 0; color: #92869c; }
+
+/* Auth: Mist fills the entire layer behind the form. */
+.login-page { position: relative; isolation: isolate; display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(360px, 440px); gap: 80px; padding: 56px max(6vw, 24px) !important; background: #171021 !important; overflow: hidden; }
+.login-gradient { min-height: 100%; }
+.login-intro { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: space-between; align-self: stretch; color: white; min-height: 650px; max-width: 620px; }
+.login-brand { display: flex; gap: 12px; align-items: center; color: white; font-size: 32px; font-weight: 650; letter-spacing: -1.5px; text-decoration: none; width: fit-content; }
+.brand-symbol { display: grid; place-items: center; background: #ffffff15; border: 1px solid #ffffff30; border-radius: 13px; width: 42px; height: 42px; font-size: 27px; }
+.brand-tag { font-size: 10px; letter-spacing: 2px; font-weight: 400; border-left: 1px solid #ffffff40; padding-left: 14px; margin-left: 4px; }
+.login-eyebrow { font-size: 10px; font-weight: 600; letter-spacing: 2.5px; color: #e0c3ef; }
+.login-intro h1 { font-size: clamp(36px, 4.4vw, 66px); letter-spacing: -2.5px; line-height: 1.1; font-weight: 500; margin: 24px 0; }
+.login-intro-copy > p { max-width: 390px; font-size: 15px; line-height: 1.8; color: #e1d5e9; }
+.login-features { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
+.login-features span { border: 1px solid #ffffff25; background: #ffffff08; border-radius: 30px; padding: 8px 14px; font-size: 11px; color: #efe4f4; }
+.login-features span::before { content: '✓'; margin-right: 8px; color: #d5a7e9; }
+.login-footer { color: #cbbcd5; font-size: 11px; }
+.login-card { position: relative; z-index: 1; width: 100% !important; padding: 40px !important; border-radius: 24px !important; box-shadow: 0 24px 100px #07020f45 !important; border: 1px solid #ffffff70; text-align: left !important; }
+.login-card-eyebrow { display: block; font-size: 9px; font-weight: 650; letter-spacing: 1.8px; color: #9a86a4; margin-bottom: 26px; }
+.login-card h2 { font-size: 27px; letter-spacing: -.8px; font-weight: 600; color: var(--ink) !important; margin-bottom: 10px !important; }
+.login-card p { line-height: 1.6; color: var(--muted) !important; }
+.login-card form { margin-top: 28px; gap: 18px !important; }
+.login-card button[type="submit"] { background: var(--primary) !important; color: white; min-height: 48px; font-size: 14px !important; box-shadow: 0 4px 12px #8e44ad24; }
+.login-card button[type="submit"]:hover { background: var(--primary-dark) !important; }
+.login-card button:not([type="submit"])[style*="color: rgb(0, 123, 255)"] { color: var(--primary) !important; }
+@media (max-width: 1200px) { .app-main { padding: 26px !important; } .login-page { gap: 40px; } }
+@media (max-width: 1024px) {
+  .sidebar { width: 100% !important; padding: 12px 20px !important; }
+  .sidebar-brand { padding: 0; margin-bottom: 0 !important; }
+  .sidebar-profile { margin-top: 16px !important; }
+  .login-page { grid-template-columns: minmax(0, 1fr) minmax(320px, 400px); gap: 30px; padding: 36px 30px !important; }
+  .login-intro { min-height: 580px; }
+  .login-intro h1 { font-size: 40px; }
+}
+@media (max-width: 760px) {
+  .login-page { display: flex !important; flex-direction: column; gap: 30px; padding: 28px 20px !important; }
+  .login-intro { min-height: 0; align-self: center; width: 100%; max-width: 440px; }
+  .login-intro-copy, .login-footer { display: none; }
+  .login-brand { font-size: 28px; }
+  .login-card { max-width: 440px; padding: 32px 24px !important; }
+}
+@media (max-width: 640px) {
+  .app-main { padding: 20px 16px !important; }
+  .app-main h1 { font-size: 25px !important; }
+  .sidebar { padding: 10px 16px !important; }
+  .label-input__control { font-size: 16px; }
+  .login-card { border-radius: 20px !important; }
+}

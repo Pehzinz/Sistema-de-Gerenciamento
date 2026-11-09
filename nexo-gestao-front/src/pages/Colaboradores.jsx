@@ -1,3 +1,4 @@
+import { LabelInput } from '../components/label-input';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
@@ -290,35 +291,29 @@ function Colaboradores() {
               <form style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
                 
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>Nome e Sobrenome</label>
-                  <input type="text" placeholder="Informe o nome e sobrenome" value={nome} onChange={(e) => setNome(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
+                  <LabelInput label="Nome e Sobrenome" type="text" placeholder="Informe o nome e sobrenome" value={nome} onChange={(e) => setNome(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>CPF</label>
-                  <input type="text" placeholder="000.000.000-00" value={cpf} onChange={(e) => setCpf(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
+                  <LabelInput label="CPF" type="text" placeholder="000.000.000-00" value={cpf} onChange={(e) => setCpf(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>Senha de Acesso</label>
-                  <input type="password" placeholder="Senha (mín. 12 caracteres)" minLength={12} maxLength={72} value={senha} onChange={(e) => setSenha(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
+                  <LabelInput label="Senha de Acesso" type="password" placeholder="Senha (mín. 12 caracteres)" minLength={12} maxLength={72} value={senha} onChange={(e) => setSenha(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
                 </div>
 
                 {/* Linha com Data de Nascimento e Telefone Lado a Lado */}
                 <div className="responsive-row" style={{ display: 'flex', gap: '15px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                    <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>Data de Nascimento</label>
-                    <input type="date" value={dataNascimento} onChange={(e) => setDataNascimento(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
+                    <LabelInput label="Data de Nascimento" type="date" value={dataNascimento} onChange={(e) => setDataNascimento(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                    <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>Número de Telefone</label>
-                    <input type="text" placeholder="(00) 00000-0000" value={telefone} onChange={(e) => setTelefone(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
+                    <LabelInput label="Número de Telefone" type="text" placeholder="(00) 00000-0000" value={telefone} onChange={(e) => setTelefone(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>Endereço</label>
-                  <input type="text" placeholder="Rua, número, bairro, cidade e CEP" value={endereco} onChange={(e) => setEndereco(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
+                  <LabelInput label="Endereço" type="text" placeholder="Rua, número, bairro, cidade e CEP" value={endereco} onChange={(e) => setEndereco(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
                 </div>
                 
                 <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
@@ -430,7 +425,7 @@ function Colaboradores() {
             
             <form onSubmit={validarAdminEdit}>
               {/* Máscara de CPF aplicada no onChange */}
-              <input 
+              <LabelInput
                 type="text" 
                 maxLength="14"
                 placeholder="CPF do Administrador" 
@@ -448,7 +443,7 @@ function Colaboradores() {
                 style={{ width: '100%', padding: '12px', marginBottom: '12px', boxSizing: 'border-box', border: '1px solid #ccc', borderRadius: '8px', outline: 'none', fontSize: '14px' }} 
                 required
               />
-              <input 
+              <LabelInput
                 type="password" 
                 placeholder="Senha do Administrador" 
                 value={senhaAdminEdit} 
@@ -482,29 +477,24 @@ function Colaboradores() {
             <form onSubmit={confirmarEdicao} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>Nome e Sobrenome</label>
-                <input type="text" value={nomeEdit} onChange={(e) => setNomeEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
+                <LabelInput label="Nome e Sobrenome" type="text" value={nomeEdit} onChange={(e) => setNomeEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>Nova Senha (Opcional)</label>
-                <input type="password" placeholder="Digite apenas se quiser alterar a senha atual" value={senhaEdit} onChange={(e) => setSenhaEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} />
+                <LabelInput label="Nova Senha (Opcional)" type="password" placeholder="Digite apenas se quiser alterar a senha atual" value={senhaEdit} onChange={(e) => setSenhaEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} />
               </div>
 
               <div className="responsive-row" style={{ display: 'flex', gap: '15px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                  <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>Data de Nascimento</label>
-                  <input type="date" value={dataNascimentoEdit} onChange={(e) => setDataNascimentoEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
+                  <LabelInput label="Data de Nascimento" type="date" value={dataNascimentoEdit} onChange={(e) => setDataNascimentoEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                  <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>Número de Telefone</label>
-                  <input type="text" value={telefoneEdit} onChange={(e) => setTelefoneEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
+                  <LabelInput label="Número de Telefone" type="text" value={telefoneEdit} onChange={(e) => setTelefoneEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
                 </div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>Endereço</label>
-                <input type="text" value={enderecoEdit} onChange={(e) => setEnderecoEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
+                <LabelInput label="Endereço" type="text" value={enderecoEdit} onChange={(e) => setEnderecoEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
               </div>
               
               <div className="responsive-row" style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px', marginTop: '20px' }}>
