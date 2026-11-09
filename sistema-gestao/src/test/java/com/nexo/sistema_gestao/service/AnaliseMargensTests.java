@@ -56,8 +56,9 @@ class AnaliseMargensTests {
         var service = new EstatisticaService();
         org.springframework.test.util.ReflectionTestUtils.setField(service, "vendaRepository", repositorio);
         var dados = service.calcularCurvaABCFluxo(1L);
-        assertEquals("Mesmo nome (1)", dados.get("produtoAltaTendencia"));
-        assertEquals("Mesmo nome (2)", dados.get("produtoParado"));
+        assertEquals("Mesmo nome", dados.get("produtoAltaTendencia"));
+        assertEquals("Mesmo nome", dados.get("produtoParado"));
+        assertEquals("Mesmo nome, Mesmo nome", ((Map<?, ?>) ((List<?>) dados.get("curva")).getFirst()).get("produtos"));
         var semana = (Map<?, ?>) ((List<?>) dados.get("fluxo")).getFirst();
         assertEquals(new BigDecimal("160.10"), semana.get("receitas"));
         assertFalse(semana.containsKey("despesas"));

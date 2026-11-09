@@ -104,7 +104,7 @@ public class EstatisticaService {
             for (ItemVenda item : v.getItens()) {
                 var produto = item.getProduto();
                 String chave = produto == null ? "desconhecido" : produto.getIdInterno();
-                String nome = produto == null ? "Produto não identificado" : produto.getNome() + " (" + produto.getId() + ")";
+                String nome = produto == null ? "Produto não identificado" : produto.getNome();
                 nomesProdutos.put(chave, nome);
                 double sub = item.getSubtotal().doubleValue();
                 faturamentoPorProduto.put(chave, faturamentoPorProduto.getOrDefault(chave, 0.0) + sub);
