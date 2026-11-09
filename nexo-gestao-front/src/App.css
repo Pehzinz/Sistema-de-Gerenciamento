@@ -233,7 +233,7 @@ input[type="file"]::file-selector-button { border: 0; border-radius: 6px; paddin
 .kiosk-shell .modal-overlay .button-group > button,
 .kiosk-shell .modal-overlay > div > div > button { min-height: 52px; font-size: 16px !important; }
 
-/* Calendar-style floating surfaces, shared by notices, forms and confirmations. */
+/* Calendar-style notices stay at the top right; interactive dialogs stay centered. */
 .notification-viewport { position: fixed; top: 24px; right: 24px; z-index: 10000; display: flex; flex-direction: column; gap: 12px; width: 360px; max-width: calc(100vw - 48px); max-height: 40dvh; overflow-y: auto; pointer-events: none; }
 .notification-card { position: relative; display: flex; align-items: flex-start; gap: 15px; padding: 15px 42px 15px 20px; background: rgba(255, 255, 255, .92); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, .7); border-radius: 16px; box-shadow: 0 10px 30px #00000014, 0 1px 3px #0000000d; pointer-events: auto; animation: floating-surface-in .25s ease-out; }
 .notification-icon { font-size: 24px; flex-shrink: 0; }
@@ -242,16 +242,16 @@ input[type="file"]::file-selector-button { border: 0; border-radius: 6px; paddin
 .notification-message { font-size: 13px; color: #666; margin-top: 3px; line-height: 1.55; white-space: pre-line; }
 .notification-close { position: absolute; top: 7px; right: 7px; display: grid; place-items: center; width: 30px; min-height: 30px; padding: 0; border: 0; background: transparent; color: #807587; font-size: 22px; }
 .notification-close:hover { background: var(--primary-soft); }
-.modal-overlay { align-items: flex-start !important; justify-content: flex-end !important; padding: calc(24px + var(--notification-stack-height, 0px)) 24px 24px !important; background: transparent !important; backdrop-filter: none !important; z-index: 9000 !important; }
-.modal-overlay > div { width: min(480px, 100%) !important; max-height: calc(100dvh - 48px - var(--notification-stack-height, 0px)) !important; padding: 24px !important; margin: 0 !important; background: rgba(255, 255, 255, .95) !important; backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, .7) !important; border-radius: 16px !important; box-shadow: 0 10px 30px #00000014, 0 1px 3px #0000000d !important; animation: floating-surface-in .25s ease-out; }
+.modal-overlay { position: fixed; inset: 0; display: flex; align-items: center !important; justify-content: center !important; padding: 24px !important; z-index: 9000 !important; }
+.modal-overlay > div { max-height: calc(100dvh - 48px) !important; margin: 0 !important; }
 body:has(.kiosk-shell) .notification-title { font-size: 18px; }
 body:has(.kiosk-shell) .notification-message { font-size: 16px; }
 body:has(.kiosk-shell) .notification-close { width: 40px; min-height: 40px; }
 @keyframes floating-surface-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
 @media (max-width: 640px) {
   .notification-viewport { top: 12px; right: 12px; max-width: calc(100vw - 24px); }
-  .modal-overlay { padding: calc(12px + var(--notification-stack-height, 0px)) 12px 12px !important; }
-  .modal-overlay > div { max-height: calc(100dvh - 24px - var(--notification-stack-height, 0px)) !important; padding: 20px !important; }
+  .modal-overlay { padding: 16px !important; }
+  .modal-overlay > div { max-height: calc(100dvh - 32px) !important; padding: 24px !important; }
 }
 @media (max-width: 1100px) {
   .kiosk-shell .pdv-columns { flex-direction: column !important; }

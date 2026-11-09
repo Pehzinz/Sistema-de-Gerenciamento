@@ -46,6 +46,24 @@ test('administrator keeps the navbar and normal PDV without fullscreen requests'
   expect(await page.evaluate(() => window.fullscreenRequests)).toBe(0);
 });
 
+test('receipt form stays centered after completing a self-service sale', async ({ page }) => {
+  await seed(page);
+  await page.route('**/api/produtos/catalogo/*', route => route.fulfill({ json: { id: '1234567890', nome: 'Produto do totem', preco: 10, estoque: 5 } }));
+  await page.route('**/api/vendas', route => route.fulfill({ status: 201, json: {} }));
+  await page.goto('/caixa');
+  await page.getByPlaceholder('Digite o código de barras (10 dígitos) - Ex: 1234567890').fill('1234567890');
+  await page.getByRole('button', { name: 'Adicionar', exact: true }).click();
+  await page.getByRole('button', { name: 'Selecionar Pagamento →', exact: true }).click();
+  await page.getByRole('radio', { name: 'Pix', exact: true }).check();
+  await page.getByRole('button', { name: 'Confirmar Pagamento ✓', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Venda Finalizada!' })).toBeVisible();
+  const box = await page.locator('.modal-overlay > div').boundingBox();
+  expect(Math.abs(box.x + box.width / 2 - page.viewportSize().width / 2)).toBeLessThanOrEqual(1);
+  expect(Math.abs(box.y + box.height / 2 - page.viewportSize().height / 2)).toBeLessThanOrEqual(1);
+  await expect(page.getByRole('button', { name: '🖨️ Imprimir Nota Fiscal' })).toBeVisible();
+  await page.screenshot({ path: 'test-results/centered-receipt.png' });
+});
+
 for (const [name, status, json] of [
   ['wrong password', 401, {}], ['server failure', 503, {}], ['rate limit', 429, {}],
   ['collaborator credentials', 200, { ...admin, perfil: 'COLABORADOR' }],

@@ -43,7 +43,7 @@ Todas as páginas usam o mesmo padrão visual do Calendário: superfícies clara
 
 Avisos de sucesso, erro e atenção substituem os alerts nativos, inclusive os avisos de campos obrigatórios e inválidos. Os avisos têm botão de fechar e duração própria (5 segundos; erros, 8 segundos), pausada durante leitura com mouse ou foco de teclado. Até três avisos aparecem simultaneamente. Avisos continuam visíveis ao navegar entre páginas dentro do aplicativo.
 
-Formulários e autorizações também aparecem no canto superior direito e mantêm campos, botões, validação e requisitos de segurança. Esses painéis não fecham por tempo. O painel desloca-se para baixo quando há notificações para evitar sobreposição, e pode rolar em telas pequenas. Os diálogos continuam bloqueando a interação com o fundo enquanto aguardam uma decisão.
+Formulários, autorizações, confirmações de exclusão e o formulário de nota fiscal após a venda ficam centralizados na tela, com o fundo escurecido, como antes. Mantêm campos, botões, validação e requisitos de segurança, não fecham por tempo e podem rolar em telas pequenas. Apenas os avisos simples permanecem no canto superior direito.
 
 A confirmação de limpar o estoque usa um painel com Confirmar e Cancelar; não dispara requisições antes da confirmação explícita. Cancelar, usar Escape ou navegar para outra página não autoriza a ação. O Calendário usa o mesmo provider das demais telas, sem uma implementação visual separada.
 
