@@ -316,7 +316,7 @@ function Colaboradores() {
                   <LabelInput label="Endereço" type="text" placeholder="Rua, número, bairro, cidade e CEP" value={endereco} onChange={(e) => setEndereco(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
                 </div>
                 
-                <div className="button-group" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <div className="button-group collaborator-create-actions" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                   <button onClick={(e) => cadastrarColaborador(e, 'ADMIN')} style={{ flex: 1, padding: '15px', backgroundColor: '#8e44ad', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                     + Administrador
                   </button>
