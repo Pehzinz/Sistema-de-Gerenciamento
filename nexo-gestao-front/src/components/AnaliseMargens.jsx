@@ -1,8 +1,9 @@
-const moeda = valor => valor == null ? 'Não disponível' : Number(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+import GraficoMargens from './GraficoMargens';
+import { moeda } from '../utils/moeda';
 
 export default function AnaliseMargens({ dados }) {
   return <section aria-label="Margem bruta dos produtos" style={{ background: 'white', padding: 25, borderRadius: 15, minWidth: 0 }}>
-    <h2 style={{ margin: '0 0 8px', fontSize: 18, color: '#333' }}>Margem bruta dos produtos</h2>
+    <h2 style={{ margin: '0 0 8px', fontSize: 18, color: '#333' }}>Margem realizada nas vendas</h2>
     <p style={{ fontSize: 13, color: '#555' }}>Receita menos o custo das unidades vendidas, registrado no momento de cada venda. Não inclui aluguel, salários, taxas ou outras despesas da loja; não representa o lucro líquido.</p>
     {!dados ? <p role="status">A análise de custos ainda não está disponível. Atualize o servidor e depois a análise.</p> : <>
       <p style={{ fontSize: 13, color: '#555' }}>Todo o histórico · {dados.unidadesComCusto} unidade(s) com custo registrado · {dados.unidadesSemCusto} unidade(s) sem custo registrado.</p>
@@ -19,6 +20,7 @@ export default function AnaliseMargens({ dados }) {
           <strong style={{ fontSize: 21, color: valor != null && valor < 0 ? '#b91c1c' : '#333' }}>{moeda(valor)}</strong>
         </div>)}
       </div>
+      {dados.margemPercentual != null && <p style={{ fontSize: 13 }}>Margem ponderada pela receita dos itens com custo: {Number(dados.margemPercentual).toLocaleString('pt-BR')}%.</p>}
       {dados.unidadesComCusto === 0 && <p>Não há vendas com custo registrado para calcular margens. Informe o custo unitário no cadastro ou na edição dos produtos.</p>}
       {dados.produtosComMargemNegativa > 0 && <p style={{ color: '#b91c1c', fontWeight: 'bold' }}>
         {dados.produtosComMargemNegativa} produto(s) com resultado bruto negativo nos itens com custo conhecido. Confira os primeiros da lista para revisar preço, custo e promoções.
@@ -26,6 +28,7 @@ export default function AnaliseMargens({ dados }) {
       {dados.produtos?.length > 0 && <>
         <h3 style={{ fontSize: 15 }}>Produtos vendidos: menores resultados brutos primeiro</h3>
         <p style={{ fontSize: 12, color: '#666' }}>Até 10 produtos. Resultados parciais consideram apenas unidades com custo registrado. Produtos sem custo conhecido aparecem depois dos demais.</p>
+        <GraficoMargens produtos={dados.produtos.filter(p => p.margemBruta != null)} campo="margemBruta" titulo="Gráfico do resultado bruto histórico por produto" />
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
             <thead><tr>{['Produto', 'Receita com custo', 'Custo vendido', 'Resultado bruto', 'Unidades com custo / total'].map(titulo => <th key={titulo} style={{ padding: 12, borderBottom: '2px solid #eee' }}>{titulo}</th>)}</tr></thead>

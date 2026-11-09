@@ -73,6 +73,45 @@ class SistemaGestaoApplicationTests {
                 + produto.getCategoria().getId() + "},\"custoUnitario\":" + custo + "}";
     }
 
+    @Test void browserPreflightAllowsCostPatchOnlyFromConfiguredOrigins() throws Exception {
+        var uri = URI.create("http://localhost:" + environment.getProperty("local.server.port") + "/api/produtos/" + produto.getId() + "/custo");
+        var request = HttpRequest.newBuilder(uri).method("OPTIONS", HttpRequest.BodyPublishers.noBody())
+                .header("Origin", "http://localhost:5173").header("Access-Control-Request-Method", "PATCH")
+                .header("Access-Control-Request-Headers", "authorization,content-type").build();
+        var response = http.send(request, HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, response.statusCode());
+        assertEquals("http://localhost:5173", response.headers().firstValue("Access-Control-Allow-Origin").orElseThrow());
+        assertTrue(response.headers().firstValue("Access-Control-Allow-Methods").orElseThrow().contains("PATCH"));
+        var estrangeiro = HttpRequest.newBuilder(uri).method("OPTIONS", HttpRequest.BodyPublishers.noBody())
+                .header("Origin", "https://origem-nao-autorizada.invalid").header("Access-Control-Request-Method", "PATCH").build();
+        assertEquals(403, http.send(estrangeiro, HttpResponse.BodyHandlers.ofString()).statusCode());
+    }
+
+    @Test void currentMarginsUpdateImmediatelyWithoutBackfillingSalesAndStayTenantScoped() throws Exception {
+        String caminho = "/api/tendencias/margens-catalogo?empresaId=999999";
+        assertEquals(0, json.readTree(call("GET", caminho, adminToken, null).body()).path("produtosComCusto").asInt());
+        assertEquals(200, call("PATCH", "/api/produtos/" + produto.getId() + "/custo", adminToken, "{\"custoUnitario\":12}").statusCode());
+        var atual = json.readTree(call("GET", caminho, adminToken, null).body());
+        assertEquals(1, atual.path("produtosComCusto").asInt());
+        assertEquals(-2.0, atual.path("produtos").get(0).path("margemUnitaria").asDouble());
+        assertEquals(0, atual.path("produtos").get(0).path("unidadesVendidas").asInt());
+        assertTrue(vendas.findByEmpresaId(empresa.getId()).isEmpty());
+        assertEquals(201, call("POST", "/api/vendas", colaboradorToken, sale(1, "10.00")).statusCode());
+        var historico = call("GET", "/api/vendas", adminToken, null).body();
+        assertEquals(200, call("PATCH", "/api/produtos/" + produto.getId() + "/custo", adminToken, "{\"custoUnitario\":3}").statusCode());
+        var depois = json.readTree(call("GET", caminho, adminToken, null).body());
+        assertEquals(7.0, depois.path("produtos").get(0).path("margemUnitaria").asDouble());
+        assertEquals(1, depois.path("produtos").get(0).path("unidadesVendidas").asInt());
+        assertEquals(historico, call("GET", "/api/vendas", adminToken, null).body());
+        assertEquals(-2.0, json.readTree(call("GET", "/api/tendencias/curva-fluxo", adminToken, null).body()).path("margens").path("margemBruta").asDouble());
+        assertEquals(403, call("GET", caminho, colaboradorToken, null).statusCode());
+        Empresa outra = empresas.save(new Empresa("Outra", "margens-" + empresa.getId()));
+        Produto externo = new Produto(); externo.setId(produto.getId()); externo.setIdInterno(outra.getId() + "-" + produto.getId());
+        externo.setNome("Outra empresa"); externo.setEmpresa(outra); externo.setPreco(10.0); externo.setEstoque(1);
+        externo.setCustoUnitario(new java.math.BigDecimal("999.00")); produtos.save(externo);
+        assertEquals(depois, json.readTree(call("GET", caminho, adminToken, null).body()));
+    }
+
     @Test void productCostsRespectTenantAndValidateMoney() throws Exception {
         Empresa outra = empresas.save(new Empresa("Outra", "custos-" + empresa.getId()));
         Produto externo = new Produto(); externo.setId(produto.getId()); externo.setIdInterno(outra.getId() + "-" + produto.getId());
