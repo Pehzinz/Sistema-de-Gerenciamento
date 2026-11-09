@@ -1,4 +1,4 @@
-﻿*.key
+ï»¿*.key
 *.key.pub
 ssh-key-*
 .env
@@ -8,3 +8,5 @@ node_modules/
 dist/
 playwright-report/
 test-results/
+
+.design-backups/

@@ -1,3 +1,4 @@
+import { LabelInput } from '../components/label-input';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
@@ -124,28 +125,23 @@ function Configuracoes() {
 
             <form className="settings-grid" onSubmit={salvarConfiguracoes} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
               <div style={{ gridColumn: 'span 2' }}>
-                <label style={{ fontSize: '12px', color: '#888', fontWeight: 'bold' }}>NOME FANTASIA</label>
-                <input type="text" value={empresa.nome} onChange={(e) => setEmpresa({...empresa, nome: e.target.value})} style={inputStyle} required />
+                <LabelInput label="NOME FANTASIA" type="text" value={empresa.nome} onChange={(e) => setEmpresa({...empresa, nome: e.target.value})} style={inputStyle} required />
               </div>
 
               <div>
-                <label style={{ fontSize: '12px', color: '#888', fontWeight: 'bold' }}>CNPJ (Bloqueado)</label>
-                <input type="text" value={empresa.cnpj} disabled style={{...inputStyle, backgroundColor: '#f0f0f0', color: '#aaa'}} />
+                <LabelInput label="CNPJ (Bloqueado)" type="text" value={empresa.cnpj} disabled style={{...inputStyle, backgroundColor: '#f0f0f0', color: '#aaa'}} />
               </div>
 
               <div>
-                <label style={{ fontSize: '12px', color: '#888', fontWeight: 'bold' }}>TELEFONE PÚBLICO</label>
-                <input type="text" value={empresa.telefone || ''} onChange={(e) => setEmpresa({...empresa, telefone: e.target.value})} style={inputStyle} placeholder="(00) 0000-0000" />
+                <LabelInput label="TELEFONE PÚBLICO" type="text" value={empresa.telefone || ''} onChange={(e) => setEmpresa({...empresa, telefone: e.target.value})} style={inputStyle} placeholder="(00) 0000-0000" />
               </div>
 
               <div style={{ gridColumn: 'span 2' }}>
-                <label style={{ fontSize: '12px', color: '#888', fontWeight: 'bold' }}>E-MAIL DE CONTATO</label>
-                <input type="email" value={empresa.email || ''} onChange={(e) => setEmpresa({...empresa, email: e.target.value})} style={inputStyle} placeholder="contato@empresa.com" />
+                <LabelInput label="E-MAIL DE CONTATO" type="email" value={empresa.email || ''} onChange={(e) => setEmpresa({...empresa, email: e.target.value})} style={inputStyle} placeholder="contato@empresa.com" />
               </div>
 
               <div style={{ gridColumn: 'span 2' }}>
-                <label style={{ fontSize: '12px', color: '#888', fontWeight: 'bold' }}>ENDEREÇO DA SEDE</label>
-                <input type="text" value={empresa.endereco || ''} onChange={(e) => setEmpresa({...empresa, endereco: e.target.value})} style={inputStyle} />
+                <LabelInput label="ENDEREÇO DA SEDE" type="text" value={empresa.endereco || ''} onChange={(e) => setEmpresa({...empresa, endereco: e.target.value})} style={inputStyle} />
               </div>
 
               <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
@@ -199,7 +195,7 @@ function Configuracoes() {
             </p>
             
             <form onSubmit={encerrarConta}>
-              <input 
+              <LabelInput
                 type="text" 
                 placeholder="Digite DELETAR" 
                 value={confirmacaoExclusao} 

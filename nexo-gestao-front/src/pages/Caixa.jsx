@@ -1,3 +1,4 @@
+import { LabelInput } from '../components/label-input';
 import { useState, useEffect, useRef } from 'react';
 import Navbar from '../components/Navbar';
 import { BASE_URL, apiFetch as fetch, readApiError } from '../services/api';
@@ -326,7 +327,7 @@ function Caixa() {
                   <h3 style={{ marginTop: 0, color: '#333', fontSize: '18px' }}>Adicionar produto à venda</h3>
                   
                   <form onSubmit={adicionarAoCarrinho} style={{ display: 'flex', gap: '12px', marginBottom: '30px' }}>
-                    <input 
+                    <LabelInput
                       type="text" 
                       maxLength="10"
                       placeholder="Digite o código de barras (10 dígitos) - Ex: 1234567890" 
@@ -495,14 +496,14 @@ function Caixa() {
               Somente o gerente pode autorizar a ação de <strong>{acaoPendente?.tipo === 'EXCLUIR' ? 'excluir o produto' : 'diminuir a quantidade'}</strong> desta venda.
             </p>
             
-            <input 
+            <LabelInput
               type="text" 
               placeholder="ID do Administrador" 
               value={cpfAdmin} 
               onChange={(e) => setCpfAdmin(e.target.value)} 
               style={{ width: '100%', padding: '12px', marginBottom: '12px', boxSizing: 'border-box', border: '1px solid #ccc', borderRadius: '8px', outline: 'none', fontSize: '14px' }} 
             />
-            <input 
+            <LabelInput
               type="password" 
               placeholder="Senha do Administrador" 
               value={senhaAdmin} 

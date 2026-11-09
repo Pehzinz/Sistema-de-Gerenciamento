@@ -1,3 +1,4 @@
+import { LabelInput } from '../components/label-input';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
@@ -152,8 +153,7 @@ function ExcluirProduto() {
             
             <form onSubmit={handleExcluirProduto} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>ID do Produto</label>
-                <input 
+                <LabelInput label="ID do Produto"
                   type="text" 
                   /*maxLength="10"*/  
                   placeholder="Apenas números" 
@@ -165,8 +165,7 @@ function ExcluirProduto() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', marginTop: '10px' }}>
-                <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px', color: '#d63031' }}>Confirmação</label>
-                <input 
+                <LabelInput label="Confirmação"
                   type="text" 
                   placeholder='Digite "Delete"' 
                   value={confirmacaoProduto} 
@@ -214,8 +213,7 @@ function ExcluirProduto() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', marginTop: '10px' }}>
-                <label style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px', color: '#d63031' }}>Confirmação</label>
-                <input 
+                <LabelInput label="Confirmação"
                   type="text" 
                   placeholder='Digite "Delete"' 
                   value={confirmacaoCategoria} 

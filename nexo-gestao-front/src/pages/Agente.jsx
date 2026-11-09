@@ -1,3 +1,4 @@
+import { LabelInput } from '../components/label-input';
 import { useState, useRef, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import ReactMarkdown from 'react-markdown'; // <-- IMPORTANTE: Nova biblioteca
@@ -165,7 +166,7 @@ function Agente() {
                 ))}
               </div>
               <form onSubmit={enviarMensagem} style={{ display: 'flex', gap: '15px' }}>
-                <input 
+                <LabelInput
                   type="text" 
                   placeholder="Pergunte sobre vendas, promoções, equipe ou peça conselhos de negócio..." 
                   value={input}
