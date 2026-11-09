@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import './App.css';
+import { NotificacoesProvider } from './components/Notificacoes';
 const Login = lazy(() => import('./pages/Login'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Caixa = lazy(() => import('./pages/Caixa'));
@@ -29,6 +30,7 @@ function LoginRoute() {
 export default function App() {
   return (
     <BrowserRouter>
+      <NotificacoesProvider>
       <Suspense fallback={<div className="loading-page" role="status">Carregando…</div>}>
         <Routes>
           <Route path="/" element={<LoginRoute />} />
@@ -49,6 +51,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
+      </NotificacoesProvider>
     </BrowserRouter>
   );
 }

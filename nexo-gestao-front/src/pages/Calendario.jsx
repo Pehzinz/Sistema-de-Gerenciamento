@@ -1,9 +1,11 @@
+import { useNotificacoes } from '../hooks/useNotificacoes';
 import { LabelInput } from '../components/label-input';
 import { useState, useEffect, useCallback } from 'react';
 import Navbar from '../components/Navbar';
 import { BASE_URL, apiFetch as fetch } from '../services/api';
 
 function Calendario() {
+  const { notificar } = useNotificacoes();
   const [agora, setAgora] = useState(() => Date.now());
   const [dataAtual, setDataAtual] = useState(() => new Date());
   const [diaSelecionado, setDiaSelecionado] = useState(() => new Date().toLocaleDateString('en-CA'));
@@ -20,7 +22,6 @@ function Calendario() {
   const [modalAberto, setModalAberto] = useState(false);
   const [editandoId, setEditandoId] = useState(null);
   const [form, setForm] = useState({ titulo: '', data: '', hora: '', descricao: '' });
-  const [notificacao, setNotificacao] = useState(null);
 
 
   const anoAtual = dataAtual.getFullYear();
@@ -108,8 +109,7 @@ function Calendario() {
   });
 
   const mostrarNotificacao = (titulo, mensagem, icone = '📌') => {
-    setNotificacao({ titulo, mensagem, icone });
-    setTimeout(() => setNotificacao(null), 4000); 
+    notificar(mensagem, { titulo, icone, tipo: icone === '❌' ? 'erro' : 'info' });
   };
 
   const diasDaSemana = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -244,22 +244,6 @@ function Calendario() {
   return (
     <div className="app-shell" style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden', position: 'relative' }}>
       
-      {notificacao && (
-        <div style={{
-          position: 'absolute', top: '30px', right: '30px', zIndex: 9999,
-          backgroundColor: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(12px)',
-          borderRadius: '16px', padding: '15px 20px', display: 'flex', alignItems: 'center', gap: '15px',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05)', border: '1px solid rgba(255,255,255,0.5)',
-          animation: 'slideIn 0.4s ease-out forwards', width: '280px'
-        }}>
-          <div style={{ fontSize: '24px' }}>{notificacao.icone}</div>
-          <div>
-            <div style={{ fontWeight: 'bold', fontSize: '14px', color: '#333' }}>{notificacao.titulo}</div>
-            <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>{notificacao.mensagem}</div>
-          </div>
-        </div>
-      )}
-
       <div style={{ flexShrink: 0 }}><Navbar /></div>
 
       <main className="app-main" style={{ flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>

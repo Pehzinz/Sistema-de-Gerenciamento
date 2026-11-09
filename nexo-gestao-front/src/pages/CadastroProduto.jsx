@@ -1,3 +1,4 @@
+import { useNotificacoes } from '../hooks/useNotificacoes';
 import { LabelInput } from '../components/label-input';
 import useAtualizacaoCotas from '../hooks/useAtualizacaoCotas';
 import { garantirSuporteControleEstoque, validarControlePersistido, lerCustoUnitario, garantirSuporteCustos, validarCustoPersistido } from '../services/produtos';
@@ -11,6 +12,7 @@ import { uploadImage } from '../services/upload';
 import { BASE_URL, readApiError, apiFetch as fetch } from '../services/api';
 
 function CadastroProduto() {
+  const { notificar } = useNotificacoes();
   const [modo, setModo] = useState('CADASTRAR');
 
   // --- Estados para CADASTRAR PRODUTO ---
@@ -94,7 +96,7 @@ function CadastroProduto() {
 
   const salvarNovaCategoria = async () => {
     if (!nomeNovaCategoria.trim()) {
-      alert('Digite o nome da categoria.');
+      notificar('Digite o nome da categoria.', { tipo: 'atencao' });
       return;
     }
 
@@ -122,15 +124,15 @@ function CadastroProduto() {
         if (!categoriaSalva.id || !persistidas.some(c => c.id === categoriaSalva.id && c.nome === categoriaSalva.nome)) {
           throw new Error('O servidor não confirmou a categoria na lista cadastrada. Atualize a lista e confira o banco antes de tentar novamente.');
         }
-        alert('Categoria criada com sucesso!');
+        notificar('Categoria criada com sucesso!', { tipo: 'sucesso' });
         setCategoriaSelecionada(categoriaSalva.id);
         setModalCategoriaAberto(false);
         setNomeNovaCategoria('');
       } else {
-        alert(await readApiError(resposta, 'Erro ao criar categoria'));
+        notificar(await readApiError(resposta, 'Erro ao criar categoria'), { tipo: 'erro' });
       }
     } catch (erro) {
-      alert(erro.message || 'Erro de conexão ao criar categoria.');
+      notificar(erro.message || 'Erro de conexão ao criar categoria.', { tipo: 'erro' });
     }
   };
 
@@ -139,7 +141,7 @@ function CadastroProduto() {
     const arquivo = e.target.files[0];
     if (!arquivo) return;
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(arquivo.type) || arquivo.size > 5 * 1024 * 1024) {
-      alert('Escolha uma imagem JPG, PNG ou WebP de até 5 MB.'); return;
+      notificar('Escolha uma imagem JPG, PNG ou WebP de até 5 MB.', { tipo: 'atencao' }); return;
     }
 
     setFazendoUpload(true);
@@ -147,7 +149,7 @@ function CadastroProduto() {
       const dados = { secure_url: await uploadImage(arquivo) };
       setImagemUrl(dados.secure_url); 
     } catch (error) {
-      alert(error.message || 'Erro ao enviar a imagem.');
+      notificar(error.message || 'Erro ao enviar a imagem.', { tipo: 'erro' });
     } finally {
       setFazendoUpload(false);
     }
@@ -158,7 +160,7 @@ function CadastroProduto() {
     const arquivo = e.target.files[0];
     if (!arquivo || !produtoEncontrado) return;
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(arquivo.type) || arquivo.size > 5 * 1024 * 1024) {
-      alert('Escolha uma imagem JPG, PNG ou WebP de até 5 MB.'); return;
+      notificar('Escolha uma imagem JPG, PNG ou WebP de até 5 MB.', { tipo: 'atencao' }); return;
     }
 
     setFazendoUploadEdicao(true);
@@ -171,7 +173,7 @@ function CadastroProduto() {
       salvarEdicaoProduto(produtoAtualizado, 'Foto do produto atualizada com sucesso!');
       
     } catch (error) {
-      alert(error.message || 'Erro ao enviar a imagem.');
+      notificar(error.message || 'Erro ao enviar a imagem.', { tipo: 'erro' });
     } finally {
       setFazendoUploadEdicao(false);
     }
@@ -208,13 +210,13 @@ function CadastroProduto() {
         } else {
           throw new Error('Não foi possível confirmar os dados salvos. Recarregue o produto antes de continuar.');
         }
-        alert(mensagemSucesso);
+        notificar(mensagemSucesso, { tipo: 'sucesso' });
       } else {
         const erro = await resposta.json().catch(() => ({}));
-        alert(erro.erro || 'Erro ao salvar as alterações no banco de dados.');
+        notificar(erro.erro || 'Erro ao salvar as alterações no banco de dados.', { tipo: 'erro' });
       }
     } catch (erro) {
-      alert(erro.message || 'Erro de conexão ao atualizar os dados.');
+      notificar(erro.message || 'Erro de conexão ao atualizar os dados.', { tipo: 'erro' });
     }
   };
 
@@ -224,10 +226,10 @@ function CadastroProduto() {
     const dFim = dataFimPromoEdicao || null;
 
     if (pPromo && (!dInicio || !dFim || isNaN(pPromo) || pPromo >= produtoEncontrado.preco)) {
-      return alert("Atenção: A promoção exige preço válido (menor que o original), data de início e data de fim.");
+      return notificar("Atenção: A promoção exige preço válido (menor que o original), data de início e data de fim.", { tipo: 'atencao' });
     }
     if (dInicio && dFim && dInicio > dFim) {
-      return alert("Falha de segurança: A data de início não pode ser depois da data de fim!");
+      return notificar("Falha de segurança: A data de início não pode ser depois da data de fim!", { tipo: 'erro' });
     }
 
     const produtoAtualizado = { 
@@ -262,7 +264,7 @@ function CadastroProduto() {
     e.preventDefault();
     const regexApenasNumeros = /^\d+$/;
     if (codigoBarras.length !== 10 || !regexApenasNumeros.test(codigoBarras)) {
-      alert('Atenção: O código de barras do produto deve conter exatamente 10 dígitos numéricos!');
+      notificar('Atenção: O código de barras do produto deve conter exatamente 10 dígitos numéricos!', { tipo: 'atencao' });
       return;
     }
     const precoFormatado = preco.toString().replace(',', '.');
@@ -270,17 +272,17 @@ function CadastroProduto() {
     const precoNumerico = parseFloat(precoFormatado);
 
     if (!regexPreco.test(precoFormatado) || isNaN(precoNumerico) || precoNumerico <= 0) {
-      alert('Atenção: Insira um preço válido (ex: 49.90 ou 49,90) maior que zero.');
+      notificar('Atenção: Insira um preço válido (ex: 49.90 ou 49,90) maior que zero.', { tipo: 'atencao' });
       return;
     }
 
     // VALIDAÇÃO DA PROMOÇÃO NO CADASTRO
     let pPromo = precoPromo ? parseFloat(precoPromo.replace(',', '.')) : null;
     if (pPromo && (!dataInicioPromo || !dataFimPromo || pPromo >= precoNumerico)) {
-      return alert("A promoção exige preço menor que o original, data de início e data de fim.");
+      return notificar("A promoção exige preço menor que o original, data de início e data de fim.", { tipo: 'atencao' });
     }
     if (dataInicioPromo && dataFimPromo && dataInicioPromo > dataFimPromo) {
-      return alert("Falha de segurança: A data de início não pode ser depois da data de fim!");
+      return notificar("Falha de segurança: A data de início não pode ser depois da data de fim!", { tipo: 'erro' });
     }
 
     const token = sessionStorage.getItem('token');
@@ -317,10 +319,10 @@ function CadastroProduto() {
         navigate('/admin');
       } else {
         const erro = await resposta.json().catch(() => ({}));
-        alert(erro.erro || 'Erro ao cadastrar o produto. Verifique os campos.');
+        notificar(erro.erro || 'Erro ao cadastrar o produto. Verifique os campos.', { tipo: 'erro' });
       }
     } catch (erro) {
-      alert(erro.message || 'Erro de conexão com o servidor.');
+      notificar(erro.message || 'Erro de conexão com o servidor.', { tipo: 'erro' });
     }
   };
 
@@ -348,10 +350,10 @@ function CadastroProduto() {
         setDataInicioPromoEdicao(prod.dataInicioPromocao || ''); 
         setDataFimPromoEdicao(prod.dataFimPromocao || '');
       } else {
-        alert('Produto não encontrado!');
+        notificar('Produto não encontrado!', { tipo: 'atencao' });
       }
     } catch {
-      alert('Erro ao buscar o produto.');
+      notificar('Erro ao buscar o produto.', { tipo: 'erro' });
     } finally {
       setBuscandoProduto(false);
     }
@@ -378,12 +380,12 @@ function CadastroProduto() {
         setProdutoEncontrado(null);
         setCodigoBarrasReposicao('');
         setQuantidadeAdicional(1);
-        alert('Estoque atualizado com sucesso!');
+        notificar('Estoque atualizado com sucesso!', { tipo: 'sucesso' });
       } else {
-        alert('Erro ao atualizar o estoque.');
+        notificar('Erro ao atualizar o estoque.', { tipo: 'erro' });
       }
     } catch {
-      alert('Erro de conexão.');
+      notificar('Erro de conexão.', { tipo: 'erro' });
     }
   };
 
@@ -591,8 +593,8 @@ function CadastroProduto() {
                           validarCustoPersistido(atualizado, custo);
                           setProdutoEncontrado(atualizado);
                           setCustoEdicao(atualizado.custoUnitario == null ? '' : String(atualizado.custoUnitario));
-                          alert('Custo atualizado para as próximas vendas.');
-                        } catch (erro) { alert(erro.message); }
+                          notificar('Custo atualizado para as próximas vendas.', { tipo: 'atencao' });
+                        } catch (erro) { notificar(erro.message, { tipo: 'erro' }); }
                       }} style={{ padding: '12px 18px', background: '#8e44ad', color: 'white', border: 0, borderRadius: 8, cursor: 'pointer' }}>Salvar custo unitário</button>
                     </div>
 

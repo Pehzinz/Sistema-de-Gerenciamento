@@ -1,3 +1,4 @@
+import { useNotificacoes } from '../hooks/useNotificacoes';
 import { LabelInput } from '../components/label-input';
 import { useState, useEffect, useRef } from 'react';
 import Navbar from '../components/Navbar';
@@ -5,6 +6,7 @@ import { BASE_URL, apiFetch as fetch, readApiError } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
 function Caixa() {
+  const { notificar } = useNotificacoes();
   const modoTotem = sessionStorage.getItem('perfil') === 'COLABORADOR';
   const navigate = useNavigate();
   const autorizacaoRef = useRef(null);
@@ -98,7 +100,7 @@ function Caixa() {
 
     const regexApenasNumeros = /^\d+$/;
     if (codigoProduto.length !== 10 || !regexApenasNumeros.test(codigoProduto)) {
-      alert('Atenção: O código de barras deve conter exatamente 10 dígitos numéricos!');
+      notificar('Atenção: O código de barras deve conter exatamente 10 dígitos numéricos!', { tipo: 'atencao' });
       return; 
     }
 
@@ -113,15 +115,15 @@ function Caixa() {
         const produto = await resposta.json();
         const disponibilidade = produto.quantidadeDisponivel ?? (produto.tipoEstoque === 'COTA_TEMPO' ? null : produto.estoque);
         if (!Number.isInteger(disponibilidade) || disponibilidade < 0) {
-          alert('O servidor não informou a disponibilidade deste produto. Confira a atualização do back-end.');
+          notificar('O servidor não informou a disponibilidade deste produto. Confira a atualização do back-end.', { tipo: 'atencao' });
           return;
         }
         produto.estoque = disponibilidade;
         
         if (produto.estoque < 1) {
-          alert(produto.tipoEstoque === 'COTA_TEMPO'
+          notificar(produto.tipoEstoque === 'COTA_TEMPO'
             ? `A cota de "${produto.nome}" está esgotada neste intervalo. Aguarde a renovação automática.`
-            : `O produto "${produto.nome}" está sem estoque disponível.`);
+            : `O produto "${produto.nome}" está sem estoque disponível.`, { tipo: 'atencao' });
           setCodigoProduto('');
           return;
         }
@@ -141,7 +143,7 @@ function Caixa() {
 
         if (indexExistente !== -1) {
           if (carrinho[indexExistente].quantidade >= produto.estoque) {
-            alert(`Atenção: Stock insuficiente! O limite máximo para "${produto.nome}" é de ${produto.estoque} unidade(s).`);
+            notificar(`Atenção: Stock insuficiente! O limite máximo para "${produto.nome}" é de ${produto.estoque} unidade(s).`, { tipo: 'atencao' });
             setCodigoProduto('');
             return;
           }
@@ -170,12 +172,12 @@ function Caixa() {
         
         setCodigoProduto(''); 
       } else {
-        alert(resposta.status === 404
+        notificar(resposta.status === 404
           ? 'Produto não encontrado no catálogo de vendas. Confira o código; produtos vencidos ou com validade e estoque zerado ficam indisponíveis.'
-          : await readApiError(resposta, 'Não foi possível consultar o produto'));
+          : await readApiError(resposta, 'Não foi possível consultar o produto'), { tipo: 'erro' });
       }
     } catch (erro) {
-      alert(erro.message || 'Erro de conexão ao procurar o produto.');
+      notificar(erro.message || 'Erro de conexão ao procurar o produto.', { tipo: 'erro' });
     }
   };
 
@@ -192,17 +194,17 @@ function Caixa() {
           const resposta = await fetch(`${BASE_URL}/api/produtos/catalogo/${itemAtual.produtoId}`, {
             headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
           });
-          if (!resposta.ok) return alert(await readApiError(resposta, 'Não foi possível consultar a cota'));
+          if (!resposta.ok) return notificar(await readApiError(resposta, 'Não foi possível consultar a cota'), { tipo: 'erro' });
           const produto = await resposta.json();
-          if (!Number.isInteger(produto.quantidadeDisponivel)) return alert('O servidor não informou a cota disponível. Tente novamente.');
+          if (!Number.isInteger(produto.quantidadeDisponivel)) return notificar('O servidor não informou a cota disponível. Tente novamente.', { tipo: 'atencao' });
           disponivel = produto.quantidadeDisponivel;
         } catch (erro) {
-          alert(erro.message || 'Não foi possível atualizar a cota.');
+          notificar(erro.message || 'Não foi possível atualizar a cota.', { tipo: 'erro' });
           return;
         }
       }
       if (novaQtd > disponivel) {
-        alert(`Atenção: Limite de stock atingido. Só temos ${disponivel} unidade(s) de "${itemAtual.nome}".`);
+        notificar(`Atenção: Limite de stock atingido. Só temos ${disponivel} unidade(s) de "${itemAtual.nome}".`, { tipo: 'atencao' });
         return;
       }
 
@@ -288,7 +290,7 @@ function Caixa() {
   const finalizarVenda = async () => {
     if (salvando) return;
     if (!formaPagamento) {
-      alert('Por favor, selecione uma forma de pagamento.');
+      notificar('Por favor, selecione uma forma de pagamento.', { tipo: 'atencao' });
       return;
     }
 
@@ -326,10 +328,10 @@ function Caixa() {
         // Substituímos o alert nativo pelo modal customizado
         setModalNotaAberta(true);
       } else {
-        alert(await readApiError(resposta, 'Não foi possível finalizar a venda'));
+        notificar(await readApiError(resposta, 'Não foi possível finalizar a venda'), { tipo: 'erro' });
       }
     } catch {
-      alert('Erro ao ligar ao servidor para realizar a venda.');
+      notificar('Erro ao ligar ao servidor para realizar a venda.', { tipo: 'erro' });
     } finally { setSalvando(false); }
   };
 
@@ -620,7 +622,7 @@ function Caixa() {
               <button 
                 type="button" 
                 onClick={() => {
-                  alert('A integração com a API do Mercado Pago para impressão será implementada na próxima fase!');
+                  notificar('A integração com a API do Mercado Pago para impressão será implementada na próxima fase!', { tipo: 'atencao' });
                   resetarCaixaPosVenda();
                 }} 
                 style={{ padding: '16px', backgroundColor: '#8e44ad', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px', boxShadow: '0 4px 10px rgba(142,68,173,0.3)' }}

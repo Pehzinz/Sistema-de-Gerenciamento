@@ -1,3 +1,4 @@
+import { useNotificacoes } from '../hooks/useNotificacoes';
 import { LabelInput } from '../components/label-input';
 import { filtrarVendasPeriodo, descricaoPeriodo, dataHoraGeracao, formatarDataVenda } from '../utils/relatorioVendas';
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -29,6 +30,7 @@ function RotuloCategoria({ x, y, payload, larguraRotulo }) {
 }
 
 function Dashboard() {
+  const { notificar } = useNotificacoes();
   const [produtos, setProdutos] = useState([]);
   const [larguraGrafico, setLarguraGrafico] = useState(600);
   const [vendas, setVendas] = useState([]);
@@ -184,7 +186,7 @@ function Dashboard() {
         : 'Relatorio_Contabil_Nexo.pdf');
     } catch (erro) {
       console.error('Erro ao gerar o relatório:', erro);
-      alert('Ocorreu um erro ao processar o PDF.');
+      notificar('Ocorreu um erro ao processar o PDF.', { tipo: 'erro' });
     } finally {
       setGerandoPdf(false);
     }

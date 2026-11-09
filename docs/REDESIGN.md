@@ -37,6 +37,18 @@ Grupos de ações adjacentes compartilham um contorno arredondado com segmentos 
 
 O login e a navegação usam o mesmo símbolo de camadas do Nexo. No desktop, o botão no topo da barra lateral alterna entre o menu completo e os ícones. A escolha é lembrada neste navegador. No celular, o botão Menu continua abrindo a navegação com os nomes das páginas.
 
+## Notificações e painéis suspensos
+
+Todas as páginas usam o mesmo padrão visual do Calendário: superfícies claras com transparência, cantos arredondados e sombra no canto superior direito. O provider global fica em `src/components/Notificacoes.jsx`, com o hook `src/hooks/useNotificacoes.js`.
+
+Avisos de sucesso, erro e atenção substituem os alerts nativos, inclusive os avisos de campos obrigatórios e inválidos. Os avisos têm botão de fechar e duração própria (5 segundos; erros, 8 segundos), pausada durante leitura com mouse ou foco de teclado. Até três avisos aparecem simultaneamente. Avisos continuam visíveis ao navegar entre páginas dentro do aplicativo.
+
+Formulários e autorizações também aparecem no canto superior direito e mantêm campos, botões, validação e requisitos de segurança. Esses painéis não fecham por tempo. O painel desloca-se para baixo quando há notificações para evitar sobreposição, e pode rolar em telas pequenas. Os diálogos continuam bloqueando a interação com o fundo enquanto aguardam uma decisão.
+
+A confirmação de limpar o estoque usa um painel com Confirmar e Cancelar; não dispara requisições antes da confirmação explícita. Cancelar, usar Escape ou navegar para outra página não autoriza a ação. O Calendário usa o mesmo provider das demais telas, sem uma implementação visual separada.
+
+Os testes existentes foram adaptados para conferir as mensagens renderizadas. `tests/notifications.spec.js` cobre validação de campos, temporização, leitura, fechamento, responsividade, preservação dos formulários e confirmação das ações destrutivas.
+
 ## Publicar estes ajustes na Vercel
 
 Os checks compartilhados mostram a integração do repositório com a Vercel. Para enviar os arquivos locais, execute na raiz do repositório:

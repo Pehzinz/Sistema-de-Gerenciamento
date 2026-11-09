@@ -1,3 +1,4 @@
+import { collectNotifications } from './helpers/notifications';
 import { test, expect } from '@playwright/test';
 
 async function preparar(page, produto = {}) {
@@ -11,7 +12,7 @@ async function preparar(page, produto = {}) {
     if (path.startsWith('/api/produtos/')) return route.fulfill({ json: produto });
     return route.fulfill({ json: [] });
   });
-  page.on('dialog', dialog => dialog.dismiss());
+
 }
 
 test('cadastro alterna campos e envia cota sem estoque físico', async ({ page }) => {
@@ -85,8 +86,7 @@ test('API antiga não recebe cadastro de cota nem produz falso sucesso', async (
     if (route.request().method() === 'POST') gravacoes++;
     return route.fulfill({ json: [] });
   });
-  const mensagens = [];
-  page.on('dialog', dialog => mensagens.push(dialog.message()));
+  const mensagens = await collectNotifications(page);
   await page.goto('/cadastrar-produto');
   await page.getByPlaceholder('Ex: 7891020304').fill('2121212121');
   await page.getByPlaceholder('Ex: Mouse Gamer').fill('Torrada');
@@ -109,8 +109,7 @@ test('edição não confirma sucesso quando o servidor ignora o controle enviado
     if (route.request().method() === 'PUT') { gravacoes++; return route.fulfill({ json: { mensagem: 'Salvo' } }); }
     return route.fulfill({ json: legado });
   });
-  const mensagens = [];
-  page.on('dialog', dialog => mensagens.push(dialog.message()));
+  const mensagens = await collectNotifications(page);
   await page.goto('/cadastrar-produto');
   await page.getByRole('button', { name: /Editar ou Adicionar Estoque/ }).click();
   await page.getByPlaceholder('10 dígitos numéricos').fill(legado.id);

@@ -7,7 +7,7 @@ async function preparar(page) {
   await page.clock.install({ time: new Date('2026-11-06T15:00:50Z') });
   await page.addInitScript(() => { sessionStorage.setItem('token', 'test-token'); sessionStorage.setItem('perfil', 'ADMIN'); });
   await page.route('**/api/**', route => route.fulfill({ json: [] }));
-  page.on('dialog', dialog => dialog.dismiss());
+
 }
 
 test('estoque consulta a cota na virada e em novas janelas sem recarregar a página', async ({ page }) => {

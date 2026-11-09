@@ -1,3 +1,4 @@
+import { useNotificacoes } from '../hooks/useNotificacoes';
 import { LabelInput } from '../components/label-input';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -5,6 +6,7 @@ import Navbar from '../components/Navbar';
 import { BASE_URL, readApiError, apiFetch as fetch } from '../services/api';
 
 function Colaboradores() {
+  const { notificar } = useNotificacoes();
   const [equipe, setEquipe] = useState([]);
   
   // Novos Estados para o Formulário Completo
@@ -80,7 +82,7 @@ function Colaboradores() {
     
     // Trava de 14 caracteres (formato 000.000.000-00)
     if (cpfAdminEdit.length !== 14) {
-      alert('O CPF do Administrador precisa estar completo (Ex: 000.000.000-00).');
+      notificar('O CPF do Administrador precisa estar completo (Ex: 000.000.000-00).', { tipo: 'atencao' });
       return;
     }
 
@@ -106,13 +108,13 @@ function Colaboradores() {
           
           setModalEdicaoAberto(true);
         } else {
-          alert('Ação negada: As credenciais não pertencem a um Administrador.');
+          notificar('Ação negada: As credenciais não pertencem a um Administrador.', { tipo: 'atencao' });
         }
       } else {
-        alert('Credenciais do Administrador inválidas.');
+        notificar('Credenciais do Administrador inválidas.', { tipo: 'atencao' });
       }
     } catch {
-      alert('Erro ao validar administrador.');
+      notificar('Erro ao validar administrador.', { tipo: 'erro' });
     }
   };
 
@@ -143,7 +145,7 @@ function Colaboradores() {
       });
 
       if (resposta.ok) {
-        alert('Dados do colaborador atualizados com sucesso!');
+        notificar('Dados do colaborador atualizados com sucesso!', { tipo: 'sucesso' });
         setModalEdicaoAberto(false);
         setColaboradorEditando(null);
         
@@ -151,17 +153,17 @@ function Colaboradores() {
         buscarEquipe(); 
       } else {
         const erroMsg = await resposta.text();
-        alert(`Erro ao atualizar: O servidor retornou status ${resposta.status}. Detalhe: ${erroMsg}`);
+        notificar(`Erro ao atualizar: O servidor retornou status ${resposta.status}. Detalhe: ${erroMsg}`, { tipo: 'erro' });
       }
     } catch (erro) {
       console.error("Detalhes do erro de conexão:", erro);
-      alert('Erro de conexão (CORS ou URL incorreta). Aperte F12 e olhe o console para mais detalhes.');
+      notificar('Erro de conexão (CORS ou URL incorreta). Aperte F12 e olhe o console para mais detalhes.', { tipo: 'erro' });
     }
   };
 
   const cadastrarColaborador = async (e, perfilSelecionado) => {
     e.preventDefault();
-    if (senha.length < 12 || new TextEncoder().encode(senha).length > 72) { alert('A senha deve ter ao menos 12 caracteres e até 72 bytes.'); return; }
+    if (senha.length < 12 || new TextEncoder().encode(senha).length > 72) { notificar('A senha deve ter ao menos 12 caracteres e até 72 bytes.', { tipo: 'atencao' }); return; }
     const token = sessionStorage.getItem('token');
 
     // Montando o pacote completo para o Java
@@ -186,17 +188,17 @@ function Colaboradores() {
       });
 
       if (resposta.status === 201 || resposta.ok) {
-        alert('Usuário cadastrado com sucesso!');
+        notificar('Usuário cadastrado com sucesso!', { tipo: 'sucesso' });
         // Limpa todos os campos
         setNome(''); setCpf(''); setSenha('');
         setDataNascimento(''); setTelefone(''); setEndereco('');
         buscarEquipe(); 
       } else {
         const erro = await resposta.json();
-        alert(erro.erro || 'Não foi possível cadastrar. Confira os dados.');
+        notificar(erro.erro || 'Não foi possível cadastrar. Confira os dados.', { tipo: 'erro' });
       }
     } catch {
-      alert('Erro de conexão ao salvar usuário.');
+      notificar('Erro de conexão ao salvar usuário.', { tipo: 'erro' });
     }
   };
 
@@ -206,7 +208,7 @@ function Colaboradores() {
       const totalAdmins = equipe.filter(u => u.perfil === 'ADMIN').length;
       
       if (totalAdmins <= 1) {
-        alert('Ação negada: O sistema deve manter pelo menos 1 Administrador cadastrado.');
+        notificar('Ação negada: O sistema deve manter pelo menos 1 Administrador cadastrado.', { tipo: 'atencao' });
         return;
       }
     }
@@ -226,15 +228,15 @@ function Colaboradores() {
       });
 
       if (resposta.ok) {
-        alert('Colaborador removido com sucesso.');
+        notificar('Colaborador removido com sucesso.', { tipo: 'sucesso' });
         setModalAberto(false);
         buscarEquipe();
       } else {
-        alert(await readApiError(resposta, 'Não foi possível remover este funcionário.'));
+        notificar(await readApiError(resposta, 'Não foi possível remover este funcionário.'), { tipo: 'erro' });
         setModalAberto(false);
       }
     } catch {
-      alert('Erro de conexão ao tentar remover usuário.');
+      notificar('Erro de conexão ao tentar remover usuário.', { tipo: 'erro' });
     }
   };
 

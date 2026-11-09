@@ -1,3 +1,4 @@
+import { collectNotifications } from './helpers/notifications';
 import { test, expect } from '@playwright/test';
 
 async function preparar(page) {
@@ -45,8 +46,7 @@ test('exclusão usa ID real e recarrega categorias após sucesso', async ({ page
     excluido = route.request().method(); categorias = [];
     return route.fulfill({ status: 204 });
   });
-  const mensagens = [];
-  page.on('dialog', async dialog => { mensagens.push(dialog.message()); await dialog.dismiss(); });
+  const mensagens = await collectNotifications(page);
   await page.goto('/excluir-produto');
   await page.getByLabel('Categoria cadastrada').selectOption('42');
   await page.getByPlaceholder('Digite "Delete"').nth(1).fill('Delete');
@@ -64,8 +64,7 @@ test('categoria removida em outra sessão atualiza a lista sem falso sucesso', a
     categorias = [];
     return route.fulfill({ status: 404, json: { erro: 'Categoria não encontrada.' } });
   });
-  const mensagens = [];
-  page.on('dialog', async dialog => { mensagens.push(dialog.message()); await dialog.dismiss(); });
+  const mensagens = await collectNotifications(page);
   await page.goto('/excluir-produto');
   await page.getByLabel('Categoria cadastrada').selectOption('42');
   await page.getByPlaceholder('Digite "Delete"').nth(1).fill('Delete');
@@ -77,8 +76,7 @@ test('categoria removida em outra sessão atualiza a lista sem falso sucesso', a
 test('erro sem JSON ao excluir produto mantém formulário e informa HTTP', async ({ page }) => {
   await preparar(page);
   await page.route('**/api/produtos/1234567890', route => route.fulfill({ status: 503, body: '<html>indisponível</html>' }));
-  const mensagens = [];
-  page.on('dialog', async dialog => { mensagens.push(dialog.message()); await dialog.dismiss(); });
+  const mensagens = await collectNotifications(page);
   await page.goto('/excluir-produto');
   await page.getByPlaceholder('Apenas números').fill('1234567890');
   await page.getByPlaceholder('Digite "Delete"').first().fill('Delete');
@@ -99,8 +97,7 @@ for (const persistir of [true, false]) {
       }
       return route.fulfill({ json: categorias });
     });
-    const mensagens = [];
-    page.on('dialog', async dialog => { mensagens.push(dialog.message()); await dialog.dismiss(); });
+    const mensagens = await collectNotifications(page);
     await page.goto('/cadastrar-produto');
     await page.getByRole('button', { name: '+ Nova Categoria' }).click();
     await page.getByPlaceholder('Ex: Monitores').fill('Nova');

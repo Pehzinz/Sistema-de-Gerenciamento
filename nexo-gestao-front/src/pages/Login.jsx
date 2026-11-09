@@ -1,3 +1,4 @@
+import { useNotificacoes } from '../hooks/useNotificacoes';
 import NexoMark from '../components/NexoMark';
 import { LabelInput } from '../components/label-input';
 import AnimatedGradient from '../components/animated-gradient';
@@ -9,6 +10,7 @@ import { BASE_URL, apiFetch as fetch, readApiError } from '../services/api';
 const mistConfig = { preset: 'custom', color1: '#171021', color2: '#8e44ad', color3: '#171021', rotation: 0, proportion: 33, scale: 0.48, speed: 39, distortion: 4, swirl: 65, swirlIterations: 5, softness: 100, offset: -235, shape: 'Edge', shapeSize: 48 };
 
 function Login() {
+  const { notificar } = useNotificacoes();
   const [isRegistering, setIsRegistering] = useState(false);
   
   // Estados para Login
@@ -50,12 +52,12 @@ function Login() {
           navigate('/caixa');
         }
       } else {
-        alert(await readApiError(resposta, resposta.status === 401
+        notificar(await readApiError(resposta, resposta.status === 401
           ? 'CPF ou senha incorretos. Confira também a empresa deste terminal'
-          : 'Não foi possível entrar no sistema'));
+          : 'Não foi possível entrar no sistema'), { tipo: 'erro' });
       }
     } catch {
-      alert('Erro de conexão com o servidor.');
+      notificar('Erro de conexão com o servidor.', { tipo: 'erro' });
     }
   };
 
@@ -75,15 +77,15 @@ function Login() {
         setEmpresaLembrada(nomeEmpresa);
         setCnpjLembrado(cnpj);
         ['token', 'perfil', 'nome'].forEach(key => sessionStorage.removeItem(key));
-        alert('Empresa e Administrador cadastrados com sucesso! Faça o login agora.');
+        notificar('Empresa e Administrador cadastrados com sucesso! Faça o login agora.', { tipo: 'sucesso' });
         setIsRegistering(false); 
         setCpf(cpfAdmin); 
         setSenha('');
       } else {
-        alert(await readApiError(resposta, 'Não foi possível cadastrar a empresa'));
+        notificar(await readApiError(resposta, 'Não foi possível cadastrar a empresa'), { tipo: 'erro' });
       }
     } catch {
-      alert('Erro de conexão com o servidor.');
+      notificar('Erro de conexão com o servidor.', { tipo: 'erro' });
     }
   };
 

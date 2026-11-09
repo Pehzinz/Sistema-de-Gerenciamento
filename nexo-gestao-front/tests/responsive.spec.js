@@ -221,9 +221,8 @@ test('photo upload reports missing backend configuration without calling Cloudin
     json: { erro: 'O upload de imagens ainda não foi configurado pelo administrador.' } }));
   let calls = 0;
   await page.route('https://api.cloudinary.com/**', route => { calls++; return route.abort(); });
-  const alertMessage = new Promise(resolve => page.once('dialog', async dialog => { resolve(dialog.message()); await dialog.dismiss(); }));
   await page.goto('/cadastrar-produto');
   await page.locator('input[type="file"]').first().setInputFiles({ name: 'photo.png', mimeType: 'image/png', buffer: Buffer.from('image-test') });
-  expect(await alertMessage).toContain('não foi configurado');
+  await expect(page.locator('[data-notification-message]')).toContainText('não foi configurado');
   expect(calls).toBe(0);
 });
