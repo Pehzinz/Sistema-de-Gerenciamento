@@ -9,8 +9,27 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
 
+function RotuloCategoria({ x, y, payload, larguraRotulo }) {
+  const nome = String(payload.value);
+  const limite = Math.max(3, Math.min(16, Math.floor(larguraRotulo / 6)));
+  const palavras = nome.split(/\s+/).flatMap(p => p.match(new RegExp(`.{1,${limite}}`, 'gu')) || []);
+  const linhas = [];
+  palavras.forEach(palavra => {
+    const ultima = linhas.length - 1;
+    if (ultima >= 0 && `${linhas[ultima]} ${palavra}`.length <= limite) linhas[ultima] += ` ${palavra}`;
+    else linhas.push(palavra);
+  });
+  const visiveis = linhas.slice(0, 3);
+  if (linhas.length > 3) visiveis[2] = `${visiveis[2].slice(0, limite - 1)}…`;
+  return <text x={x} y={y + 12} textAnchor="middle" fill="#666" fontSize={11}>
+    <title>{nome}</title>
+    {visiveis.map((linha, i) => <tspan key={i} x={x} dy={i ? 14 : 0}>{linha}</tspan>)}
+  </text>;
+}
+
 function Dashboard() {
   const [produtos, setProdutos] = useState([]);
+  const [larguraGrafico, setLarguraGrafico] = useState(600);
   const [vendas, setVendas] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erroDados, setErroDados] = useState('');
@@ -181,7 +200,7 @@ function Dashboard() {
   const produtosEsgotados = produtos.filter(p => p.tipoEstoque !== 'COTA_TEMPO' && p.estoque === 0).length;
 
   const contagemCategorias = produtos.reduce((acc, p) => {
-    const nomeCat = p.categoria?.nome || 'Sem Categoria';
+    const nomeCat = p.categoria?.nome?.trim() || 'Categoria não informada';
     acc[nomeCat] = (acc[nomeCat] || 0) + 1;
     return acc;
   }, {});
@@ -191,23 +210,24 @@ function Dashboard() {
     quantidade: contagemCategorias[chave]
   }));
 
-  const receitaPorCategoria = {};
+  const receitaPorCategoria = new Map();
   vendasRelatorio.forEach(venda => {
       const listaItens = venda.itens || [];
       listaItens.forEach(item => {
       const idDoProduto = item.produtoId || item.produto?.id;
       const produtoReferencia = produtos.find(p => String(p.id) === String(idDoProduto));
       
-      let nomeCat = produtoReferencia?.categoria?.nome || 'Sem Categoria';
+      const nomeCat = item.nomeCategoria?.trim() || produtoReferencia?.categoria?.nome?.trim()
+        || item.produto?.categoria?.nome?.trim() || 'Categoria não informada';
 
       const valorSubtotal = item.subtotal || (item.quantidade * (item.precoUnitario || 0)) || 0;
-      receitaPorCategoria[nomeCat] = (receitaPorCategoria[nomeCat] || 0) + valorSubtotal;
+      receitaPorCategoria.set(nomeCat, (receitaPorCategoria.get(nomeCat) || 0) + valorSubtotal);
       });
   });
 
-  const dadosGraficoBarras = Object.keys(receitaPorCategoria).map(chave => ({
-      name: chave,
-      receita: receitaPorCategoria[chave]
+  const dadosGraficoBarras = Array.from(receitaPorCategoria, ([name, receita]) => ({
+      name,
+      receita
   }));
 
   const CORES = ['#8e44ad', '#3498db', '#2ecc71', '#f1c40f', '#e74c3c'];
@@ -309,9 +329,9 @@ function Dashboard() {
               <h3 style={{ marginTop: 0, color: '#333', fontSize: '16px', marginBottom: '5px' }}>Receita por Categoria (R$)</h3>
               <p style={{ fontSize: '13px', color: '#888', marginBottom: '20px', marginTop: 0 }}>Receita das vendas no período selecionado</p>
               <div style={{ height: '300px', width: '100%' }}>
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" onResize={largura => setLarguraGrafico(largura)}>
                   <BarChart data={dadosGraficoBarras} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <XAxis dataKey="name" tick={{fontSize: 12, fill: '#888'}} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="name" interval={0} height={62} tick={<RotuloCategoria larguraRotulo={(larguraGrafico - 50) / Math.max(1, dadosGraficoBarras.length) - 6} />} axisLine={false} tickLine={false} />
                     <YAxis tick={{fontSize: 12, fill: '#888'}} axisLine={false} tickLine={false} />
                     <Tooltip 
                       cursor={{fill: '#fcf9ff'}} 

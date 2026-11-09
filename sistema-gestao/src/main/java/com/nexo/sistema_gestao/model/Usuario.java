@@ -25,6 +25,12 @@ public class Usuario implements java.io.Serializable {
     @Column(nullable = false, length = 20)
     private String perfil;
 
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private boolean ativo = true;
+
+    public boolean isAtivo() { return ativo; }
+    public void setAtivo(boolean ativo) { this.ativo = ativo; }
+
     @Column(length = 20)
     private String telefone;
 

@@ -19,6 +19,9 @@ public class UsuarioController {
     private UsuarioRepository usuarioRepository;
 
     @Autowired
+    private com.nexo.sistema_gestao.repository.EmpresaRepository empresaRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @GetMapping
@@ -27,7 +30,7 @@ public class UsuarioController {
         Usuario usuarioLogado = (Usuario) authentication.getPrincipal();
         Long empresaId = usuarioLogado.getEmpresa().getId();
 
-        return ResponseEntity.ok(usuarioRepository.findByEmpresaId(empresaId));
+        return ResponseEntity.ok(usuarioRepository.findByEmpresaIdAndAtivoTrue(empresaId));
     }
 
     @PostMapping
@@ -36,6 +39,7 @@ public class UsuarioController {
         com.nexo.sistema_gestao.security.RequestValidation.text(novoUsuario.getCpf(), 14, "CPF");
         com.nexo.sistema_gestao.security.RequestValidation.password(novoUsuario.getSenha());
         novoUsuario.setId(null);
+        novoUsuario.setAtivo(true);
         if (!java.util.Set.of("ADMIN", "COLABORADOR").contains(novoUsuario.getPerfil() == null ? "" : novoUsuario.getPerfil())) {
             throw new IllegalArgumentException("Perfil inválido.");
         }
@@ -56,17 +60,23 @@ public class UsuarioController {
     }
 
     @DeleteMapping("/{id}")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> remover(@PathVariable Long id) {
         var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         Usuario usuarioLogado = (Usuario) authentication.getPrincipal();
 
-        Optional<Usuario> usuarioOpt = usuarioRepository.findByIdAndEmpresaId(id, usuarioLogado.getEmpresa().getId());
+        Long empresaId = usuarioLogado.getEmpresa().getId();
+        // Serializa exclusões na mesma empresa para proteger o último administrador.
+        empresaRepository.bloquearPorId(empresaId).orElseThrow();
+        Optional<Usuario> usuarioOpt = usuarioRepository.findByIdAndEmpresaIdAndAtivoTrue(id, empresaId);
         
         if (usuarioOpt.isPresent()) {
-            if ("ADMIN".equals(usuarioOpt.get().getPerfil())) {
-                return ResponseEntity.badRequest().body(java.util.Map.of("erro", "Não é possível remover o administrador por esta operação."));
+            if ("ADMIN".equals(usuarioOpt.get().getPerfil())
+                    && usuarioRepository.countByEmpresaIdAndPerfilAndAtivoTrue(empresaId, "ADMIN") <= 1) {
+                return ResponseEntity.badRequest().body(java.util.Map.of("erro", "O sistema deve manter pelo menos 1 Administrador ativo."));
             }
-            usuarioRepository.delete(usuarioOpt.get());
+            usuarioOpt.get().setAtivo(false);
+            usuarioRepository.save(usuarioOpt.get());
             return ResponseEntity.ok().build();
         }
         return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
@@ -77,7 +87,7 @@ public class UsuarioController {
         var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         Usuario usuarioLogado = (Usuario) authentication.getPrincipal();
 
-        Optional<Usuario> usuarioOpt = usuarioRepository.findByIdAndEmpresaId(id, usuarioLogado.getEmpresa().getId());
+        Optional<Usuario> usuarioOpt = usuarioRepository.findByIdAndEmpresaIdAndAtivoTrue(id, usuarioLogado.getEmpresa().getId());
 
         if (usuarioOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("{\"erro\": \"Colaborador não encontrado nesta empresa.\"}");

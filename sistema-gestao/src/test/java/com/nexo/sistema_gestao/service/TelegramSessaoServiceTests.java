@@ -32,7 +32,7 @@ class TelegramSessaoServiceTests {
         admin = new Usuario(); admin.setId(1L); admin.setEmpresa(empresa); admin.setPerfil("ADMIN");
         admin.setNomeCompleto("Ana"); admin.setSenha(encoder.encode("senha-segura-123"));
         when(usuarios.findByCredenciaisTelegram(cpf, cnpj)).thenReturn(Optional.of(admin));
-        when(usuarios.findByIdAndEmpresaId(1L, 10L)).thenReturn(Optional.of(admin));
+        when(usuarios.findByIdAndEmpresaIdAndAtivoTrue(1L, 10L)).thenReturn(Optional.of(admin));
     }
 
     TelegramSessaoService.Acesso login(String chat, String senha) {
@@ -57,7 +57,7 @@ class TelegramSessaoServiceTests {
         Usuario conta = new Usuario(); conta.setId(2L); conta.setEmpresa(outra); conta.setPerfil("COLABORADOR");
         conta.setSenha(admin.getSenha());
         when(usuarios.findByCredenciaisTelegram(cpf, outra.getCnpj())).thenReturn(Optional.of(conta));
-        when(usuarios.findByIdAndEmpresaId(2L, 20L)).thenReturn(Optional.of(conta));
+        when(usuarios.findByIdAndEmpresaIdAndAtivoTrue(2L, 20L)).thenReturn(Optional.of(conta));
         sessoes.processar("a", "/start"); sessoes.processar("a", outra.getCnpj()); sessoes.processar("a", cpf);
         sessoes.processar("a", "senha-segura-123");
         var acesso = sessoes.processar("a", "/estoque");
@@ -78,7 +78,7 @@ class TelegramSessaoServiceTests {
         assertNull(sessoes.processar("a", "/estoque").empresaId());
         login("a", "senha-segura-123"); admin.setSenha("outro-hash");
         assertNull(sessoes.processar("a", "/estoque").empresaId());
-        when(usuarios.findByIdAndEmpresaId(1L, 10L)).thenReturn(Optional.empty());
+        when(usuarios.findByIdAndEmpresaIdAndAtivoTrue(1L, 10L)).thenReturn(Optional.empty());
         assertNull(sessoes.processar("a", "/estoque").empresaId());
     }
 

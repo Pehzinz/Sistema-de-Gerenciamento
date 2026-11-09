@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { BASE_URL, apiFetch as fetch } from '../services/api';
+import { BASE_URL, readApiError, apiFetch as fetch } from '../services/api';
 
 function Colaboradores() {
   const [equipe, setEquipe] = useState([]);
@@ -200,12 +200,6 @@ function Colaboradores() {
   };
 
   const tentarRemover = (colaborador) => {
-    // 1. Protege apenas a conta raiz original do sistema
-    if (colaborador.cpf === '000.000.000-00') {
-      alert('Ação negada: A conta fundadora do sistema não pode ser excluída.');
-      return;
-    }
-
     // 2. Regra matemática: Impede a exclusão se for o último Administrador
     if (colaborador.perfil === 'ADMIN') {
       const totalAdmins = equipe.filter(u => u.perfil === 'ADMIN').length;
@@ -235,7 +229,7 @@ function Colaboradores() {
         setModalAberto(false);
         buscarEquipe();
       } else {
-        alert('Aviso do Servidor: Este usuário não pode ser excluído permanentemente porque possui vendas ou registros atrelados a ele no histórico.');
+        alert(await readApiError(resposta, 'Não foi possível remover este funcionário.'));
         setModalAberto(false);
       }
     } catch {
@@ -410,7 +404,7 @@ function Colaboradores() {
             
             <h3 style={{ marginTop: 0, color: '#333' }}>Remover {colaboradorParaRemover?.nomeCompleto}?</h3>
             <p style={{ fontSize: '14px', color: '#666', marginBottom: '30px', lineHeight: '1.5' }}>
-              Ao confirmar, o acesso desta colaboradora à loja será revogado. Esta ação é exclusiva do Administrador. Verifique o nome antes de prosseguir.
+              Ao confirmar, o funcionário será removido da equipe e perderá o acesso à loja. Suas vendas e o histórico contábil serão preservados.
             </p>
             
             <div className="responsive-row" style={{ display: 'flex', justifyContent: 'center', gap: '15px' }}>
