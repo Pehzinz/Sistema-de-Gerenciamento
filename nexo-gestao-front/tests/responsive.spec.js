@@ -75,6 +75,16 @@ test('mobile menu opens, navigates and closes', async ({ page }) => {
   await expect(menu).toHaveAttribute('aria-expanded', 'false'); await fits(page);
 });
 
+test('collaborator creation actions are centered within the desktop form', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await seed(page); await page.goto('/colaboradores');
+  const button = page.getByRole('button', { name: '+ Administrador', exact: true });
+  const form = await button.locator('xpath=ancestor::form').boundingBox();
+  const actions = await page.locator('.collaborator-create-actions').boundingBox();
+  expect(Math.abs((actions.x + actions.width / 2) - (form.x + form.width / 2))).toBeLessThanOrEqual(1);
+  await page.screenshot({ path: 'test-results/centered-collaborator-actions.png' });
+});
+
 test('product fields share the same height and top edge on desktop', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await seed(page); await page.goto('/cadastrar-produto');

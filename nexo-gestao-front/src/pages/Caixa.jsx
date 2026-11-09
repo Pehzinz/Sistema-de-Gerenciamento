@@ -2,8 +2,14 @@ import { LabelInput } from '../components/label-input';
 import { useState, useEffect, useRef } from 'react';
 import Navbar from '../components/Navbar';
 import { BASE_URL, apiFetch as fetch, readApiError } from '../services/api';
+import { useNavigate } from 'react-router-dom';
 
 function Caixa() {
+  const modoTotem = sessionStorage.getItem('perfil') === 'COLABORADOR';
+  const navigate = useNavigate();
+  const autorizacaoRef = useRef(null);
+  const [validandoAdmin, setValidandoAdmin] = useState(false);
+  const [erroAutorizacao, setErroAutorizacao] = useState('');
   const [codigoProduto, setCodigoProduto] = useState('');
   const [carrinho, setCarrinho] = useState([]);
   
@@ -14,6 +20,45 @@ function Caixa() {
   const [acaoPendente, setAcaoPendente] = useState(null); 
   const [cpfAdmin, setCpfAdmin] = useState('');
   const [senhaAdmin, setSenhaAdmin] = useState('');
+
+  const cancelarAutorizacao = () => {
+    autorizacaoRef.current?.abort();
+    autorizacaoRef.current = null;
+    setValidandoAdmin(false);
+    setModalAberto(false);
+    setAcaoPendente(null);
+    setCpfAdmin('');
+    setSenhaAdmin('');
+    setErroAutorizacao('');
+  };
+  const solicitarAutorizacao = (acao) => {
+    cancelarAutorizacao();
+    setAcaoPendente(acao);
+    setModalAberto(true);
+  };
+
+  useEffect(() => () => autorizacaoRef.current?.abort(), []);
+
+  useEffect(() => {
+    if (!modoTotem) return;
+    let tentou = false;
+    const iniciarTelaCheia = (evento) => {
+      if (tentou || ['F11', 'Escape'].includes(evento.key)) return;
+      tentou = true;
+      // A API exige um gesto real. Não alternamos tela cheia por duplo clique.
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {
+          // Tela cheia é opcional no navegador; o bloqueio do equipamento exige modo quiosque.
+        });
+      }
+    };
+    document.addEventListener('pointerdown', iniciarTelaCheia);
+    document.addEventListener('keydown', iniciarTelaCheia);
+    return () => {
+      document.removeEventListener('pointerdown', iniciarTelaCheia);
+      document.removeEventListener('keydown', iniciarTelaCheia);
+    };
+  }, [modoTotem]);
   
   // NOVO ESTADO: Controle do Modal de Nota Fiscal
   const [modalNotaAberta, setModalNotaAberta] = useState(false);
@@ -30,6 +75,9 @@ function Caixa() {
     const interval = setInterval(() => {
       const decorrido = Date.now() - ultimaAtividadeRef.current;
       if (decorrido >= 130000) {
+        autorizacaoRef.current?.abort(); autorizacaoRef.current = null;
+        setValidandoAdmin(false); setModalAberto(false); setAcaoPendente(null);
+        setCpfAdmin(''); setSenhaAdmin(''); setErroAutorizacao('');
         setCarrinho([]); setEtapa(1); setFormaPagamento(''); setCodigoProduto(''); setModalNotaAberta(false);
         ultimaAtividadeRef.current = Date.now();
       }
@@ -162,28 +210,51 @@ function Caixa() {
         ? { ...item, estoque: disponivel, quantidade: novaQtd, subtotal: novaQtd * item.precoUnitario }
         : item));
     } else if (novaQtd < itemAtual.quantidade) {
-      setAcaoPendente({ tipo: 'DIMINUIR', index: index, novaQtd: novaQtd });
-      setModalAberto(true);
+      solicitarAutorizacao({ tipo: 'DIMINUIR', index: index, novaQtd: novaQtd });
     }
   };
 
   const tentarRemover = (index) => {
-    setAcaoPendente({ tipo: 'EXCLUIR', index: index });
-    setModalAberto(true);
+    solicitarAutorizacao({ tipo: 'EXCLUIR', index: index });
   };
 
-  const autorizarAcao = async () => {
+  const autorizarAcao = async (evento) => {
+    evento.preventDefault();
+    if (autorizacaoRef.current || !acaoPendente) return;
+    const cnpjTerminal = localStorage.getItem('cnpj');
+    if (acaoPendente.tipo === 'SAIR' && !cnpjTerminal) {
+      setErroAutorizacao('Não foi possível identificar a empresa deste terminal. Contate o responsável.');
+      return;
+    }
+    const controller = new AbortController();
+    autorizacaoRef.current = controller;
+    setValidandoAdmin(true);
+    setErroAutorizacao('');
     try {
       const resposta = await fetch(BASE_URL + '/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cpf: cpfAdmin, senha: senhaAdmin, cnpj: localStorage.getItem('cnpj') })
+        body: JSON.stringify({ cpf: cpfAdmin, senha: senhaAdmin, cnpj: cnpjTerminal }),
+        signal: controller.signal,
       });
 
       if (resposta.ok) {
         const dados = await resposta.json();
+        if (autorizacaoRef.current !== controller) return;
         
         if (dados.perfil === 'ADMIN') {
+          if (acaoPendente.tipo === 'SAIR') {
+            if (dados.cnpj !== cnpjTerminal || typeof dados.token !== 'string' || !dados.token.trim()) {
+              setErroAutorizacao('A saída exige um administrador da empresa deste terminal.');
+              return;
+            }
+            // A autenticação só autoriza a saída; nunca persiste a identidade do administrador.
+            ['token', 'perfil', 'nome'].forEach(key => sessionStorage.removeItem(key));
+            cancelarAutorizacao();
+            if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+            navigate('/', { replace: true });
+            return;
+          }
           const novoCarrinho = [...carrinho];
           
           if (acaoPendente.tipo === 'EXCLUIR') {
@@ -194,18 +265,22 @@ function Caixa() {
           }
           
           setCarrinho(novoCarrinho);
-          setModalAberto(false);
-          setAcaoPendente(null);
-          setCpfAdmin('');
-          setSenhaAdmin('');
+          cancelarAutorizacao();
         } else {
-          alert('Acesso negado: Este utilizador não é Administrador.');
+          setErroAutorizacao('Acesso negado: este usuário não é administrador.');
         }
       } else {
-        alert('CPF ou Senha incorretos!');
+        const mensagem = await readApiError(resposta, 'Não foi possível autorizar a ação');
+        if (autorizacaoRef.current === controller) setErroAutorizacao(resposta.status === 401 ? 'CPF ou senha incorretos.' : mensagem);
       }
-    } catch {
-      alert('Erro ao validar credenciais do administrador.');
+    } catch (erro) {
+      if (autorizacaoRef.current === controller && erro.name !== 'AbortError') setErroAutorizacao('Erro ao validar credenciais do administrador. Tente novamente.');
+    } finally {
+      if (autorizacaoRef.current === controller) {
+        autorizacaoRef.current = null;
+        setValidandoAdmin(false);
+        setSenhaAdmin('');
+      }
     }
   };
 
@@ -267,11 +342,11 @@ function Caixa() {
   };
 
   return (
-    <div className="app-shell" style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden' }}>
+    <div className={`app-shell ${modoTotem ? 'kiosk-shell' : ''}`} style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden' }}>
       
-      <div style={{ flexShrink: 0 }}>
+      {!modoTotem && <div style={{ flexShrink: 0 }}>
         <Navbar />
-      </div>
+      </div>}
 
       <main className="app-main" style={{ flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
         
@@ -409,7 +484,7 @@ function Caixa() {
 
                             <td style={{ fontWeight: 'bold', color: '#333', fontSize: '15px' }}>R$ {item.subtotal.toFixed(2).replace('.', ',')}</td>
                             <td style={{ padding: '15px 0', textAlign: 'center' }}>
-                              <button type="button" onClick={() => tentarRemover(index)} style={{ padding: '6px 10px', backgroundColor: '#fff0f0', color: '#e74c3c', border: '1px solid #ffccd5', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
+                              <button type="button" aria-label={`Remover ${item.nome}`} onClick={() => tentarRemover(index)} style={{ padding: '6px 10px', backgroundColor: '#fff0f0', color: '#e74c3c', border: '1px solid #ffccd5', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
                                 ✕
                               </button>
                             </td>
@@ -487,16 +562,21 @@ function Caixa() {
         </div>
       </main>
 
+      {modoTotem && <button type="button" className="kiosk-exit" aria-label="Saída do autoatendimento" title="Saída do autoatendimento" onClick={() => solicitarAutorizacao({ tipo: 'SAIR' })}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>
+      </button>}
+
       {/* MODAL DE AUTORIZAÇÃO DE ADMINISTRADOR */}
       {modalAberto && (
         <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10 }}>
-          <div style={{ backgroundColor: 'white', padding: '35px', borderRadius: '15px', width: '400px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
-            <h3 style={{ color: '#d63031', marginTop: 0, fontSize: '20px' }}>Autorização do Administrador</h3>
+          <div role="dialog" aria-modal="true" aria-labelledby="admin-authorization-title" style={{ backgroundColor: 'white', padding: '35px', borderRadius: '15px', width: '400px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
+            <h3 id="admin-authorization-title" style={{ color: '#d63031', marginTop: 0, fontSize: '20px' }}>Autorização do Administrador</h3>
             <p style={{ fontSize: '14px', color: '#666', lineHeight: '1.5', marginBottom: '20px' }}>
-              Somente o gerente pode autorizar a ação de <strong>{acaoPendente?.tipo === 'EXCLUIR' ? 'excluir o produto' : 'diminuir a quantidade'}</strong> desta venda.
+              {acaoPendente?.tipo === 'SAIR' ? 'Informe as credenciais de um administrador desta empresa para encerrar o autoatendimento e voltar ao login.' : <>Somente o gerente pode autorizar a ação de <strong>{acaoPendente?.tipo === 'EXCLUIR' ? 'excluir o produto' : 'diminuir a quantidade'}</strong> desta venda.</>}
             </p>
-            
+            <form onSubmit={autorizarAcao}>
             <LabelInput
+              autoFocus autoComplete="off" required disabled={validandoAdmin}
               type="text" 
               placeholder="ID do Administrador" 
               value={cpfAdmin} 
@@ -504,6 +584,7 @@ function Caixa() {
               style={{ width: '100%', padding: '12px', marginBottom: '12px', boxSizing: 'border-box', border: '1px solid #ccc', borderRadius: '8px', outline: 'none', fontSize: '14px' }} 
             />
             <LabelInput
+              autoComplete="off" required disabled={validandoAdmin}
               type="password" 
               placeholder="Senha do Administrador" 
               value={senhaAdmin} 
@@ -511,14 +592,16 @@ function Caixa() {
               style={{ width: '100%', padding: '12px', marginBottom: '25px', boxSizing: 'border-box', border: '1px solid #ccc', borderRadius: '8px', outline: 'none', fontSize: '14px' }} 
             />
             
+            {erroAutorizacao && <p role="alert">{erroAutorizacao}</p>}
             <div className="button-group" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button type="button" onClick={() => { setModalAberto(false); setAcaoPendente(null); }} style={{ padding: '12px 20px', border: 'none', background: '#f5f5f5', color: '#555', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+              <button type="button" onClick={cancelarAutorizacao} style={{ padding: '12px 20px', border: 'none', background: '#f5f5f5', color: '#555', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                 Cancelar
               </button>
-              <button className="button-danger" type="button" onClick={autorizarAcao} style={{ padding: '12px 20px', border: 'none', background: '#d63031', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                Autorizar Ação
+              <button className="button-danger" type="submit" disabled={validandoAdmin} style={{ padding: '12px 20px', border: 'none', background: '#d63031', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                {validandoAdmin ? 'Validando…' : 'Autorizar Ação'}
               </button>
             </div>
+            </form>
           </div>
         </div>
       )}

@@ -20,12 +20,18 @@ function ProtectedRoute({ admin = false }) {
   return <Outlet />;
 }
 
+function LoginRoute() {
+  // Navegar para a raiz ou usar Voltar não encerra a sessão do totem.
+  if (sessionStorage.getItem('token') && sessionStorage.getItem('perfil') === 'COLABORADOR') return <Navigate to="/caixa" replace />;
+  return <Login />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <Suspense fallback={<div className="loading-page" role="status">Carregando…</div>}>
         <Routes>
-          <Route path="/" element={<Login />} />
+          <Route path="/" element={<LoginRoute />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/caixa" element={<Caixa />} />
           </Route>
