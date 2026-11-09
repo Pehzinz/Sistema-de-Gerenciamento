@@ -155,6 +155,23 @@ class SistemaGestaoApplicationTests {
         assertEquals(0, produtos.findById(produto.getIdInterno()).orElseThrow().getEstoque());
     }
 
+    @Test void dashboardAtualizaAposVendaMesmoComCachePreenchido() throws Exception {
+        var antes = call("GET", "/api/vendas", adminToken, null);
+        assertEquals(200, antes.statusCode()); assertEquals(0, json.readTree(antes.body()).size());
+        var inicio = java.time.LocalDateTime.now(java.time.ZoneId.of("America/Sao_Paulo")).minusSeconds(1);
+        assertEquals(201, call("POST", "/api/vendas", colaboradorToken, sale(1, "10.00")).statusCode());
+        var depois = call("GET", "/api/vendas", adminToken, null);
+        assertEquals(200, depois.statusCode());
+        var lista = json.readTree(depois.body()); assertEquals(1, lista.size());
+        assertEquals(10.0, lista.get(0).get("total").asDouble());
+        assertEquals(1, lista.get(0).get("itens").size());
+        var data = java.time.LocalDateTime.parse(lista.get(0).get("dataVenda").asText());
+        assertFalse(data.isBefore(inicio));
+        assertFalse(data.isAfter(java.time.LocalDateTime.now(java.time.ZoneId.of("America/Sao_Paulo")).plusSeconds(1)));
+        var novamente = call("GET", "/api/vendas", adminToken, null);
+        assertEquals(lista, json.readTree(novamente.body()));
+    }
+
     @Test void concurrentCheckoutsCannotSellSameLastUnit() throws Exception {
         try (var executor = Executors.newFixedThreadPool(2)) {
             Callable<Integer> task = () -> call("POST", "/api/vendas", colaboradorToken, sale(1, "10.00")).statusCode();

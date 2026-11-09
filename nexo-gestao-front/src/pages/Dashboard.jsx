@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { BASE_URL, apiFetch as fetch } from '../services/api';
+import { BASE_URL, readApiError, apiFetch as fetch } from '../services/api';
 
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -13,6 +13,8 @@ function Dashboard() {
   const [produtos, setProdutos] = useState([]);
   const [vendas, setVendas] = useState([]);
   const [carregando, setCarregando] = useState(true);
+  const [erroDados, setErroDados] = useState('');
+  const [hoje, setHoje] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }));
   const [gerandoPdf, setGerandoPdf] = useState(false);
   const [dataInicioRelatorio, setDataInicioRelatorio] = useState('');
   const [dataFimRelatorio, setDataFimRelatorio] = useState('');
@@ -27,19 +29,19 @@ function Dashboard() {
 
     try {
       const [resProdutos, resVendas] = await Promise.all([
-        fetch(BASE_URL + '/api/produtos', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(BASE_URL + '/api/vendas', { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch(BASE_URL + '/api/produtos', { headers: { 'Authorization': `Bearer ${token}` }, cache: 'no-store' }),
+        fetch(BASE_URL + '/api/vendas', { headers: { 'Authorization': `Bearer ${token}` }, cache: 'no-store' })
       ]);
       
-      if (resProdutos.ok && resVendas.ok) {
-        const dadosProdutos = await resProdutos.json();
-        const dadosVendas = await resVendas.json();
-        
-        setProdutos(dadosProdutos);
-        setVendas(dadosVendas);
-      }
+      if (!resProdutos.ok) throw new Error(await readApiError(resProdutos, 'Erro ao carregar estoque'));
+      if (!resVendas.ok) throw new Error(await readApiError(resVendas, 'Erro ao carregar vendas'));
+      const [dadosProdutos, dadosVendas] = await Promise.all([resProdutos.json(), resVendas.json()]);
+      setProdutos(dadosProdutos);
+      setVendas(dadosVendas);
+      setErroDados('');
+      setHoje(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }));
     } catch (erro) {
-        console.error('Erro ao buscar dados do Dashboard', erro);
+      setErroDados(erro.message || 'Erro de conexão ao carregar o Dashboard.');
     } finally {
         setCarregando(false);
     }
@@ -48,11 +50,20 @@ function Dashboard() {
   useEffect(() => {
     let ativo = true;
     Promise.resolve().then(() => { if (ativo) void buscarDados(); });
-    return () => { ativo = false; };
+    const atualizarAoRetornar = () => {
+      if (document.visibilityState !== 'hidden') void buscarDados();
+    };
+    window.addEventListener('focus', atualizarAoRetornar);
+    document.addEventListener('visibilitychange', atualizarAoRetornar);
+    return () => {
+      ativo = false;
+      window.removeEventListener('focus', atualizarAoRetornar);
+      document.removeEventListener('visibilitychange', atualizarAoRetornar);
+    };
   }, [buscarDados]);
 
 
-  const [hoje] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }));
+
   const erroPeriodo = dataInicioRelatorio && dataFimRelatorio && dataInicioRelatorio > dataFimRelatorio
     ? 'A data inicial deve ser anterior ou igual à data final.'
     : (dataInicioRelatorio > hoje || dataFimRelatorio > hoje ? 'O período não pode ultrapassar a data de hoje.' : '');
@@ -202,6 +213,17 @@ function Dashboard() {
   const CORES = ['#8e44ad', '#3498db', '#2ecc71', '#f1c40f', '#e74c3c'];
 
   if (carregando) return <div style={{ padding: '50px', textAlign: 'center' }}>A carregar métricas...</div>;
+  if (erroDados) return (
+    <div className="app-shell" style={{ minHeight: '100vh', display: 'flex', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif' }}>
+      <Navbar />
+      <main className="app-main" style={{ padding: '40px' }}>
+        <h1>Dashboard Analítico</h1>
+        <p role="alert">Não foi possível atualizar os dados. {erroDados}</p>
+        <button type="button" onClick={buscarDados} style={{ padding: '12px 20px', backgroundColor: '#8e44ad', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Tentar novamente</button>
+      </main>
+    </div>
+  );
+
 
   return (
     <div className="app-shell" style={{ height: '100vh', display: 'flex', flexDirection: 'row', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif', overflow: 'hidden' }}>
@@ -221,6 +243,8 @@ function Dashboard() {
               <h1 style={{ margin: 0, color: '#333', fontSize: '28px' }}>Dashboard Analítico</h1>
             </div>
             
+            <div className="responsive-row" style={{ display: 'flex', gap: '12px' }}>
+              <button type="button" onClick={buscarDados} disabled={gerandoPdf} style={{ padding: '12px 20px', backgroundColor: '#f9f5fa', color: '#8e44ad', border: '1px solid #e0c3fc', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Atualizar Dashboard</button>
             <button 
               onClick={gerarBalancoPDF} 
               disabled={gerandoPdf || !!erroPeriodo}
@@ -229,6 +253,7 @@ function Dashboard() {
               }}>
               {gerandoPdf ? 'A processar documento...' : '📄 Baixar Relatório Contábil'}
             </button>
+            </div>
           </div>
 
           <section aria-label="Período do relatório contábil" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e0c3fc' }}>
