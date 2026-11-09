@@ -1,3 +1,4 @@
+import { collectNotifications } from './helpers/notifications';
 import { test, expect } from '@playwright/test';
 test.use({ timezoneId: 'America/Sao_Paulo' });
 
@@ -17,8 +18,7 @@ for (const status of [401, 403, 404, 500]) {
   test(`caixa preserva sessão válida ao consultar produto com HTTP ${status}`, async ({ page }) => {
     await sessao(page);
     await page.route('**/api/produtos/catalogo/*', route => route.fulfill({ status, body: '' }));
-    const mensagens = [];
-    page.on('dialog', async dialog => { mensagens.push(dialog.message()); await dialog.dismiss(); });
+    const mensagens = await collectNotifications(page);
     await page.goto('/caixa');
     await page.getByPlaceholder('Digite o código de barras (10 dígitos) - Ex: 1234567890').fill('2121212121');
     await page.getByRole('button', { name: 'Adicionar', exact: true }).click();
@@ -33,7 +33,7 @@ test('caixa encerra sessão quando endpoint de sessão também rejeita o token',
   await sessao(page);
   await page.route('**/api/produtos/catalogo/*', route => route.fulfill({ status: 401 }));
   await page.route('**/api/empresas/minha-empresa', route => route.fulfill({ status: 401 }));
-  page.on('dialog', dialog => dialog.dismiss());
+
   await page.goto('/caixa');
   await page.getByPlaceholder('Digite o código de barras (10 dígitos) - Ex: 1234567890').fill('2121212121');
   await page.getByRole('button', { name: 'Adicionar', exact: true }).click();
@@ -48,8 +48,7 @@ for (const disponivel of [0, 5]) {
       id: '2121212121', nome: 'Torrada Integral', preco: 29.90, estoque: 0,
       tipoEstoque: 'COTA_TEMPO', limiteCota: 5, intervaloCotaMinutos: 3, quantidadeDisponivel: disponivel,
     } }));
-    const mensagens = [];
-    page.on('dialog', async dialog => { mensagens.push(dialog.message()); await dialog.dismiss(); });
+    const mensagens = await collectNotifications(page);
     await page.goto('/caixa');
     await page.getByPlaceholder('Digite o código de barras (10 dígitos) - Ex: 1234567890').fill('2121212121');
     await page.getByRole('button', { name: 'Adicionar', exact: true }).click();

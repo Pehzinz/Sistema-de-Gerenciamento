@@ -1,3 +1,4 @@
+import { collectNotifications } from './helpers/notifications';
 import { test, expect } from '@playwright/test';
 
 async function preparar(page, suporte = true) {
@@ -7,7 +8,7 @@ async function preparar(page, suporte = true) {
     return route.fulfill({ json: path.endsWith('/recursos') ? { versaoCustosProdutos: suporte ? 1 : undefined }
       : path.endsWith('/categorias') ? [{ id: 1, nome: 'Teste' }] : [] });
   });
-  page.on('dialog', dialog => dialog.accept());
+
 }
 
 test('cadastro salva custo por unidade e alerta venda abaixo do custo', async ({ page }) => {
@@ -64,7 +65,7 @@ test('backend sem suporte não recebe custos nem exibe falso sucesso', async ({ 
   await preparar(page, false);
   let gravacoes = 0;
   await page.route('**/api/produtos', route => { gravacoes++; return route.fulfill({ status: 201, json: {} }); });
-  const mensagens = []; page.on('dialog', dialog => mensagens.push(dialog.message()));
+  const mensagens = await collectNotifications(page);
   await page.goto('/cadastrar-produto');
   await page.getByPlaceholder('Ex: 7891020304').fill('1234567890');
   await page.getByPlaceholder('Ex: Mouse Gamer').fill('Produto');

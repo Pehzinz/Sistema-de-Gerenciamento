@@ -1,3 +1,4 @@
+import { useNotificacoes } from '../hooks/useNotificacoes';
 import { LabelInput } from '../components/label-input';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -5,6 +6,7 @@ import Navbar from '../components/Navbar';
 import { BASE_URL, readApiError, apiFetch as fetch } from '../services/api';
 
 function ExcluirProduto() {
+  const { notificar } = useNotificacoes();
   // Estados do Produto
   const [idProduto, setIdProduto] = useState('');
   const [confirmacaoProduto, setConfirmacaoProduto] = useState('');
@@ -47,12 +49,12 @@ function ExcluirProduto() {
     if (excluindoProduto) return;
 
     if (idProduto.length !== 10) {
-      alert('Ação negada: O código do produto deve ter exatamente 10 dígitos.');
+      notificar('Ação negada: O código do produto deve ter exatamente 10 dígitos.', { tipo: 'atencao' });
       return;
     }
 
     if (confirmacaoProduto !== 'Delete') {
-      alert('Ação negada: Você deve digitar exatamente "Delete" (com D maiúsculo) para confirmar a exclusão.');
+      notificar('Ação negada: Você deve digitar exatamente "Delete" (com D maiúsculo) para confirmar a exclusão.', { tipo: 'atencao' });
       return;
     }
 
@@ -67,16 +69,16 @@ function ExcluirProduto() {
       });
 
       if (resposta.ok || resposta.status === 204) {
-        alert('Produto excluído do catálogo. O histórico de vendas foi preservado.');
+        notificar('Produto excluído do catálogo. O histórico de vendas foi preservado.', { tipo: 'atencao' });
         setIdProduto(''); 
         setConfirmacaoProduto(''); 
       } else if (resposta.status === 404) {
-        alert('Erro: Produto não encontrado no banco de dados.');
+        notificar('Erro: Produto não encontrado no banco de dados.', { tipo: 'erro' });
       } else {
-        alert(await readApiError(resposta, 'Erro ao excluir produto'));
+        notificar(await readApiError(resposta, 'Erro ao excluir produto'), { tipo: 'erro' });
       }
     } catch {
-      alert('Erro de conexão ao tentar excluir o produto.');
+      notificar('Erro de conexão ao tentar excluir o produto.', { tipo: 'erro' });
     } finally {
       setExcluindoProduto(false);
     }
@@ -88,12 +90,12 @@ function ExcluirProduto() {
     if (excluindoCategoria) return;
 
     if (!categoriaId) {
-      alert('Ação negada: Selecione uma categoria cadastrada.');
+      notificar('Ação negada: Selecione uma categoria cadastrada.', { tipo: 'atencao' });
       return;
     }
 
     if (confirmacaoCategoria !== 'Delete') {
-      alert('Ação negada: Você deve digitar exatamente "Delete" (com D maiúsculo) para confirmar a exclusão.');
+      notificar('Ação negada: Você deve digitar exatamente "Delete" (com D maiúsculo) para confirmar a exclusão.', { tipo: 'atencao' });
       return;
     }
 
@@ -108,16 +110,16 @@ function ExcluirProduto() {
       });
 
       if (resposta.ok || resposta.status === 204) {
-        alert('Categoria excluída com sucesso do sistema!');
+        notificar('Categoria excluída com sucesso do sistema!', { tipo: 'sucesso' });
         setCategoriaId('');
         await buscarCategorias();
         setConfirmacaoCategoria('');
       } else {
-        alert(await readApiError(resposta, 'Erro ao excluir a categoria'));
+        notificar(await readApiError(resposta, 'Erro ao excluir a categoria'), { tipo: 'erro' });
         if (resposta.status === 404) { setCategoriaId(''); await buscarCategorias(); }
       }
     } catch {
-      alert('Erro de conexão ao tentar excluir a categoria.');
+      notificar('Erro de conexão ao tentar excluir a categoria.', { tipo: 'erro' });
     } finally {
       setExcluindoCategoria(false);
     }

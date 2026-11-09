@@ -1,3 +1,4 @@
+import { collectNotifications } from './helpers/notifications';
 import { test, expect } from '@playwright/test';
 
 async function openRegistration(page) {
@@ -17,8 +18,7 @@ for (const scenario of [
 ]) {
   test(`registration distinguishes HTTP ${scenario.status} from a network failure`, async ({ page }) => {
     await page.route('**/api/registro', route => route.fulfill(scenario));
-    const messages = [];
-    page.on('dialog', async dialog => { messages.push(dialog.message()); await dialog.dismiss(); });
+    const messages = await collectNotifications(page);
     await openRegistration(page);
     await page.getByRole('button', { name: 'Concluir Cadastro' }).click();
     await expect.poll(() => messages.at(-1)).toContain(scenario.expected);
@@ -35,7 +35,7 @@ test('new company registration binds the next login to its CNPJ and clears the p
     loginPayload = route.request().postDataJSON();
     return route.fulfill({ status: 401, json: { erro: 'Credenciais fictícias de teste.' } });
   });
-  page.on('dialog', dialog => dialog.dismiss());
+
   await openRegistration(page);
   await page.getByRole('button', { name: 'Concluir Cadastro' }).click();
   await expect(page.getByPlaceholder('CPF do Usuário')).toHaveValue('111.222.333-44');
@@ -49,8 +49,7 @@ test('new company registration binds the next login to its CNPJ and clears the p
 test('login displays a database failure instead of blaming the password', async ({ page }) => {
   await page.route('**/api/login', route => route.fulfill({ status: 503,
     json: { erro: 'Não foi possível acessar o banco de dados.' } }));
-  const messages = [];
-  page.on('dialog', async dialog => { messages.push(dialog.message()); await dialog.dismiss(); });
+  const messages = await collectNotifications(page);
   await page.goto('/');
   await page.getByPlaceholder('CPF do Usuário').fill('111.222.333-44');
   await page.getByPlaceholder('Senha', { exact: true }).fill('senha-forte-teste-123');

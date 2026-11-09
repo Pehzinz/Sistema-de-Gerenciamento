@@ -1,14 +1,15 @@
+import { useNotificacoes } from '../hooks/useNotificacoes';
 import { LabelInput } from '../components/label-input';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { BASE_URL, apiFetch as fetch } from '../services/api';
+import { BASE_URL, apiFetch as fetch, readApiError } from '../services/api';
 
 function Configuracoes() {
+  const { notificar, confirmar } = useNotificacoes();
   const [empresa, setEmpresa] = useState({
     nome: '', cnpj: '', telefone: '', email: '', endereco: ''
   });
-  const [mensagem, setMensagem] = useState(null);
   const [modalExclusaoAberto, setModalExclusaoAberto] = useState(false);
   const [confirmacaoExclusao, setConfirmacaoExclusao] = useState('');
   
@@ -53,29 +54,35 @@ function Configuracoes() {
         // A CORREÇÃO DA TELA DE LOGIN: Atualiza a memória da máquina com o novo nome
         localStorage.setItem('empresaNome', empresa.nome);
         
-        setMensagem({ tipo: 'sucesso', texto: 'Configurações salvas com sucesso!' });
-        setTimeout(() => setMensagem(null), 3000);
+        notificar('Configurações salvas com sucesso!', { tipo: 'sucesso' });
+      } else {
+        notificar(await readApiError(resposta, 'Não foi possível salvar as configurações'), { tipo: 'erro' });
       }
     } catch {
-      setMensagem({ tipo: 'erro', texto: 'Falha ao salvar. Verifique a conexão.' });
+      notificar('Falha ao salvar. Verifique a conexão.', { tipo: 'erro' });
     }
   };
 
   const limparEstoque = async () => {
-    const confirmacao = window.confirm("ATENÇÃO: Todos os produtos terão o estoque zerado e serão ocultados do catálogo. O histórico de vendas será mantido. Tem certeza?");
+    const confirmacao = await confirmar("ATENÇÃO: Todos os produtos terão o estoque zerado e serão ocultados do catálogo. O histórico de vendas será mantido. Tem certeza?");
     if (!confirmacao) return;
 
-    const token = sessionStorage.getItem('token');
-    const resposta = await fetch(BASE_URL + '/api/empresas/limpar-estoque', {
-      method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (resposta.ok) alert('O Estoque foi limpo com sucesso.');
+    try {
+      const token = sessionStorage.getItem('token');
+      const resposta = await fetch(BASE_URL + '/api/empresas/limpar-estoque', {
+        method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (resposta.ok) notificar('O Estoque foi limpo com sucesso.', { tipo: 'sucesso' });
+      else notificar(await readApiError(resposta, 'Não foi possível limpar o estoque'), { tipo: 'erro' });
+    } catch {
+      notificar('Erro de conexão ao limpar o estoque. Tente novamente.', { tipo: 'erro' });
+    }
   };
 
   const encerrarConta = async (e) => {
     e.preventDefault();
     if (confirmacaoExclusao !== 'DELETAR') {
-      alert("Para sua segurança, digite a palavra DELETAR exatamente como solicitado.");
+      notificar("Para sua segurança, digite a palavra DELETAR exatamente como solicitado.", { tipo: 'atencao' });
       return;
     }
 
@@ -85,12 +92,12 @@ function Configuracoes() {
     });
     
     if (resposta.ok) {
-      alert('Sua conta foi encerrada. Todos os dados foram apagados.');
+      notificar('Sua conta foi encerrada. Todos os dados foram apagados.', { tipo: 'sucesso' });
       ['token', 'perfil', 'nome'].forEach(key => sessionStorage.removeItem(key));
       ['empresaNome', 'cnpj'].forEach(key => localStorage.removeItem(key));
-      window.location.href = '/';
+      navigate('/', { replace: true });
     } else {
-      alert('Houve um erro ao excluir a conta.');
+      notificar('Houve um erro ao excluir a conta.', { tipo: 'erro' });
       setModalExclusaoAberto(false);
     }
   };
@@ -117,12 +124,6 @@ function Configuracoes() {
           <div style={{ padding: '30px', backgroundColor: 'white', borderRadius: '15px', border: '1px solid #f0f0f0', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
             <h3 style={{ marginTop: 0, color: '#444' }}>Dados Comerciais</h3>
             
-            {mensagem && (
-              <div style={{ padding: '10px', backgroundColor: mensagem.tipo === 'sucesso' ? '#e8f5e9' : '#ffeaec', color: mensagem.tipo === 'sucesso' ? '#1e8e3e' : '#d63031', borderRadius: '5px', marginBottom: '15px', fontWeight: 'bold', textAlign: 'center' }}>
-                {mensagem.texto}
-              </div>
-            )}
-
             <form className="settings-grid" onSubmit={salvarConfiguracoes} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
               <div style={{ gridColumn: 'span 2' }}>
                 <LabelInput label="NOME FANTASIA" type="text" value={empresa.nome} onChange={(e) => setEmpresa({...empresa, nome: e.target.value})} style={inputStyle} required />
