@@ -277,7 +277,7 @@ function Calendario() {
           </div>
 
           <div style={{ backgroundColor: 'white', borderRadius: '20px', padding: '30px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
-            <div className="calendar-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '30px' }}>
+            <div className="calendar-toolbar button-group" style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '30px' }}>
               <button onClick={() => mudarMes(-1)} style={{ width: '35px', height: '35px', borderRadius: '50%', border: '1px solid #e0e0e0', background: 'white', cursor: 'pointer' }}>{'<'}</button>
               <h2 style={{ margin: 0, fontSize: '18px', color: '#333', textTransform: 'capitalize', minWidth: '150px', textAlign: 'center' }}>{nomeMes} de {ano}</h2>
               <button onClick={() => mudarMes(1)} style={{ width: '35px', height: '35px', borderRadius: '50%', border: '1px solid #e0e0e0', background: 'white', cursor: 'pointer' }}>{'>'}</button>
@@ -389,7 +389,7 @@ function Calendario() {
               </div>
               <div className="responsive-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 {editandoId ? ( <button type="button" onClick={excluirEvento} style={{ padding: '12px 15px', border: 'none', background: '#fff0f0', color: '#e74c3c', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Excluir</button> ) : ( <div></div> )}
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div className="button-group" style={{ display: 'flex', gap: '10px' }}>
                   <button type="button" onClick={() => setModalAberto(false)} style={{ padding: '12px 20px', border: 'none', background: '#f5f5f5', color: '#555', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Cancelar</button>
                   <button type="submit" style={{ padding: '12px 20px', border: 'none', background: '#8e44ad', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Salvar</button>
                 </div>

@@ -1,20 +1,25 @@
 import { LabelInput } from './label-input';
+import { useId } from 'react';
 import { controleInicial } from '../utils/controleEstoque';
 const campo = { display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: '180px' };
 const input = { padding: '12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '15px' };
 
 export default function ControleEstoqueForm({ value, onChange, edicao = false, tipoOriginal }) {
+  const tipoId = useId();
   const mudar = (nome, valor) => onChange({ ...value, [nome]: valor });
   return <fieldset style={{ border: '1px solid #e0c3fc', borderRadius: '10px', padding: '20px', margin: 0 }}>
     <legend>Controle de estoque</legend>
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
-      <label style={campo}>Tipo de controle
-        <select style={input} value={value.tipoEstoque || 'PADRAO'} onChange={e => onChange({ ...controleInicial, tipoEstoque: e.target.value })}>
+      <div style={campo}>
+        <div className="label-input">
+        <select id={tipoId} className="label-input__control label-input__select" value={value.tipoEstoque || 'PADRAO'} onChange={e => onChange({ ...controleInicial, tipoEstoque: e.target.value })}>
           <option value="PADRAO">Estoque Padrão</option>
           <option value="COTA_TEMPO">Cota de Tempo</option>
           <option value="VALIDADE">Prazo de Validade</option>
         </select>
-      </label>
+        <label className="label-input__label" htmlFor={tipoId}>Tipo de controle</label>
+        </div>
+      </div>
       {value.tipoEstoque === 'COTA_TEMPO' ? <>
         <div style={campo}><LabelInput label="Limite de vendas por intervalo" style={input} type="number" min="1" max="2147483647" step="1" required value={value.limiteCota ?? ''} onChange={e => mudar('limiteCota', e.target.value)} /></div>
         <div style={campo}><LabelInput label="Renovar a cada (minutos)" style={input} type="number" min="1" max="2147483647" step="1" required placeholder="60 = 1 hora; 1440 = 1 dia" value={value.intervaloCotaMinutos ?? ''} onChange={e => mudar('intervaloCotaMinutos', e.target.value)} /></div>

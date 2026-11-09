@@ -51,7 +51,10 @@ test('collaborator creation buttons fit the form on a narrow screen with larger 
   const admin = page.getByRole('button', { name: '+ Administrador', exact: true });
   const collaborator = page.getByRole('button', { name: '+ Colaborador', exact: true });
   await expect(admin).toBeVisible();
-  await page.addStyleTag({ content: 'main form button { font-size: 18px; }' });
+  await admin.locator('..').screenshot({ path: 'test-results/collaborator-actions.png' });
+  await page.addStyleTag({ content: 'main form .button-group > button { font-size: 18px; }' });
+  await expect(admin).toHaveCSS('white-space', 'nowrap');
+  await expect(collaborator).toHaveCSS('white-space', 'nowrap');
   const form = await admin.locator('xpath=ancestor::form').boundingBox();
   const first = await admin.boundingBox();
   const second = await collaborator.boundingBox();
@@ -70,6 +73,59 @@ test('mobile menu opens, navigates and closes', async ({ page }) => {
   await expect(page.getByRole('button', { name: '✕ Fechar' })).toHaveAttribute('aria-expanded', 'true');
   await page.getByRole('link', { name: 'Calendário' }).click();
   await expect(menu).toHaveAttribute('aria-expanded', 'false'); await fits(page);
+});
+
+test('product fields share the same height and top edge on desktop', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await seed(page); await page.goto('/cadastrar-produto');
+  const price = await page.getByLabel('Valor do Produto (R$) *', { exact: true }).boundingBox();
+  const cost = await page.getByLabel('Custo unitário (R$) — opcional', { exact: true }).boundingBox();
+  expect(Math.abs(price.y - cost.y)).toBeLessThanOrEqual(1);
+  expect(price.height).toBe(cost.height);
+  const type = page.getByRole('combobox', { name: 'Tipo de controle' });
+  for (const [value, name] of [['PADRAO', 'Estoque Inicial'], ['COTA_TEMPO', 'Limite de vendas por intervalo'], ['VALIDADE', 'Validade comercial (horário local)']]) {
+    await type.selectOption(value);
+    const select = await type.boundingBox();
+    const input = await page.getByLabel(name, { exact: true }).boundingBox();
+    expect(Math.abs(select.y - input.y)).toBeLessThanOrEqual(1);
+    expect(select.height).toBe(input.height);
+  }
+  await page.getByLabel('Custo unitário (R$) — opcional', { exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'test-results/aligned-product-fields.png' });
+});
+
+test('stock column filters retain their compact dimensions', async ({ page }) => {
+  await seed(page); await page.goto('/admin');
+  await expect(page.getByRole('button', { name: '✕ Limpar Filtros', exact: true })).toBeHidden();
+  for (const name of ['Filtrar por marca', 'Filtrar por categoria', 'Tipo de Estoque']) {
+    const filter = await page.getByRole('combobox', { name, exact: true }).boundingBox();
+    expect(filter.height).toBeLessThanOrEqual(24);
+    expect(filter.width).toBeLessThanOrEqual(24);
+  }
+});
+
+test('sidebar collapses to icons, keeps navigation and remembers the preference', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await seed(page); await page.goto('/admin');
+  const before = await page.locator('main').boundingBox();
+  await page.getByRole('button', { name: 'Recolher barra lateral', exact: true }).click();
+  await expect(page.locator('.sidebar')).toHaveCSS('width', '76px');
+  await expect(page.locator('.menu-item-label').first()).toBeHidden();
+  const after = await page.locator('main').boundingBox();
+  expect(after.width).toBeGreaterThan(before.width);
+  await page.screenshot({ path: 'test-results/collapsed-sidebar.png' });
+  await page.getByRole('link', { name: 'Configurações', exact: true }).click();
+  await expect(page).toHaveURL(/\/configuracoes$/);
+  await expect(page.locator('.sidebar')).toHaveCSS('width', '76px');
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Expandir barra lateral', exact: true })).toHaveAttribute('aria-expanded', 'false');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: '☰ Menu', exact: true }).click();
+  await expect(page.locator('.menu-item-label').first()).toBeVisible();
+  await fits(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.getByRole('button', { name: 'Expandir barra lateral', exact: true }).click();
+  await expect(page.locator('.sidebar')).toHaveCSS('width', '252px');
 });
 test('mobile calendar modal stays inside viewport', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 }); await seed(page); await page.goto('/calendario');

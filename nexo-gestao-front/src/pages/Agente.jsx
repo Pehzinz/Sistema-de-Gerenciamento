@@ -152,7 +152,7 @@ function Agente() {
             </div>
 
             <div style={{ padding: '20px', backgroundColor: 'white', borderTop: '1px solid #f0f0f0' }}>
-              <div aria-label="Consultas rápidas" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '15px' }}>
+              <div className="button-group button-group--queries" aria-label="Consultas rápidas" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '15px' }}>
                 {[
                   ['resumo', '📈 Resumo'], ['estoque', '📦 Estoque'], ['promocoes', '🏷️ Promoções'],
                   ['alertas', '⚠️ Estoque baixo'], ['vendas', '🛒 Vendas'], ['insights', '📊 Tendências'],

@@ -407,9 +407,10 @@ function CadastroProduto() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', backgroundColor: '#e9ecef', padding: '5px', borderRadius: '12px', width: 'fit-content', gap: '5px' }}>
+          <div className="button-group button-group--tabs" style={{ display: 'flex', backgroundColor: '#e9ecef', padding: '5px', borderRadius: '12px', width: 'fit-content', gap: '5px' }}>
             <button 
               type="button"
+              aria-pressed={modo === 'CADASTRAR'}
               onClick={() => { setModo('CADASTRAR'); setProdutoEncontrado(null); }}
               style={{
                 padding: '12px 25px', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer',
@@ -423,6 +424,7 @@ function CadastroProduto() {
 
             <button 
               type="button"
+              aria-pressed={modo === 'REPOR_ESTOQUE'}
               onClick={() => { setModo('REPOR_ESTOQUE'); }}
               style={{
                 padding: '12px 25px', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer',
@@ -610,10 +612,10 @@ function CadastroProduto() {
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', gap: '10px' }}>
-                        <button onClick={aplicarPromocaoExistente} style={{ flex: 1, padding: '12px', backgroundColor: '#d63031', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }}>Salvar Oferta</button>
+                      <div className="button-group" style={{ display: 'flex', gap: '10px' }}>
+                        <button className="button-danger" onClick={aplicarPromocaoExistente} style={{ flex: 1, padding: '12px', backgroundColor: '#d63031', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }}>Salvar Oferta</button>
                         {produtoEncontrado.precoPromocional && (
-                          <button onClick={removerPromocaoExistente} style={{ padding: '12px', backgroundColor: '#ffe0e0', color: '#d63031', border: '1px solid #ffb8b8', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }}>Encerrar Oferta</button>
+                          <button className="button-danger" onClick={removerPromocaoExistente} style={{ padding: '12px', backgroundColor: '#ffe0e0', color: '#d63031', border: '1px solid #ffb8b8', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }}>Encerrar Oferta</button>
                         )}
                       </div>
                     </div>
@@ -635,7 +637,7 @@ function CadastroProduto() {
           <div style={{ backgroundColor: 'white', padding: '35px', borderRadius: '15px', width: '380px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
             <h3 style={{ marginTop: 0, color: '#333', fontSize: '20px' }}>Nova Categoria</h3>
             <LabelInput type="text" placeholder="Ex: Monitores" value={nomeNovaCategoria} onChange={(e) => setNomeNovaCategoria(e.target.value)} style={{ width: '100%', padding: '15px', boxSizing: 'border-box', border: '1px solid #ccc', borderRadius: '8px', marginBottom: '25px', outline: 'none' }} />
-            <div className="responsive-row" style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px' }}>
+            <div className="button-group" style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px' }}>
               <button onClick={() => setModalCategoriaAberto(false)} style={{ padding: '12px 20px', border: 'none', background: '#f5f5f5', color: '#555', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Cancelar</button>
               <button onClick={salvarNovaCategoria} style={{ padding: '12px 20px', border: 'none', background: '#8e44ad', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Salvar Categoria</button>
             </div>

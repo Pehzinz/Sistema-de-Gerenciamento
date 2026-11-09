@@ -381,7 +381,7 @@ function Caixa() {
                             </td>
                             
                             <td style={{ padding: '15px 0' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div className="button-group button-group--stepper" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <button type="button" onClick={() => tentarAlterarQuantidade(index, item.quantidade - 1)} style={{ width: '30px', height: '30px', borderRadius: '6px', border: '1px solid #e0e0e0', background: 'white', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', color: '#333' }}>-</button>
                                 
                                 <div style={{ padding: '5px 12px', backgroundColor: '#f3e8ff', color: '#8e44ad', borderRadius: '6px', fontWeight: 'bold', fontSize: '14px' }}>
@@ -511,11 +511,11 @@ function Caixa() {
               style={{ width: '100%', padding: '12px', marginBottom: '25px', boxSizing: 'border-box', border: '1px solid #ccc', borderRadius: '8px', outline: 'none', fontSize: '14px' }} 
             />
             
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <div className="button-group" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button type="button" onClick={() => { setModalAberto(false); setAcaoPendente(null); }} style={{ padding: '12px 20px', border: 'none', background: '#f5f5f5', color: '#555', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                 Cancelar
               </button>
-              <button type="button" onClick={autorizarAcao} style={{ padding: '12px 20px', border: 'none', background: '#d63031', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+              <button className="button-danger" type="button" onClick={autorizarAcao} style={{ padding: '12px 20px', border: 'none', background: '#d63031', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                 Autorizar Ação
               </button>
             </div>
