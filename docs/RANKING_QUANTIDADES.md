@@ -20,9 +20,11 @@ O novo atalho Mais vendidos usa `GET /api/agente/consultas/mais-vendidos`, sem u
 
 ## Variação percentual da projeção financeira
 
-Ao passar o mouse nos pontos da projeção, o tooltip mantém o período, o nome da série e o valor em reais, acrescentando a variação em relação ao ponto anterior. Valores realizados são comparados ao realizado anterior; projeções, à projeção anterior, usando o realizado anterior na ligação entre as séries. O nome do período de comparação é exibido (semanas ou dias, conforme o histórico retornado pela API).
+Ao passar o mouse nos pontos da projeção, o tooltip mantém o período, o nome da série e o valor em reais, acrescentando apenas a variação percentual em relação ao ponto anterior. Valores realizados são comparados ao realizado anterior; projeções, à projeção anterior, usando o realizado anterior na ligação entre as séries. O cartão acompanha o cursor com afastamento e muda de lado perto da borda; fica fora do fluxo do gráfico para evitar cortes.
 
-A fórmula é `(atual - anterior) / abs(anterior)`. Aumento usa seta e sinal positivo; queda usa seta e sinal negativo; ausência de mudança mostra zero. O primeiro ponto e lacunas de dados não recebem porcentagens inventadas. Quando o valor anterior é zero e o atual é diferente de zero, o tooltip informa que não há base percentual; zero para zero mostra 0%. Valores iguais a zero continuam sendo exibidos em reais.
+A fórmula é `(atual - anterior) / abs(anterior)`. Aumento usa seta e sinal positivo; queda usa seta e sinal negativo; ausência de mudança mostra zero. O primeiro ponto, lacunas de dados e comparações com base zero e valor atual diferente de zero não exibem porcentagem; zero para zero mostra 0%. Valores iguais a zero continuam sendo exibidos em reais.
+
+O backend aplica regressão linear simples por mínimos quadrados aos totais por semana (ou por dia quando há menos de duas semanas com vendas), projetando os próximos dois períodos e limitando previsões negativas a zero. A implementação atual usa apenas períodos com vendas, sem preencher lacunas, modelar sazonalidade, medir erro fora da amostra ou calcular intervalos de confiança. Assim, é uma tendência estatística básica de faturamento, cuja precisão preditiva ainda não foi validada.
 
 Os ajustes do seletor e do tooltip são de frontend e não exigem nova alteração de API.
 
