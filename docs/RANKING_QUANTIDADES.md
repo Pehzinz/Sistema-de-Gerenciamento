@@ -1,6 +1,6 @@
 # Produtos mais vendidos por quantidade
 
-A tela Inteligência apresenta um ranking dos cinco produtos com mais unidades vendidas, com barras na paleta roxa, quantidades exatas e participação no total de unidades do histórico da empresa. O destaque lateral mostra o total de unidades e o líder em volume. O cálculo é independente do preço e do faturamento: vender dez unidades conta dez, mesmo em um único pedido.
+A tela Inteligência apresenta um ranking com um seletor entre os cinco produtos mais e menos vendidos em quantidade, com barras na paleta roxa, quantidades exatas e participação no total de unidades do histórico da empresa. O destaque lateral mostra o total de unidades e o produto de maior ou menor volume conforme a opção escolhida. O cálculo é independente do preço e do faturamento: vender dez unidades conta dez, mesmo em um único pedido.
 
 ## Dados e limites
 
@@ -9,6 +9,7 @@ A tela Inteligência apresenta um ranking dos cinco produtos com mais unidades v
 - O período é todo o histórico registrado. Produtos inativos continuam contados quando aparecem em vendas anteriores. Os nomes são obtidos do produto vinculado ao item, como nas demais análises atuais.
 - Unidades válidas sem identificação de produto entram no total, mas não na classificação individual. Itens com quantidade ausente ou não positiva não são estimados. O retorno informa essas lacunas e a interface mostra os avisos correspondentes.
 - As barras comparam o volume de cada produto ao líder. As porcentagens mostram a participação no total de unidades válidas do histórico, incluindo as unidades sem identificação, quando houver.
+- O seletor ordena a lista completa antes de escolher os cinco primeiros. Menos vendidos considera apenas produtos com pelo menos uma unidade vendida; produtos sem venda não são incluídos como zero. A escala das barras permanece relativa ao produto mais vendido do histórico nos dois modos.
 - A disponibilidade atual exibida na lista vem da consulta de produtos ativos, usando `quantidadeDisponivel` (inclusive cotas e validades) e, quando necessário, `estoque`. Produtos ausentes dessa lista recebem a indicação de fora do catálogo ativo.
 - Uma venda nova invalida o cache de estatísticas existente; o botão Atualizar Análise Completa busca os números novamente. O ranking histórico ajuda a acompanhar a reposição, mas não calcula velocidade recente de venda, prazo de entrega ou estoque mínimo.
 - Se o frontend estiver atualizado e o backend ainda não oferecer o campo novo, o painel informa a necessidade de atualização; não exibe um ranking zerado como se fosse real.
@@ -16,6 +17,14 @@ A tela Inteligência apresenta um ranking dos cinco produtos com mais unidades v
 ## Agente
 
 O novo atalho Mais vendidos usa `GET /api/agente/consultas/mais-vendidos`, sem uma chamada à IA. Também aceita `/mais-vendidos`, `/maisvendidos` e `/ranking`. As respostas de `/resumo`, `/vendas` e `/insights` incluem o ranking por unidades. A IA recebe os mesmos números no contexto, além da disponibilidade atual e do tipo de controle do estoque. Os textos distinguem unidades, faturamento e lucro.
+
+## Variação percentual da projeção financeira
+
+Ao passar o mouse nos pontos da projeção, o tooltip mantém o período, o nome da série e o valor em reais, acrescentando a variação em relação ao ponto anterior. Valores realizados são comparados ao realizado anterior; projeções, à projeção anterior, usando o realizado anterior na ligação entre as séries. O nome do período de comparação é exibido (semanas ou dias, conforme o histórico retornado pela API).
+
+A fórmula é `(atual - anterior) / abs(anterior)`. Aumento usa seta e sinal positivo; queda usa seta e sinal negativo; ausência de mudança mostra zero. O primeiro ponto e lacunas de dados não recebem porcentagens inventadas. Quando o valor anterior é zero e o atual é diferente de zero, o tooltip informa que não há base percentual; zero para zero mostra 0%. Valores iguais a zero continuam sendo exibidos em reais.
+
+Os ajustes do seletor e do tooltip são de frontend e não exigem nova alteração de API.
 
 ## Calendário
 

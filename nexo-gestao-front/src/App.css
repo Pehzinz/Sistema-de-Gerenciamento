@@ -87,6 +87,15 @@ img { max-width: 100%; }
 .quantity-ranking-header h2 { margin: 8px 0; font-size: 22px; color: var(--ink); }
 .quantity-ranking-header p { margin: 0; color: var(--muted); font-size: 13px; }
 .quantity-ranking-tag { flex-shrink: 0; padding: 8px 12px; background: var(--primary-soft); color: var(--primary-dark); font-size: 11px; font-weight: 600; border-radius: 24px; }
+.quantity-ranking-header > div:first-child { flex: 1 1 260px; }
+.quantity-ranking-controls { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; max-width: 100%; }
+.projection-tooltip { padding: 14px 16px; width: 300px; max-width: calc(100vw - 48px); background: white; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 28px #29153512; font-size: 12px; color: var(--ink); }
+.projection-tooltip > strong { display: block; font-size: 13px; margin-bottom: 10px; }
+.projection-tooltip-series + .projection-tooltip-series { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
+.projection-tooltip-value { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.projection-tooltip-change { display: block; margin-top: 6px; line-height: 1.5; color: var(--muted); }
+.projection-tooltip-change.is-up { color: #15803d; }
+.projection-tooltip-change.is-down { color: #b91c1c; }
 .quantity-ranking-layout { display: grid; grid-template-columns: minmax(180px, 240px) minmax(0, 1fr); gap: 32px; }
 .quantity-ranking-highlight { padding: 24px; border-radius: 16px; background: linear-gradient(145deg, #faf7fd, #f3eaf8); border: 1px solid #eee3f4; }
 .quantity-ranking-total { display: block; margin: 12px 0 2px; color: var(--primary-dark); font-size: 38px; font-weight: 650; letter-spacing: -1px; overflow-wrap: anywhere; }
@@ -116,6 +125,7 @@ img { max-width: 100%; }
 @media (max-width: 760px) {
   .quantity-ranking { padding: 20px; }
   .quantity-ranking-header { flex-wrap: wrap; }
+  .quantity-ranking-controls { align-items: flex-start; }
   .quantity-ranking-layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
   .quantity-ranking-highlight { padding: 20px; }
   .quantity-ranking-product-head { gap: 10px; }
