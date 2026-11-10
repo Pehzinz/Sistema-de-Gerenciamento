@@ -9,6 +9,7 @@ import com.nexo.sistema_gestao.repository.ProdutoRepository;
 import com.nexo.sistema_gestao.repository.VendaRepository;
 import com.nexo.sistema_gestao.service.EstatisticaService;
 import com.nexo.sistema_gestao.service.GeminiService;
+import com.nexo.sistema_gestao.service.RankingProdutos;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -41,7 +42,7 @@ public class GeminiController {
     private static final List<String> PALAVRAS_CHAVE_NEGOCIOS = Arrays.asList(
         "venda", "estoque", "produto", "lucro", "faturamento", "cliente", "nexo", "gestão", 
         "promo", "preço", "caixa", "relatório", "ajuda", "olá", "oi", "bom dia", "boa tarde", 
-        "tendência", "sistema", "desconto", "comprar", "vender", "agendar", "marcar", "lembrar", "reunião", "evento", "abc", "curva"
+        "tendência", "sistema", "desconto", "comprar", "vender", "vendid", "quantidade", "reposição", "reposicao", "giro", "agendar", "marcar", "lembrar", "reunião", "evento", "abc", "curva"
     );
 
     @PostMapping("/perguntar")
@@ -83,12 +84,16 @@ public class GeminiController {
         
         StringBuilder contexto = new StringBuilder("Você é o Consultor Estratégico. Para agendamentos, oriente o usuário a preencher e salvar o formulário do Calendário. Não afirme que executou ações.\n\n");
         contexto.append("📊 DADOS:\n- Faturamento: R$ ").append(String.format("%.2f", faturamento.doubleValue())).append("\n- Pedidos: ").append(vendas.size()).append("\n\n");
-        contexto.append("🧠 INTELIGÊNCIA:\n- Top Tendência: ").append(curvaEFluxo.get("produtoAltaTendencia")).append("\n- Curva ABC:\n");
+        contexto.append("🧠 INTELIGÊNCIA:\n- Produto com maior receita: ").append(curvaEFluxo.get("produtoAltaTendencia")).append("\n- Curva ABC por faturamento:\n");
         
-        for (Map<String, Object> c : curvaABC) { contexto.append("  * ").append(c.get("name")).append(" (").append(c.get("value")).append("% do lucro): ").append(c.get("produtos")).append("\n"); }
+        for (Map<String, Object> c : curvaABC) { contexto.append("  * ").append(c.get("name")).append(" (").append(c.get("value")).append("% do faturamento): ").append(c.get("produtos")).append("\n"); }
+        @SuppressWarnings("unchecked") var ranking = (Map<String, Object>) curvaEFluxo.get("rankingQuantidade");
+        contexto.append("\n").append(RankingProdutos.resumir(ranking));
+        contexto.append("Não confunda quantidade, faturamento e lucro. O ranking é histórico; não invente previsão de demanda, prazo de reposição ou estoque mínimo.\n");
 
         contexto.append("\n📦 ESTOQUE:\n");
-        for(Produto p : produtos) { contexto.append("- ").append(p.getNome()).append(" | Estoque: ").append(p.getEstoque()).append("\n"); }
+        for(Produto p : produtos) { contexto.append("- ").append(p.getNome()).append(" | Disponível agora: ").append(p.getQuantidadeDisponivel())
+                .append(" | Controle: ").append(p.getTipoEstoque()).append(" | Estoque físico: ").append(p.getEstoque()).append("\n"); }
 
         contexto.append("\nPergunta do usuário: \"").append(perguntaUsuario).append("\"\n");
 

@@ -227,6 +227,32 @@ class SistemaGestaoApplicationTests {
         assertEquals(401, call("GET", "/api/produtos", "forged-token", null).statusCode());
     }
 
+    @Test void unitRankingUsesTenantSalesAndRefreshesAfterNewSales() throws Exception {
+        produto.setEstoque(20); produtos.save(produto);
+        Empresa outra = empresas.save(new Empresa("Outra loja", "ranking-" + empresa.getId()));
+        Produto externo = new Produto(); externo.setId("9999999999"); externo.setIdInterno(outra.getId() + "-9999999999");
+        externo.setEmpresa(outra); externo.setNome("Produto sigiloso de outra loja"); externo.setPreco(10.0); externo.setEstoque(100);
+        produtos.save(externo);
+        Venda venda = new Venda(); venda.setEmpresa(outra); venda.setFormaPagamento("PIX"); venda.setTotal(new java.math.BigDecimal("990"));
+        ItemVenda item = new ItemVenda(); item.setVenda(venda); item.setProduto(externo); item.setQuantidade(99);
+        item.setPrecoUnitario(java.math.BigDecimal.TEN); item.setSubtotal(new java.math.BigDecimal("990"));
+        venda.setItens(List.of(item)); vendas.save(venda);
+        String path = "/api/tendencias/curva-fluxo?empresaId=" + outra.getId();
+        assertEquals(0, json.readTree(call("GET", path, adminToken, null).body()).path("rankingQuantidade").path("totalUnidades").asLong());
+        assertEquals(201, call("POST", "/api/vendas", adminToken, sale(2, "20")).statusCode());
+        var primeiro = call("GET", path, adminToken, null);
+        assertEquals(200, primeiro.statusCode());
+        assertEquals(2, json.readTree(primeiro.body()).path("rankingQuantidade").path("produtos").get(0).path("quantidade").asLong());
+        assertFalse(primeiro.body().contains("sigiloso"));
+        assertEquals(201, call("POST", "/api/vendas", adminToken, sale(1, "10")).statusCode());
+        var atualizado = json.readTree(call("GET", path, adminToken, null).body()).path("rankingQuantidade");
+        assertEquals(3, atualizado.path("totalUnidades").asLong());
+        var consulta = call("GET", "/api/agente/consultas/mais-vendidos?empresaId=" + outra.getId(), adminToken, null);
+        assertEquals(200, consulta.statusCode()); assertTrue(consulta.body().contains("3 unidades")); assertFalse(consulta.body().contains("sigiloso"));
+        assertEquals(401, call("GET", "/api/agente/consultas/mais-vendidos", null, null).statusCode());
+        assertEquals(403, call("GET", "/api/agente/consultas/mais-vendidos", colaboradorToken, null).statusCode());
+    }
+
     @Test void quickQueriesUseAuthenticatedTenantAndKeepAdministrativePermissions() throws Exception {
         Empresa other = empresas.save(new Empresa("Outra loja", "consulta-" + empresa.getId()));
         Produto foreign = new Produto(); foreign.setId("7777777777");
@@ -250,7 +276,7 @@ class SistemaGestaoApplicationTests {
     }
 
     @Test void typedCommandsUseTenantQueriesWithoutCallingAi() throws Exception {
-        for (String comando : List.of("/estoque", " /ESTOQUE ", "/alerta", "/promocoes", "/ajuda", "/equipe")) {
+        for (String comando : List.of("/estoque", " /ESTOQUE ", "/alerta", "/promocoes", "/ajuda", "/equipe", "/mais-vendidos", "/ranking", "/insights")) {
             var response = call("POST", "/api/agente/perguntar", adminToken,
                     json.writeValueAsString(Map.of("pergunta", comando)));
             assertEquals(200, response.statusCode(), comando);

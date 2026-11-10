@@ -145,7 +145,7 @@ public class EstatisticaService {
         }
 
         return Map.of("curva", abc, "fluxo", fluxo, "produtoAltaTendencia", produtoAltaTendencia,
-                "produtoParado", produtoParado, "margens", AnaliseMargens.calcular(vendas));
+                "produtoParado", produtoParado, "margens", AnaliseMargens.calcular(vendas), "rankingQuantidade", RankingProdutos.calcular(vendas));
     }
 
     // --- 3. TRÁFEGO POR DIA DA SEMANA POR EMPRESA ---

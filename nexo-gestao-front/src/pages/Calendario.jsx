@@ -285,10 +285,13 @@ function Calendario() {
 
                 return (
                   <div 
+                    className="calendar-day" role="button" tabIndex={0} aria-pressed={isSelecionado} aria-current={isHoje ? 'date' : undefined}
+                    aria-label={`Selecionar dia ${dia}/${String(mes + 1).padStart(2, '0')}/${ano}`}
+                    onKeyDown={evento => { if (evento.key === 'Enter' || evento.key === ' ') { evento.preventDefault(); setDiaSelecionado(dataString); } }}
                     key={dia} onClick={() => setDiaSelecionado(dataString)} onDoubleClick={() => abrirModalNovo(dia)}
                     style={{ 
                       minHeight: '110px', padding: '10px', borderRadius: '12px', border: isSelecionado ? '2px solid #8e44ad' : '1px solid #f0f0f0', 
-                      backgroundColor: isHoje ? '#fffdf5' : (isPassado ? '#f3e8ff' : 'white'), cursor: isPassado ? 'not-allowed' : 'pointer', 
+                      backgroundColor: isHoje ? '#fffdf5' : (isPassado ? '#f3e8ff' : 'white'), cursor: 'pointer',
                       transition: 'all 0.2s', position: 'relative', overflowY: 'auto', opacity: isPassado ? 0.6 : 1
                     }}
                   >
