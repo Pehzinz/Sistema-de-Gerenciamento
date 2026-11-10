@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { BASE_URL, readApiError, apiFetch as fetch } from '../services/api';
 import Navbar from '../components/Navbar';
 import RankingQuantidade from '../components/RankingQuantidade';
@@ -19,6 +19,8 @@ function Tendencias() {
   const [faturamentoReal, setFaturamentoReal] = useState(0);
   
   const [dadosPrevisao, setDadosPrevisao] = useState([]);
+  const [cursorProjecao, setCursorProjecao] = useState(null);
+  const pontosProjecao = useMemo(() => prepararProjecao(dadosPrevisao), [dadosPrevisao]);
   const [curvaABC, setCurvaABC] = useState([]);
   const [fluxoCaixa, setFluxoCaixa] = useState([]);
   const [dadosHorarios, setDadosHorarios] = useState([]);
@@ -147,13 +149,15 @@ function Tendencias() {
             <div style={{ flex: 1, backgroundColor: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
               <h3 style={{ marginTop: 0, color: '#333', fontSize: '16px', marginBottom: '5px' }}>Projeção Financeira (Regressão Linear)</h3>
               <p style={{ fontSize: 12, color: '#666' }}>Estimativa de faturamento, não é receita garantida. Exige ao menos dois períodos distintos com vendas e pode variar com promoções e sazonalidade.</p>
-              <div style={{ height: '250px', width: '100%' }}>
+              <div style={{ height: '250px', width: '100%' }}
+                onPointerMove={event => setCursorProjecao({ x: event.clientX, y: event.clientY })}
+                onPointerLeave={() => setCursorProjecao(null)}>
                 {dadosPrevisao.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={prepararProjecao(dadosPrevisao)} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                    <LineChart data={pontosProjecao} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                       <XAxis dataKey="periodo" tick={{fontSize: 12, fill: '#888'}} axisLine={false} tickLine={false} />
                       <YAxis tick={{fontSize: 11, fill: '#888'}} axisLine={false} tickLine={false} tickFormatter={v => Number(v).toLocaleString('pt-BR', { notation: 'compact', style: 'currency', currency: 'BRL', maximumFractionDigits: 1 })}/>
-                      <Tooltip cursor={{fill: '#fcf9ff'}} content={<ProjecaoTooltip />} />
+                      <Tooltip cursor={{fill: '#fcf9ff'}} content={<ProjecaoTooltip cursorPosition={cursorProjecao} />} />
                       <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
                       <Line type="monotone" name="Realizado" dataKey="realizado" stroke="#2ecc71" strokeWidth={3} dot={{ r: 4 }} />
                       <Line type="monotone" name="Projeção linear" dataKey="previsto" stroke="#8e44ad" strokeWidth={3} strokeDasharray="5 5" />
