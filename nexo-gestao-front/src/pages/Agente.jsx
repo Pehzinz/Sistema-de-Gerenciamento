@@ -155,7 +155,7 @@ function Agente() {
               <div className="button-group button-group--queries" aria-label="Consultas rápidas" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '15px' }}>
                 {[
                   ['resumo', '📈 Resumo'], ['estoque', '📦 Estoque'], ['promocoes', '🏷️ Promoções'],
-                  ['alertas', '⚠️ Estoque baixo'], ['vendas', '🛒 Vendas'], ['insights', '📊 Tendências'],
+                  ['alertas', '⚠️ Estoque baixo'], ['vendas', '🛒 Vendas'], ['mais-vendidos', '🏆 Mais vendidos'], ['insights', '📊 Tendências'],
                   ['agenda', '📅 Agenda'], ['equipe', '👥 Equipe'],
                 ].map(([comando, titulo]) => (
                   <button key={comando} type="button" disabled={carregando}

@@ -29,7 +29,8 @@ public class ConsultaNegocioService {
 
     public String consultar(String comando, Long empresaId) {
         return switch (comando.trim().toLowerCase(java.util.Locale.ROOT)) {
-            case "/ajuda" -> "Consultas disponíveis: /resumo, /estoque, /promocoes, /alertas, /vendas, /insights, /agenda e /equipe.";
+            case "/ajuda" -> "Consultas disponíveis: /resumo, /estoque, /promocoes, /alertas, /vendas, /mais-vendidos, /insights, /agenda e /equipe.";
+            case "/mais-vendidos", "/maisvendidos", "/ranking" -> responderMaisVendidos(empresaId);
             case "/estoque" -> responderEstoque(empresaId);
             case "/vendas" -> responderVendas(empresaId);
             case "/equipe", "/usuarios", "/colaboradores", "/funcionarios" -> responderEquipe(empresaId);
@@ -43,13 +44,14 @@ public class ConsultaNegocioService {
     }
 
     private String responderResumo(Long empresaId) {
+        List<Venda> vendas = vendaRepository.findByEmpresaId(empresaId);
         String resposta = "📈 *Resumo Gerencial Nexo:*\n\n" +
                           "📦 Produtos: " + produtoRepository.findByEmpresaIdAndAtivoTrue(empresaId).size() + "\n" +
-                          "🛒 Vendas: " + vendaRepository.findByEmpresaId(empresaId).size() + "\n" +
+                          "🛒 Vendas: " + vendas.size() + "\n" +
                           "👥 Equipe: " + usuarioRepository.findByEmpresaId(empresaId).size() + "\n" +
                           "📅 Eventos: " + eventoRepository.findByEmpresaId(empresaId).size() + "\n\n" +
                           "";
-        return resposta;
+        return resposta + RankingProdutos.resumir(RankingProdutos.calcular(vendas));
     }
 
     private String responderVendas(Long empresaId) {
@@ -60,7 +62,7 @@ public class ConsultaNegocioService {
         for (Venda v : vendas) { if (v.getTotal() != null) faturamentoTotal = faturamentoTotal.add(v.getTotal()); }
 
         String resposta = "📊 *Relatório Financeiro:*\n\n🛒 Pedidos: " + vendas.size() + "\n💰 Faturamento: R$ " + String.format("%.2f", faturamentoTotal.doubleValue());
-        return resposta;
+        return resposta + "\n\n" + RankingProdutos.resumir(RankingProdutos.calcular(vendas));
     }
 
     private String responderEstoque(Long empresaId) {
@@ -92,10 +94,16 @@ public class ConsultaNegocioService {
         @SuppressWarnings("unchecked") List<Map<String, Object>> curvaABC = (List<Map<String, Object>>) curvaEFluxo.get("curva");
         
         StringBuilder resposta = new StringBuilder("🧠 *Inteligência de Mercado*\n\n");
-        resposta.append("🚀 *Tendência:* ").append(curvaEFluxo.get("produtoAltaTendencia")).append("\n");
-        resposta.append("📉 *Parado:* ").append(curvaEFluxo.get("produtoParado")).append("\n\n📊 *Curva ABC:*\n");
-        for (Map<String, Object> c : curvaABC) { resposta.append("▪️ *").append(c.get("name")).append("*: ").append(c.get("value")).append("% do lucro.\n"); }
+        resposta.append("🚀 *Maior receita:* ").append(curvaEFluxo.get("produtoAltaTendencia")).append("\n");
+        resposta.append("📉 *Menor receita entre produtos vendidos:* ").append(curvaEFluxo.get("produtoParado")).append("\n\n📊 *Curva ABC:*\n");
+        for (Map<String, Object> c : curvaABC) { resposta.append("▪️ *").append(c.get("name")).append("*: ").append(c.get("value")).append("% do faturamento.\n"); }
+        @SuppressWarnings("unchecked") var ranking = (Map<String, Object>) curvaEFluxo.get("rankingQuantidade");
+        resposta.append("\n").append(RankingProdutos.resumir(ranking));
         return resposta.toString();
+    }
+
+    private String responderMaisVendidos(Long empresaId) {
+        return RankingProdutos.resumir(RankingProdutos.calcular(vendaRepository.findByEmpresaId(empresaId)));
     }
 
     private String responderAgenda(Long empresaId) {

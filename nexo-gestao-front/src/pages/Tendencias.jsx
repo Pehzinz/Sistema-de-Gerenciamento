@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { BASE_URL, readApiError, apiFetch as fetch } from '../services/api';
 import Navbar from '../components/Navbar';
+import RankingQuantidade from '../components/RankingQuantidade';
 import { 
   LineChart, Line, BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, Legend
@@ -19,6 +20,7 @@ function Tendencias() {
   const [curvaABC, setCurvaABC] = useState([]);
   const [fluxoCaixa, setFluxoCaixa] = useState([]);
   const [dadosHorarios, setDadosHorarios] = useState([]);
+  const [rankingQuantidade, setRankingQuantidade] = useState(null);
   
   // NOVOS ESTADOS DOS INSIGHTS
   const [produtoAltaTendencia, setProdutoAltaTendencia] = useState("Calculando...");
@@ -41,6 +43,7 @@ function Tendencias() {
       setDadosPrevisao(previsao); setCurvaABC(curva.curva); setFluxoCaixa(curva.fluxo);
       setProdutoAltaTendencia(curva.produtoAltaTendencia); setProdutoParado(curva.produtoParado);
       setDadosHorarios(trafego.grafico);
+      setRankingQuantidade(curva.rankingQuantidade ?? null);
       setDadosProntos(true);
       setErroDados('');
     } catch (error) { setErroDados(error.message || 'Erro de conexão ao carregar a análise.'); }
@@ -103,6 +106,8 @@ function Tendencias() {
               </div>
             </div>
           </div>
+
+          <RankingQuantidade dados={rankingQuantidade} produtos={produtosReais} />
 
           <div className="responsive-row" style={{ display: 'flex', gap: '20px' }}>
             <section aria-label="Receitas e custos semanais" style={{ flex: 1, minWidth: 0, backgroundColor: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
