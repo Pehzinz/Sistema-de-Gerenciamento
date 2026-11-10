@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { BASE_URL, readApiError, apiFetch as fetch } from '../services/api';
 import Navbar from '../components/Navbar';
 import RankingQuantidade from '../components/RankingQuantidade';
+import ProjecaoTooltip from '../components/ProjecaoTooltip';
+import { prepararProjecao } from '../utils/variacaoProjecao';
 import { 
   LineChart, Line, BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, Legend
@@ -148,10 +150,10 @@ function Tendencias() {
               <div style={{ height: '250px', width: '100%' }}>
                 {dadosPrevisao.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={dadosPrevisao} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                    <LineChart data={prepararProjecao(dadosPrevisao)} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                       <XAxis dataKey="periodo" tick={{fontSize: 12, fill: '#888'}} axisLine={false} tickLine={false} />
                       <YAxis tick={{fontSize: 11, fill: '#888'}} axisLine={false} tickLine={false} tickFormatter={v => Number(v).toLocaleString('pt-BR', { notation: 'compact', style: 'currency', currency: 'BRL', maximumFractionDigits: 1 })}/>
-                      <Tooltip cursor={{fill: '#fcf9ff'}} formatter={(value) => value ? [Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), ''] : ['-', '']} />
+                      <Tooltip cursor={{fill: '#fcf9ff'}} content={<ProjecaoTooltip />} />
                       <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
                       <Line type="monotone" name="Realizado" dataKey="realizado" stroke="#2ecc71" strokeWidth={3} dot={{ r: 4 }} />
                       <Line type="monotone" name="Projeção linear" dataKey="previsto" stroke="#8e44ad" strokeWidth={3} strokeDasharray="5 5" />

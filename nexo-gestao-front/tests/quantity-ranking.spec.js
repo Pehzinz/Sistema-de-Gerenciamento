@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { calcularVariacao, prepararProjecao } from '../src/utils/variacaoProjecao';
 
 const names = ['Pão integral', 'Chocolate', 'Produto fora do catálogo', 'Café tradicional com nome muito longo para conferir a leitura no celular', 'Água mineral', 'Cesta premium'];
 const quantities = [55, 20, 15, 8, 2, 1];
@@ -6,13 +7,14 @@ const ranking = {
   totalUnidades: 105, unidadesSemIdentificacao: 4, itensSemQuantidade: 0, vendasSemItens: 0,
   produtos: names.map((nome, i) => ({ produtoId: String(i + 1), nome, quantidade: quantities[i], participacaoPercentual: Math.round(quantities[i] / 105 * 10000) / 100 })),
 };
-async function prepare(page, getRanking = () => ranking) {
+async function prepare(page, getRanking = () => ranking, previsao = []) {
   await page.addInitScript(() => { sessionStorage.setItem('token', 'test-token'); sessionStorage.setItem('perfil', 'ADMIN'); });
   await page.route('https://brasilapi.com.br/**', route => route.fulfill({ json: [] }));
   await page.route('**/api/**', route => {
     const path = new URL(route.request().url()).pathname;
     const json = path.endsWith('/curva-fluxo') ? { curva: [], fluxo: [], produtoAltaTendencia: 'Cesta premium', produtoParado: 'Água mineral', ...(getRanking() === undefined ? {} : { rankingQuantidade: getRanking() }) }
       : path.endsWith('/trafego') ? { grafico: [] }
+      : path.endsWith('/previsao-vendas') ? previsao
       : path === '/api/produtos' ? [{ id: '1', nome: names[0], estoque: 0 }, { id: '2', nome: names[1], estoque: 0, quantidadeDisponivel: 7, tipoEstoque: 'COTA_TEMPO' }]
       : [];
     return route.fulfill({ json });
@@ -70,6 +72,80 @@ test('ranking refresh distinguishes an empty history from an API without quantit
   data = ranking;
   await page.getByRole('button', { name: 'Atualizar Análise Completa', exact: true }).click();
   await expect(panel.getByRole('listitem')).toHaveCount(5);
+});
+
+test('ranking switches between the five highest and lowest quantities across the entire history', async ({ page }) => {
+  await prepare(page); await page.goto('/tendencias');
+  await page.getByRole('button', { name: 'Menos vendidos', exact: true }).click();
+  const panel = page.getByRole('region', { name: 'Menos vendidos em quantidade', exact: true });
+  await expect(panel.getByRole('button', { name: 'Menos vendidos', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.locator('.quantity-ranking-units')).toHaveText(['1 un.', '2 un.', '8 un.', '15 un.', '20 un.']);
+  await expect(panel.getByRole('listitem').first()).toContainText('Cesta premium');
+  await expect(panel.locator('.quantity-ranking-total')).toHaveText('105');
+  const widths = await panel.locator('.quantity-ranking-track > span').evaluateAll(elements => elements.map(element => parseFloat(element.style.width)));
+  expect(Math.max(...widths)).toBeLessThanOrEqual(100);
+  await panel.screenshot({ path: 'test-results/quantity-ranking-lowest.png' });
+  await page.setViewportSize({ width: 320, height: 900 });
+  await panel.scrollIntoViewIfNeeded();
+  expect(await page.evaluate(() => document.querySelector('main').scrollWidth - document.querySelector('main').clientWidth)).toBeLessThanOrEqual(1);
+  await page.getByRole('button', { name: 'Mais vendidos', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Mais vendidos em quantidade', exact: true }).getByRole('listitem').first()).toContainText('Pão integral');
+});
+
+test('percentage variation handles zero, missing values and the actual-to-projected bridge', () => {
+  expect(calcularVariacao(125, 100)).toBe(.25);
+  expect(calcularVariacao(100, 125)).toBe(-.2);
+  expect(calcularVariacao(0, 100)).toBe(-1);
+  expect(calcularVariacao(0, 0)).toBe(0);
+  expect(calcularVariacao(10, 0)).toBeNull();
+  expect(calcularVariacao(null, 100)).toBeNull();
+  const pontos = prepararProjecao([{ periodo: 'Semana 1', realizado: 100, previsto: null }, { periodo: 'Semana 2', realizado: 125, previsto: 125 }, { periodo: 'Semana 3', realizado: null, previsto: 150 }]);
+  expect(pontos[0].variacaoRealizado).toBeNull();
+  expect(pontos[1].variacaoRealizado).toBe(.25);
+  expect(pontos[1].variacaoPrevisto).toBe(.25);
+  expect(pontos[2].variacaoPrevisto).toBe(.2);
+});
+
+test('financial projection hover preserves currency values and adds signed percentage changes', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const previsao = [
+    { periodo: 'Semana 1', realizado: 100, previsto: null },
+    { periodo: 'Semana 2', realizado: 125, previsto: null },
+    { periodo: 'Semana 3', realizado: 100, previsto: 100 },
+    { periodo: 'Semana 4', realizado: null, previsto: 120 },
+    { periodo: 'Semana 5', realizado: null, previsto: 0 },
+    { periodo: 'Semana 6', realizado: null, previsto: 10 },
+  ];
+  await prepare(page, () => ranking, previsao); await page.goto('/tendencias');
+  const chart = page.getByRole('heading', { name: 'Projeção Financeira (Regressão Linear)', exact: true }).locator('..');
+  await chart.scrollIntoViewIfNeeded();
+  const actual = chart.locator('circle.recharts-line-dot[name="Realizado"]');
+  const projected = chart.locator('circle.recharts-line-dot[name="Projeção linear"]');
+  const tooltip = page.locator('.projection-tooltip');
+  const hoverPoint = async point => {
+    await expect(point).toBeVisible();
+    await point.scrollIntoViewIfNeeded();
+    const box = await point.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  };
+  await hoverPoint(actual.nth(0));
+  await expect(tooltip).toContainText('Sem período anterior comparável');
+  await hoverPoint(actual.nth(1));
+  await expect(tooltip).toContainText('Realizado');
+  await expect(tooltip).toContainText('125,00');
+  await expect(tooltip).toContainText('+25,00% em relação a Semana 1');
+  await hoverPoint(actual.nth(2));
+  await expect(tooltip).toContainText('-20,00%');
+  await expect(tooltip).toContainText('Projeção linear');
+  await hoverPoint(projected.nth(1));
+  await expect(tooltip).toContainText('120,00');
+  await expect(tooltip).toContainText('+20,00% em relação a Semana 3');
+  await chart.screenshot({ path: 'test-results/projection-percentage-tooltip.png' });
+  await hoverPoint(projected.nth(2));
+  await expect(tooltip).toContainText('0,00');
+  await expect(tooltip).toContainText('-100,00%');
+  await hoverPoint(projected.nth(3));
+  await expect(tooltip).toContainText('valor anterior igual a zero');
 });
 
 test('agent offers the unit ranking as a quick query and a typed command without calling AI', async ({ page }) => {
