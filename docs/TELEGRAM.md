@@ -12,7 +12,7 @@ O bot tenta apagar a mensagem da senha, sem registrar seu conteúdo ou encaminh�
 
 O Telegram não informa ao bot quando a pessoa simplesmente abre ou fecha o chat, nem diferencia uma sessão no navegador de outra no celular da mesma conta. A sessão expira após 15 minutos sem uso ou duas horas após autenticar. `/start` sempre exige novo login. Sessões e limites ficam em memória, por instância; reiniciar o backend encerra os acessos. Para várias réplicas, será necessário compartilhar esse estado e os limites e definir uma estratégia de recepção das atualizações do bot.
 
-São permitidas cinco tentativas de senha por janela de 15 minutos, por chat e por combinação de CPF/CNPJ. Reiniciar o fluxo não remove o limite. Antes de cada consulta, o bot verifica se a conta ainda existe na empresa, o perfil atual e se a senha foi alterada.
+Cada chat pode enviar cinco tentativas de senha por janela de 15 minutos. Cinco senhas incorretas para a mesma conta bloqueiam o login por 15 minutos, tanto no Telegram quanto na web. Antes de cada consulta, o bot verifica se a conta ainda existe na empresa, o perfil atual e se a senha foi alterada.
 
 ## Permissões
 

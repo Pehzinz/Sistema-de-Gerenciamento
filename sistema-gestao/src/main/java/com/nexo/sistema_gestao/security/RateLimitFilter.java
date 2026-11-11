@@ -22,9 +22,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         String path = request.getServletPath();
-        if ("POST".equals(request.getMethod()) && (path.equals("/api/login") || path.equals("/api/registro")
-                || path.equals("/api/agente/perguntar") || path.equals("/api/uploads/assinatura"))) {
-            int limit = path.equals("/api/registro") ? 5 : path.equals("/api/uploads/assinatura") ? 10 : 30;
+        int limit = switch (path) {
+            case "/api/registro", "/api/usuarios", "/api/recuperar-senha", "/api/usuarios/meu-email" -> 5;
+            case "/api/redefinir-senha", "/api/confirmar-email", "/api/uploads/assinatura" -> 10;
+            case "/api/login", "/api/agente/perguntar" -> 30;
+            default -> 0;
+        };
+        if ("POST".equals(request.getMethod()) && limit > 0) {
             String key = path + ":" + request.getRemoteAddr();
             if (attempts.get(key, ignored -> new AtomicInteger()).incrementAndGet() > limit) {
                 response.setStatus(429);

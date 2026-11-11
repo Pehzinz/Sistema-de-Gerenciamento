@@ -14,6 +14,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 
 @Component
 public class SecurityFilter extends OncePerRequestFilter {
@@ -30,20 +31,13 @@ public class SecurityFilter extends OncePerRequestFilter {
         var tokenJWT = recuperarToken(request);
 
         if (tokenJWT != null) {
-            // 1. Descobre o CPF dono do Token
-            var subject = tokenService.validarToken(tokenJWT);
-            
-            if (subject != null && !subject.isEmpty()) {
-                
-                // 2. Descobre o ID da Empresa gravado no Token
-                Long empresaId = tokenService.extrairEmpresaId(tokenJWT);
-                
-                // 3. Busca todas as contas (em qualquer empresa) que usam este CPF
-                var contasDoCpf = repository.findByCpfAndAtivoTrue(subject);
-
-                // 4. Filtra a lista para encontrar EXATAMENTE a conta que pertence à empresa do Token
-                var usuarioOpt = contasDoCpf.stream()
-                        .filter(u -> u.getEmpresa() != null && u.getEmpresa().getId().equals(empresaId))
+            var token = tokenService.validarToken(tokenJWT);
+            if (token != null && token.getSubject() != null) {
+                Long empresaId = token.getClaim("empresa_id").asLong();
+                String versao = token.getClaim("versao_credencial").asString();
+                var usuarioOpt = repository.findByCpfAndAtivoTrue(token.getSubject()).stream()
+                        .filter(u -> u.getEmpresa() != null && u.getEmpresa().getId().equals(empresaId)
+                                && Objects.equals(versao, u.getVersaoCredencial()))
                         .findFirst();
 
                 if (usuarioOpt.isPresent()) {

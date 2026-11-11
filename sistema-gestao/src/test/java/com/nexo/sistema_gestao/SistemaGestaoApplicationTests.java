@@ -30,6 +30,8 @@ class SistemaGestaoApplicationTests {
     @Autowired VendaRepository vendas;
     @Autowired EventoRepository eventos;
     @Autowired TokenService tokens;
+    @Autowired com.nexo.sistema_gestao.service.AcessoContaService acessoConta;
+    @Autowired org.springframework.security.crypto.password.PasswordEncoder senhas;
     final ObjectMapper json = new ObjectMapper();
     final HttpClient http = HttpClient.newHttpClient();
     Empresa empresa;
@@ -270,9 +272,9 @@ class SistemaGestaoApplicationTests {
 
     @Test void telegramLookupAcceptsFormattedCpfAndCnpjWithoutMixingCompanies() {
         empresa.setCnpj("12.345.678/0001-99"); empresas.save(empresa);
-        admin.setCpf("123.456.789-00"); usuarios.save(admin);
-        assertEquals(admin.getId(), usuarios.findByCredenciaisTelegram("12345678900", "12345678000199").orElseThrow().getId());
-        assertTrue(usuarios.findByCredenciaisTelegram("12345678900", "99999999000199").isEmpty());
+        admin.setCpf("123.456.789-00"); admin.setSenha(senhas.encode("senha!")); usuarios.save(admin);
+        assertEquals(admin.getId(), acessoConta.autenticar("12345678900", "12345678000199", "senha!").usuario().getId());
+        assertNull(acessoConta.autenticar("12345678900", "99999999000199", "senha!").usuario());
     }
 
     @Test void typedCommandsUseTenantQueriesWithoutCallingAi() throws Exception {

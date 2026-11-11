@@ -5,6 +5,7 @@ public record RegistroSaaSRequestDTO(
     String cnpj,
     String nomeAdmin,
     String cpfAdmin,
-    String senhaAdmin
+    String senhaAdmin,
+    String emailAdmin
 ) {
 }

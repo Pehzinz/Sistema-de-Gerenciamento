@@ -41,7 +41,13 @@ Os testes Java usam H2 em memória e não precisam das credenciais do Supabase. 
 
 ## Mudanças de comportamento
 
-O login passa a durar a sessão da aba; credenciais antigas em `localStorage` são removidas. O JWT expira após duas horas. Novas senhas precisam ter pelo menos 12 caracteres e no máximo 72 bytes. Senhas antigas continuam aceitas no login.
+O login dura a sessão da aba e o JWT expira após duas horas. Novas senhas precisam ter pelo menos 6 caracteres e no máximo 72 bytes. A troca de senha encerra as sessões emitidas com a credencial anterior.
+
+Administradores podem cadastrar e confirmar seu e-mail de recuperação em **Configurações da Empresa → E-mail de recuperação**. Na tela de login, **Esqueci minha senha** solicita o CPF e o CNPJ para localizar a conta. O link enviado ao e-mail confirmado vale por 30 minutos e só pode ser usado uma vez. O endereço confirmado também recebe avisos de bloqueio, troca de senha e confirmação de e-mail. Em **Colaboradores → Editar**, o administrador pode definir uma nova senha para um colaborador da própria empresa.
+
+Os formulários de criação de empresa e cadastro de administrador pedem o e-mail da conta. Em **Colaboradores → Editar Administrador**, é possível alterar o endereço com a senha atual do administrador editado. O endereço anterior continua ativo até a confirmação do novo.
+
+Cinco senhas incorretas bloqueiam o login da conta por 15 minutos na web e no Telegram. A API limita cada IP a 30 logins e 5 cadastros de empresa por minuto, além de aplicar limites aos endpoints de recuperação. Consulte a [configuração para publicação](docs/PUBLICACAO.md#recuperação-de-acesso-e-limites-de-login).
 
 Colaboradores podem consultar produtos/dados da empresa e registrar vendas. Gestão do catálogo, equipe, relatórios, calendário, agente e configurações exige perfil `ADMIN` no servidor.
 

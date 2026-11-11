@@ -23,4 +23,23 @@ class RateLimitFilterTests {
         filter.doFilter(another, response, (req, res) -> {});
         assertEquals(200, response.getStatus());
     }
+
+    @Test void registrationLimitIsIndependentFromLoginAndIgnoresClientIpHeaders() throws Exception {
+        var filter = new RateLimitFilter();
+        for (int i = 1; i <= 6; i++) {
+            var request = new MockHttpServletRequest("POST", "/api/registro");
+            request.setServletPath("/api/registro");
+            request.setRemoteAddr("192.0.2.1");
+            request.addHeader("X-Forwarded-For", "203.0.113." + i);
+            var response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {});
+            assertEquals(i <= 5 ? 200 : 429, response.getStatus());
+        }
+        var login = new MockHttpServletRequest("POST", "/api/login");
+        login.setServletPath("/api/login");
+        login.setRemoteAddr("192.0.2.1");
+        var response = new MockHttpServletResponse();
+        filter.doFilter(login, response, (req, res) -> {});
+        assertEquals(200, response.getStatus());
+    }
 }

@@ -6,19 +6,19 @@ import com.nexo.sistema_gestao.model.Empresa;
 import com.nexo.sistema_gestao.model.Usuario;
 import com.nexo.sistema_gestao.repository.EmpresaRepository;
 import com.nexo.sistema_gestao.repository.UsuarioRepository;
+import com.nexo.sistema_gestao.security.RequestValidation;
 import com.nexo.sistema_gestao.security.TokenService;
+import com.nexo.sistema_gestao.service.AcessoContaService;
+import com.nexo.sistema_gestao.service.RecuperacaoContaService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
@@ -27,57 +27,64 @@ public class AutenticacaoController {
     @Autowired private UsuarioRepository usuarioRepository;
     @Autowired private EmpresaRepository empresaRepository;
     @Autowired private PasswordEncoder passwordEncoder;
-    @Autowired private TokenService tokenService; 
+    @Autowired private TokenService tokenService;
+    @Autowired private AcessoContaService acessoConta;
+    @Autowired private RecuperacaoContaService recuperacao;
 
     @PostMapping("/login")
     public ResponseEntity<?> realizarLogin(@RequestBody LoginRequestDTO dadosLogin) {
-        com.nexo.sistema_gestao.security.RequestValidation.text(dadosLogin.cpf(), 14, "CPF");
-        com.nexo.sistema_gestao.security.RequestValidation.text(dadosLogin.senha(), 72, "Senha");
-        
-        List<Usuario> usuariosEncontrados;
-
-        // Se o CNPJ foi informado (Terminal já configurado por um ADM)
-        if (dadosLogin.cnpj() != null && !dadosLogin.cnpj().trim().isEmpty()) {
-            Optional<Usuario> userOpt = usuarioRepository.findByCpfAndEmpresaCnpjAndAtivoTrue(dadosLogin.cpf(), dadosLogin.cnpj());
-            usuariosEncontrados = userOpt.map(List::of).orElseGet(List::of);
-        } else {
-            // Terminal em branco: busca todas as contas desse CPF no sistema global
-            usuariosEncontrados = usuarioRepository.findByCpfAndAtivoTrue(dadosLogin.cpf());
+        RequestValidation.text(dadosLogin.cpf(), 14, "CPF");
+        RequestValidation.loginPassword(dadosLogin.senha());
+        if (dadosLogin.cnpj() != null && !dadosLogin.cnpj().isBlank()) {
+            RequestValidation.text(dadosLogin.cnpj(), 18, "CNPJ");
         }
-
-        if (usuariosEncontrados.isEmpty()) {
+        var resultado = acessoConta.autenticar(dadosLogin.cpf(), dadosLogin.cnpj(), dadosLogin.senha());
+        if (resultado.segundosBloqueio() > 0) {
+            return loginBloqueado(resultado.segundosBloqueio());
+        }
+        if (resultado.empresaObrigatoria()) {
+            return ResponseEntity.badRequest().body(Map.of("erro",
+                    "Há mais de uma conta para este CPF. Informe o CNPJ da empresa para entrar."));
+        }
+        Usuario usuario = resultado.usuario();
+        if (usuario == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("erro", "CPF ou senha incorretos."));
         }
-
-        // Separa apenas as contas que possuem a senha digitada correta
-        List<Usuario> contasComSenhaCorreta = usuariosEncontrados.stream()
-                .filter(u -> passwordEncoder.matches(dadosLogin.senha(), u.getSenha()))
-                .collect(Collectors.toList());
-
-        if (contasComSenhaCorreta.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("erro", "CPF ou senha incorretos."));
-        }
-
-        // A BARREIRA DE SEGURANÇA: Identidade ambígua em terminal não configurado
-        if (contasComSenhaCorreta.size() > 1) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                "{\"erro\": \"Você possui contas em múltiplas empresas com a mesma senha. Peça para o Administrador acessar este terminal primeiro para vinculá-lo à empresa correta.\"}"
-            );
-        }
-
-        // Se passou, temos apenas 1 usuário exato! Gera o login seguro.
-        Usuario usuario = contasComSenhaCorreta.get(0);
-        String token = tokenService.gerarToken(usuario);
-        
-        Map<String, String> resposta = new HashMap<>();
-        resposta.put("token", token);
-        resposta.put("perfil", usuario.getPerfil().toString());
-        resposta.put("nomeCompleto", usuario.getNomeCompleto()); 
-        resposta.put("nomeEmpresa", usuario.getEmpresa().getNome()); 
-        resposta.put("cnpj", usuario.getEmpresa().getCnpj()); 
-        
-        return ResponseEntity.ok(resposta);
+        return ResponseEntity.ok(Map.of("token", tokenService.gerarToken(usuario), "perfil", usuario.getPerfil(),
+                "nomeCompleto", usuario.getNomeCompleto(), "nomeEmpresa", usuario.getEmpresa().getNome(),
+                "cnpj", usuario.getEmpresa().getCnpj()));
     }
+
+    static ResponseEntity<?> loginBloqueado(long segundos) {
+        long minutos = (segundos + 59) / 60;
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, Long.toString(segundos))
+                .body(Map.of("erro", "Conta temporariamente bloqueada. Tente novamente em "
+                        + minutos + (minutos == 1 ? " minuto." : " minutos.")));
+    }
+
+    @PostMapping("/recuperar-senha")
+    public ResponseEntity<?> solicitarRecuperacao(@RequestBody SolicitacaoRecuperacao dados) {
+        recuperacao.solicitarRecuperacao(dados.cpf(), dados.cnpj());
+        return ResponseEntity.accepted().body(Map.of("mensagem",
+                "Se houver uma conta de administrador com e-mail confirmado para estes dados, enviaremos um link."));
+    }
+
+    @PostMapping("/redefinir-senha")
+    public ResponseEntity<?> redefinirSenha(@RequestBody NovaSenha dados) {
+        recuperacao.redefinirSenha(dados.token(), dados.senha());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/confirmar-email")
+    public ResponseEntity<?> confirmarEmail(@RequestBody ConfirmacaoEmail dados) {
+        recuperacao.confirmarEmail(dados.token());
+        return ResponseEntity.noContent().build();
+    }
+
+    record SolicitacaoRecuperacao(String cpf, String cnpj) {}
+    record NovaSenha(String token, String senha) {}
+    record ConfirmacaoEmail(String token) {}
 
     @PostMapping("/registro")
     @Transactional
@@ -88,7 +95,9 @@ public class AutenticacaoController {
         com.nexo.sistema_gestao.security.RequestValidation.text(dados.cpfAdmin(), 14, "CPF");
         com.nexo.sistema_gestao.security.RequestValidation.password(dados.senhaAdmin());
         
-        if (empresaRepository.findByCnpj(dados.cnpj()).isPresent()) {
+        if (empresaRepository.findByCnpj(dados.cnpj()).isPresent()
+                || (dados.cnpj().matches("[0-9./ -]+") && empresaRepository.existeCnpjNormalizado(
+                        dados.cnpj().replaceAll("[./ -]", "")))) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"erro\": \"CNPJ já cadastrado no sistema.\"}");
         }
 
@@ -106,8 +115,11 @@ public class AutenticacaoController {
         novoAdmin.setPerfil("ADMIN");
         novoAdmin.setEmpresa(empresaSalva);
 
+        recuperacao.prepararConfirmacaoEmail(novoAdmin, dados.emailAdmin());
         usuarioRepository.save(novoAdmin);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body("{\"mensagem\": \"Empresa e Administrador cadastrados com sucesso!\"}");
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "mensagem", "Empresa e Administrador cadastrados com sucesso!",
+                "confirmacaoEmailSolicitada", novoAdmin.getConfirmacaoEmailExpiraEm() != null));
     }
 }

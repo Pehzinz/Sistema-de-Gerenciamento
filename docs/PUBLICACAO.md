@@ -60,6 +60,12 @@ Referência: [Desativar a Data API quando ela não é utilizada](https://supabas
 7. No serviço **frontend do Railway**, configure `VITE_API_URL` com a URL HTTPS pública da API. Faça novo build após mudar essa variável: valores `VITE_` são incorporados ao bundle e são públicos. Nenhuma senha/token privado deve receber prefixo `VITE_`. [Variáveis de build no Railway](https://docs.railway.com/variables).
 8. Confirme que o serviço entrega `dist` com fallback para `index.html` em `/admin`, `/caixa` etc. e escuta a porta indicada pelo Railway. Teste atualizar a página diretamente em uma rota interna. Não use o servidor de desenvolvimento Vite como servidor de produção.
 
+## Recuperação de acesso e limites de login
+
+1. No backend, configure `RESEND_API_KEY`, `SECURITY_EMAIL_FROM` com um remetente de domínio verificado e `SECURITY_EMAIL_FRONTEND_URL` com a origem HTTPS pública do frontend. A chave fica no backend. Confira os exemplos em `sistema-gestao/.env.example`. [Envio pela API do Resend](https://resend.com/docs/api-reference/emails/send-email) e [rede de saída do Railway](https://docs.railway.com/networking/outbound-networking).
+2. No frontend, habilite o fallback para `index.html` nas rotas `/recuperar-senha` e `/confirmar-email`. Em uma conta administrativa de teste, confirme o e-mail em **Configurações da Empresa → E-mail de recuperação** e teste o recebimento do link e do aviso após a troca de senha. Falhas de envio ficam nos logs do backend. Um novo link pode ser solicitado após um minuto.
+3. Atrás de um proxy, defina `TRUSTED_PROXY_PATTERN` como a expressão regular dos endereços de entrada confiáveis que encaminham `X-Forwarded-For`. Confira no ambiente publicado que clientes em IPs diferentes têm contadores independentes. Os contadores por IP são locais a cada instância, então use um limite compartilhado na entrada caso haja réplicas. O bloqueio da conta fica no banco e é compartilhado pela web e pelo Telegram. [Configuração do Tomcat](https://tomcat.apache.org/tomcat-11.0-doc/config/valve.html#Remote_IP_Valve).
+
 ## Conexão Supabase e migração
 
 O backend já usa Hikari com no máximo cinco conexões por instância. Se usar Session Pooler, copie host/porta/usuário do painel Supabase; o usuário normalmente inclui o identificador do projeto. A URL precisa ser JDBC, por exemplo `jdbc:postgresql://HOST:5432/postgres?...`, com usuário/senha em variáveis separadas. [Conexões oficiais](https://supabase.com/docs/guides/database/connecting-to-postgres).

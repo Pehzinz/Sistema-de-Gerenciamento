@@ -9,4 +9,10 @@ public interface EmpresaRepository extends JpaRepository<Empresa, Long> {
     @org.springframework.data.jpa.repository.Query("select e from Empresa e where e.id = :id")
     Optional<Empresa> bloquearPorId(@org.springframework.data.repository.query.Param("id") Long id);
     Optional<Empresa> findByCnpj(String cnpj);
+
+    @org.springframework.data.jpa.repository.Query("""
+        select count(e) > 0 from Empresa e
+        where replace(replace(replace(replace(e.cnpj, '.', ''), '-', ''), '/', ''), ' ', '') = :cnpj
+        """)
+    boolean existeCnpjNormalizado(String cnpj);
 }

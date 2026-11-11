@@ -13,8 +13,24 @@ public final class RequestValidation {
     }
 
     public static void password(String value) {
-        if (value == null || value.length() < 12 || value.getBytes(StandardCharsets.UTF_8).length > 72) {
-            throw new IllegalArgumentException("A senha deve ter ao menos 12 caracteres e até 72 bytes.");
+        if (value == null || value.isBlank() || value.codePointCount(0, value.length()) < 6
+                || value.getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw new IllegalArgumentException("A senha deve ter ao menos 6 caracteres e até 72 bytes.");
         }
+    }
+
+    public static void loginPassword(String value) {
+        text(value, 72, "Senha");
+        if (value.getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw new IllegalArgumentException("A senha deve ter até 72 bytes.");
+        }
+    }
+
+    public static String email(String value) {
+        if (value == null || value.length() > 254
+                || !value.matches("[a-zA-Z0-9_+%'-]+(?:\\.[a-zA-Z0-9_+%'-]+)*@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)+")) {
+            throw new IllegalArgumentException("Informe um e-mail válido.");
+        }
+        return value;
     }
 }
