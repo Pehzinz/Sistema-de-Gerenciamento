@@ -4,7 +4,6 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.nexo.sistema_gestao.model.Usuario;
 import com.nexo.sistema_gestao.repository.UsuarioRepository;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.time.Duration;
@@ -17,21 +16,16 @@ public class TelegramSessaoService {
     public static final String MENU = "Consultas: /resumo, /estoque, /promocoes, /alertas, /vendas, /insights, /agenda, /equipe.\n"
             + "Você também pode perguntar à IA.\n/trocar_empresa ou /trocar_usuario: novo login\n/sair: encerrar sessão";
     private final UsuarioRepository usuarios;
-    private final PasswordEncoder senhas;
+    private final AcessoContaService acessoConta;
     private final Clock clock;
     private final Cache<String, Sessao> sessoes = Caffeine.newBuilder().maximumSize(10000)
             .expireAfterAccess(Duration.ofMinutes(15)).build();
     private final Cache<String, AtomicInteger> tentativas = Caffeine.newBuilder().maximumSize(20000)
             .expireAfterWrite(Duration.ofMinutes(15)).build();
 
-    @org.springframework.beans.factory.annotation.Autowired
-    public TelegramSessaoService(UsuarioRepository usuarios, PasswordEncoder senhas) {
-        this(usuarios, senhas, Clock.systemUTC());
-    }
-
-    TelegramSessaoService(UsuarioRepository usuarios, PasswordEncoder senhas, Clock clock) {
+    public TelegramSessaoService(UsuarioRepository usuarios, AcessoContaService acessoConta, Clock clock) {
         this.usuarios = usuarios;
-        this.senhas = senhas;
+        this.acessoConta = acessoConta;
         this.clock = clock;
     }
 
@@ -86,14 +80,18 @@ public class TelegramSessaoService {
             s.cpf = cpf;
             return mensagem("Informe sua senha do Nexo Gestão. Tentaremos apagar essa mensagem após recebê-la; a exclusão depende do Telegram. Use /sair para cancelar.");
         }
-        String conta = "conta:" + s.cnpj + ":" + s.cpf;
-        if (limite("chat:" + chat) || limite(conta)) {
+        if (limite(chat)) {
             sessoes.invalidate(chat);
             return mensagem("Muitas tentativas. Aguarde 15 minutos antes de tentar novamente.");
         }
-        Usuario usuario = usuarios.findByCredenciaisTelegram(s.cpf, s.cnpj).orElse(null);
-        if (texto.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72 || usuario == null
-                || !senhas.matches(texto, usuario.getSenha()) || !permitido(usuario)) {
+        var resultado = texto.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 72
+                ? acessoConta.autenticar(s.cpf, s.cnpj, texto) : null;
+        if (resultado != null && resultado.segundosBloqueio() > 0) {
+            sessoes.invalidate(chat);
+            return mensagem("Muitas tentativas. Aguarde o fim do bloqueio de até 15 minutos antes de tentar novamente.");
+        }
+        Usuario usuario = resultado == null ? null : resultado.usuario();
+        if (!permitido(usuario)) {
             sessoes.invalidate(chat);
             return mensagem("Credenciais inválidas ou acesso não permitido. Use /start para tentar novamente.");
         }

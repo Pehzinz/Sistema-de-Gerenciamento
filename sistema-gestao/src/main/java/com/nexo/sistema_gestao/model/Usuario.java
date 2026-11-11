@@ -2,6 +2,8 @@ package com.nexo.sistema_gestao.model;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Instant;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 
 @Entity 
@@ -48,6 +50,38 @@ public class Usuario implements java.io.Serializable {
     @JoinColumn(name = "empresa_id")
     private Empresa empresa;
 
+    @JsonIgnore
+    @Column(length = 254)
+    private String emailVerificado;
+
+    @JsonIgnore
+    @Column(length = 254)
+    private String emailPendente;
+
+    @JsonIgnore
+    @Column(length = 64, unique = true)
+    private String hashConfirmacaoEmail;
+
+    @JsonIgnore
+    private Instant confirmacaoEmailExpiraEm;
+
+    @JsonIgnore
+    @Column(length = 64, unique = true)
+    private String hashRecuperacao;
+
+    @JsonIgnore
+    private Instant recuperacaoExpiraEm;
+
+    @JsonIgnore
+    private Integer falhasLogin;
+
+    @JsonIgnore
+    private Instant loginBloqueadoAte;
+
+    @JsonIgnore
+    @Column(length = 36)
+    private String versaoCredencial;
+
 
     //Cosntrutor para o JPA trabalhar no banco de dados;
     public Usuario(){}
@@ -74,4 +108,51 @@ public class Usuario implements java.io.Serializable {
     public void setDataCadastro(LocalDateTime dataCadastro) {this.dataCadastro = dataCadastro;} 
     public Empresa getEmpresa() { return empresa; }
     public void setEmpresa(Empresa empresa) { this.empresa = empresa; }
+    public String getEmailVerificado() { return emailVerificado; }
+    public String getEmailPendente() { return emailPendente; }
+    public Instant getConfirmacaoEmailExpiraEm() { return confirmacaoEmailExpiraEm; }
+    public Instant getRecuperacaoExpiraEm() { return recuperacaoExpiraEm; }
+    public int getFalhasLogin() { return falhasLogin == null ? 0 : falhasLogin; }
+    public Instant getLoginBloqueadoAte() { return loginBloqueadoAte; }
+    public String getVersaoCredencial() { return versaoCredencial; }
+
+    public void registrarFalhaLogin(Instant agora) {
+        if (loginBloqueadoAte != null && !loginBloqueadoAte.isAfter(agora)) {
+            limparFalhasLogin();
+        }
+        falhasLogin = getFalhasLogin() + 1;
+        if (falhasLogin >= 5) {
+            loginBloqueadoAte = agora.plusSeconds(900);
+        }
+    }
+
+    public void limparFalhasLogin() {
+        falhasLogin = null;
+        loginBloqueadoAte = null;
+    }
+
+    public void iniciarConfirmacaoEmail(String email, String hash, Instant expiraEm) {
+        emailPendente = email;
+        hashConfirmacaoEmail = hash;
+        confirmacaoEmailExpiraEm = expiraEm;
+    }
+
+    public void confirmarEmail() {
+        emailVerificado = emailPendente;
+        iniciarConfirmacaoEmail(null, null, null);
+        iniciarRecuperacao(null, null);
+    }
+
+    public void iniciarRecuperacao(String hash, Instant expiraEm) {
+        hashRecuperacao = hash;
+        recuperacaoExpiraEm = expiraEm;
+    }
+
+    public void alterarSenha(String senhaCodificada) {
+        senha = senhaCodificada;
+        versaoCredencial = java.util.UUID.randomUUID().toString();
+        limparFalhasLogin();
+        iniciarRecuperacao(null, null);
+        iniciarConfirmacaoEmail(null, null, null);
+    }
 }

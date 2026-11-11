@@ -1,9 +1,10 @@
 import { useNotificacoes } from '../hooks/useNotificacoes';
 import { LabelInput } from '../components/label-input';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { BASE_URL, readApiError, apiFetch as fetch } from '../services/api';
+import { ERRO_NOVA_SENHA, SENHA_MAX_BYTES, SENHA_MINIMA, novaSenhaValida } from '../utils/senha';
 
 function Colaboradores() {
   const { notificar } = useNotificacoes();
@@ -13,6 +14,8 @@ function Colaboradores() {
   const [nome, setNome] = useState('');
   const [cpf, setCpf] = useState('');
   const [senha, setSenha] = useState('');
+  const [email, setEmail] = useState('');
+  const emailCadastro = useRef(null);
   const [dataNascimento, setDataNascimento] = useState('');
   const [telefone, setTelefone] = useState('');
   const [endereco, setEndereco] = useState('');
@@ -27,6 +30,7 @@ function Colaboradores() {
   const [modalAdminEditAberto, setModalAdminEditAberto] = useState(false);
   const [modalEdicaoAberto, setModalEdicaoAberto] = useState(false);
   const [colaboradorEditando, setColaboradorEditando] = useState(null);
+  const dialogoEdicao = useRef(null);
 
   // Credenciais do Admin
   const [cpfAdminEdit, setCpfAdminEdit] = useState('');
@@ -35,10 +39,19 @@ function Colaboradores() {
   // Campos do Formulário de Edição (Sem o CPF!)
   const [nomeEdit, setNomeEdit] = useState('');
   const [senhaEdit, setSenhaEdit] = useState('');
+  const [emailEdit, setEmailEdit] = useState('');
+  const [estadoEmailEdit, setEstadoEmailEdit] = useState(null);
+  const [erroEmailEdit, setErroEmailEdit] = useState('');
+  const [senhaAtualEmail, setSenhaAtualEmail] = useState('');
   const [dataNascimentoEdit, setDataNascimentoEdit] = useState('');
   const [telefoneEdit, setTelefoneEdit] = useState('');
   const [enderecoEdit, setEnderecoEdit] = useState('');
-
+  const editandoAdmin = colaboradorEditando?.perfil === 'ADMIN';
+  const idAdminEditando = editandoAdmin && modalEdicaoAberto ? colaboradorEditando.id : null;
+  const emailOriginal = estadoEmailEdit?.emailPendente || estadoEmailEdit?.emailVerificado || '';
+  const alterouEmail = Boolean(estadoEmailEdit && emailEdit.trim()
+    && emailEdit.trim().toLowerCase() !== emailOriginal.toLowerCase()
+    && emailEdit.trim().toLowerCase() !== estadoEmailEdit.emailVerificado?.toLowerCase());
 
   const buscarEquipe = useCallback(async () => {
     const token = sessionStorage.getItem('token');
@@ -67,10 +80,67 @@ function Colaboradores() {
     return () => { ativo = false; };
   }, [buscarEquipe]);
 
+  useEffect(() => {
+    const dialogo = dialogoEdicao.current;
+    if (modalEdicaoAberto && dialogo && !dialogo.open) dialogo.showModal();
+  }, [modalEdicaoAberto]);
 
-  // 1. Abre a tela pedindo a senha do gerente
+  useEffect(() => {
+    if (idAdminEditando === null) return;
+    const controller = new AbortController();
+
+    async function carregarEmail() {
+      try {
+        const resposta = await fetch(`${BASE_URL}/api/usuarios/${idAdminEditando}/email`, {
+          headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}` },
+          signal: controller.signal,
+        });
+        if (!resposta.ok) {
+          const mensagem = await readApiError(resposta, 'Não foi possível consultar o e-mail');
+          if (!controller.signal.aborted) setErroEmailEdit(mensagem);
+          return;
+        }
+        const dados = await resposta.json();
+        if (!controller.signal.aborted) {
+          setEstadoEmailEdit(dados);
+          setEmailEdit(dados.emailPendente || dados.emailVerificado || '');
+        }
+      } catch {
+        if (!controller.signal.aborted) setErroEmailEdit('Erro de conexão ao consultar o e-mail.');
+      }
+    }
+
+    void carregarEmail();
+    return () => controller.abort();
+  }, [idAdminEditando]);
+
+  const abrirFormularioEdicao = (usuario) => {
+    setNomeEdit(usuario.nomeCompleto || usuario.nome);
+    setSenhaEdit('');
+    setEstadoEmailEdit(null);
+    setEmailEdit('');
+    setErroEmailEdit('');
+    setSenhaAtualEmail('');
+    setDataNascimentoEdit(usuario.dataNascimento || '');
+    setTelefoneEdit(usuario.telefone || '');
+    setEnderecoEdit(usuario.endereco || '');
+    setModalEdicaoAberto(true);
+  };
+
+  const fecharFormularioEdicao = () => {
+    dialogoEdicao.current?.close();
+    setModalEdicaoAberto(false);
+    setColaboradorEditando(null);
+    setSenhaEdit('');
+    setSenhaAtualEmail('');
+  };
+
   const iniciarEdicao = (usuario) => {
     setColaboradorEditando(usuario);
+    if (usuario.perfil === 'COLABORADOR') {
+      abrirFormularioEdicao(usuario);
+      return;
+    }
     setCpfAdminEdit('');
     setSenhaAdminEdit('');
     setModalAdminEditAberto(true);
@@ -97,21 +167,14 @@ function Colaboradores() {
       if (resposta.ok) {
         const dados = await resposta.json();
         if (dados.perfil === 'ADMIN') {
-          // ADMIN VALIDADO! Fecha o modal de senha e preenche o form de edição
           setModalAdminEditAberto(false);
-          
-          setNomeEdit(colaboradorEditando.nomeCompleto || colaboradorEditando.nome);
-          setSenhaEdit(''); // Deixa a senha em branco para o admin digitar uma nova apenas se quiser
-          setDataNascimentoEdit(colaboradorEditando.dataNascimento || '');
-          setTelefoneEdit(colaboradorEditando.telefone || '');
-          setEnderecoEdit(colaboradorEditando.endereco || '');
-          
-          setModalEdicaoAberto(true);
+          setSenhaAdminEdit('');
+          abrirFormularioEdicao(colaboradorEditando);
         } else {
           notificar('Ação negada: As credenciais não pertencem a um Administrador.', { tipo: 'atencao' });
         }
       } else {
-        notificar('Credenciais do Administrador inválidas.', { tipo: 'atencao' });
+        notificar(await readApiError(resposta, 'Credenciais do Administrador inválidas'), { tipo: 'atencao' });
       }
     } catch {
       notificar('Erro ao validar administrador.', { tipo: 'erro' });
@@ -121,14 +184,19 @@ function Colaboradores() {
   // 3. Envia os dados editados para o Java
   const confirmarEdicao = async (e) => {
     e.preventDefault();
+    if (senhaEdit && !novaSenhaValida(senhaEdit)) {
+      notificar(ERRO_NOVA_SENHA, { tipo: 'atencao' });
+      return;
+    }
     const token = sessionStorage.getItem('token');
     
     const dadosAtualizados = {
       nomeCompleto: nomeEdit,
-      dataNascimento: dataNascimentoEdit,
+      dataNascimento: dataNascimentoEdit || null,
       telefone: telefoneEdit,
       endereco: enderecoEdit,
-      senha: senhaEdit // Pode ir vazia, o Java vai ignorar
+      ...(senhaEdit && { senha: senhaEdit }),
+      ...(alterouEmail && { email: emailEdit.trim(), senhaAtual: senhaAtualEmail }),
     };
 
     try {
@@ -145,25 +213,30 @@ function Colaboradores() {
       });
 
       if (resposta.ok) {
-        notificar('Dados do colaborador atualizados com sucesso!', { tipo: 'sucesso' });
-        setModalEdicaoAberto(false);
-        setColaboradorEditando(null);
+        let mensagem = senhaEdit ? 'Senha alterada com sucesso!' : 'Dados atualizados com sucesso!';
+        if (alterouEmail) mensagem += ' O novo e-mail ficará pendente até ser confirmado.';
+        notificar(mensagem, { tipo: 'sucesso' });
+        fecharFormularioEdicao();
         
         // Em vez de recarregar a página, busca a equipe atualizada suavemente
         buscarEquipe(); 
       } else {
-        const erroMsg = await resposta.text();
-        notificar(`Erro ao atualizar: O servidor retornou status ${resposta.status}. Detalhe: ${erroMsg}`, { tipo: 'erro' });
+        notificar(await readApiError(resposta, 'Não foi possível atualizar o colaborador'), { tipo: 'erro' });
       }
-    } catch (erro) {
-      console.error("Detalhes do erro de conexão:", erro);
-      notificar('Erro de conexão (CORS ou URL incorreta). Aperte F12 e olhe o console para mais detalhes.', { tipo: 'erro' });
+    } catch {
+      notificar('Erro de conexão ao atualizar o colaborador.', { tipo: 'erro' });
     }
   };
 
-  const cadastrarColaborador = async (e, perfilSelecionado) => {
+  const cadastrarColaborador = async (e) => {
     e.preventDefault();
-    if (senha.length < 12 || new TextEncoder().encode(senha).length > 72) { notificar('A senha deve ter ao menos 12 caracteres e até 72 bytes.', { tipo: 'atencao' }); return; }
+    if (!novaSenhaValida(senha)) { notificar(ERRO_NOVA_SENHA, { tipo: 'atencao' }); return; }
+    const perfilSelecionado = e.nativeEvent.submitter?.value || 'COLABORADOR';
+    if (perfilSelecionado === 'ADMIN' && !email.trim()) {
+      notificar('Informe o e-mail do administrador.', { tipo: 'atencao' });
+      emailCadastro.current?.focus();
+      return;
+    }
     const token = sessionStorage.getItem('token');
 
     // Montando o pacote completo para o Java
@@ -171,10 +244,11 @@ function Colaboradores() {
       nomeCompleto: nome,
       cpf: cpf,
       senha: senha,
-      dataNascimento: dataNascimento,
+      dataNascimento: dataNascimento || null,
       telefone: telefone,
       endereco: endereco,
-      perfil: perfilSelecionado
+      perfil: perfilSelecionado,
+      ...(perfilSelecionado === 'ADMIN' && { email: email.trim() }),
     };
 
     try {
@@ -188,9 +262,11 @@ function Colaboradores() {
       });
 
       if (resposta.status === 201 || resposta.ok) {
-        notificar('Usuário cadastrado com sucesso!', { tipo: 'sucesso' });
+        notificar(perfilSelecionado === 'ADMIN'
+          ? 'Administrador cadastrado. O e-mail ficará pendente até ser confirmado.'
+          : 'Usuário cadastrado com sucesso!', { tipo: 'sucesso' });
         // Limpa todos os campos
-        setNome(''); setCpf(''); setSenha('');
+        setNome(''); setCpf(''); setSenha(''); setEmail('');
         setDataNascimento(''); setTelefone(''); setEndereco('');
         buscarEquipe(); 
       } else {
@@ -290,7 +366,7 @@ function Colaboradores() {
               <h3 style={{ marginTop: 0 }}>Adicionar colaborador ou Administrador</h3>
               <p style={{ color: '#666', fontSize: '14px' }}>Preencha os dados para cadastrar alguém na sua equipe.</p>
               
-              <form style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
+              <form onSubmit={cadastrarColaborador} style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
                 
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <LabelInput label="Nome e Sobrenome" type="text" placeholder="Informe o nome e sobrenome" value={nome} onChange={(e) => setNome(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
@@ -300,29 +376,33 @@ function Colaboradores() {
                   <LabelInput label="CPF" type="text" placeholder="000.000.000-00" value={cpf} onChange={(e) => setCpf(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
                 </div>
 
+                <LabelInput ref={emailCadastro} label="E-mail do administrador" type="email" autoComplete="email" maxLength={254}
+                  value={email} onChange={e => setEmail(e.target.value)} aria-describedby="ajuda-email-cadastro" />
+                <small id="ajuda-email-cadastro">Obrigatório ao cadastrar um administrador.</small>
+
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <LabelInput label="Senha de Acesso" type="password" placeholder="Senha (mín. 12 caracteres)" minLength={12} maxLength={72} value={senha} onChange={(e) => setSenha(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
+                  <LabelInput label="Senha de Acesso" type="password" autoComplete="new-password" placeholder="Senha (mín. 6 caracteres)" minLength={SENHA_MINIMA} maxLength={SENHA_MAX_BYTES} value={senha} onChange={(e) => setSenha(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
                 </div>
 
                 {/* Linha com Data de Nascimento e Telefone Lado a Lado */}
                 <div className="responsive-row" style={{ display: 'flex', gap: '15px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                    <LabelInput label="Data de Nascimento" type="date" value={dataNascimento} onChange={(e) => setDataNascimento(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
+                    <LabelInput label="Data de Nascimento" type="date" value={dataNascimento} onChange={(e) => setDataNascimento(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                    <LabelInput label="Número de Telefone" type="text" placeholder="(00) 00000-0000" value={telefone} onChange={(e) => setTelefone(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
+                    <LabelInput label="Número de Telefone" type="text" placeholder="(00) 00000-0000" value={telefone} onChange={(e) => setTelefone(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} />
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <LabelInput label="Endereço" type="text" placeholder="Rua, número, bairro, cidade e CEP" value={endereco} onChange={(e) => setEndereco(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
+                  <LabelInput label="Endereço" type="text" placeholder="Rua, número, bairro, cidade e CEP" value={endereco} onChange={(e) => setEndereco(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} />
                 </div>
                 
                 <div className="button-group collaborator-create-actions" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                  <button onClick={(e) => cadastrarColaborador(e, 'ADMIN')} style={{ flex: 1, padding: '15px', backgroundColor: '#8e44ad', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  <button type="submit" value="ADMIN" style={{ flex: 1, padding: '15px', backgroundColor: '#8e44ad', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                     + Administrador
                   </button>
-                  <button onClick={(e) => cadastrarColaborador(e, 'COLABORADOR')} style={{ flex: 1, padding: '15px', backgroundColor: '#8e44ad', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  <button type="submit" value="COLABORADOR" style={{ flex: 1, padding: '15px', backgroundColor: '#8e44ad', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                     + Colaborador
                   </button>
                 </div>
@@ -469,9 +549,11 @@ function Colaboradores() {
 
       {/* MODAL 2: FORMULÁRIO DE EDIÇÃO (SEM CPF) */}
       {modalEdicaoAberto && (
-        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 20 }}>
-          <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '15px', width: '550px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
-            <h3 style={{ marginTop: 0, color: '#333', fontSize: '22px' }}>Editar Colaborador</h3>
+          <dialog ref={dialogoEdicao} className="colaborador-edicao" aria-labelledby="titulo-editar-colaborador"
+            onCancel={evento => { evento.preventDefault(); fecharFormularioEdicao(); }}>
+            <h3 id="titulo-editar-colaborador" style={{ marginTop: 0, color: '#333', fontSize: '22px' }}>
+              {editandoAdmin ? 'Editar Administrador' : 'Editar Colaborador'}
+            </h3>
             <p style={{ fontSize: '14px', color: '#666', marginBottom: '25px' }}>
               Alterando os dados de <strong>{colaboradorEditando?.nomeCompleto}</strong>. O CPF não pode ser alterado.
             </p>
@@ -482,25 +564,46 @@ function Colaboradores() {
                 <LabelInput label="Nome e Sobrenome" type="text" value={nomeEdit} onChange={(e) => setNomeEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
               </div>
 
+              {editandoAdmin && (
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  <LabelInput label="E-mail de recuperação" type="email" autoComplete="email" maxLength={254}
+                    value={emailEdit} onChange={e => setEmailEdit(e.target.value)} disabled={!estadoEmailEdit}
+                    aria-describedby="estado-email-edicao" />
+                  {erroEmailEdit ? <small role="alert" id="estado-email-edicao">{erroEmailEdit}</small> : (
+                    <small id="estado-email-edicao">
+                      {!estadoEmailEdit ? 'Carregando e-mail…' : estadoEmailEdit.emailPendente
+                        ? 'Aguardando confirmação do endereço cadastrado.'
+                        : estadoEmailEdit.emailVerificado ? 'O endereço atual está confirmado.' : 'Cadastre um endereço para habilitar a recuperação de senha.'}
+                    </small>
+                  )}
+                  {alterouEmail && <LabelInput label="Senha atual do administrador editado" type="password"
+                    autoComplete="current-password" maxLength={72} value={senhaAtualEmail}
+                    onChange={e => setSenhaAtualEmail(e.target.value)} required />}
+                </div>
+              )}
+
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <LabelInput label="Nova Senha (Opcional)" type="password" placeholder="Digite apenas se quiser alterar a senha atual" value={senhaEdit} onChange={(e) => setSenhaEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} />
+                <LabelInput label="Nova senha (opcional)" type="password" autoComplete="new-password"
+                  minLength={SENHA_MINIMA} maxLength={SENHA_MAX_BYTES} aria-describedby="ajuda-nova-senha"
+                  value={senhaEdit} onChange={(e) => setSenhaEdit(e.target.value)} />
+                <small id="ajuda-nova-senha">Preencha com pelo menos 6 caracteres para trocar a senha.</small>
               </div>
 
               <div className="responsive-row" style={{ display: 'flex', gap: '15px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                  <LabelInput label="Data de Nascimento" type="date" value={dataNascimentoEdit} onChange={(e) => setDataNascimentoEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
+                  <LabelInput label="Data de Nascimento" type="date" value={dataNascimentoEdit} onChange={(e) => setDataNascimentoEdit(e.target.value)} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                  <LabelInput label="Número de Telefone" type="text" value={telefoneEdit} onChange={(e) => setTelefoneEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
+                  <LabelInput label="Número de Telefone" type="text" value={telefoneEdit} onChange={(e) => setTelefoneEdit(e.target.value)} />
                 </div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <LabelInput label="Endereço" type="text" value={enderecoEdit} onChange={(e) => setEnderecoEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
+                <LabelInput label="Endereço" type="text" value={enderecoEdit} onChange={(e) => setEnderecoEdit(e.target.value)} />
               </div>
               
               <div className="button-group" style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px', marginTop: '20px' }}>
-                <button type="button" onClick={() => { setModalEdicaoAberto(false); setColaboradorEditando(null); }} style={{ padding: '15px 25px', border: 'none', background: '#f5f5f5', color: '#555', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                <button type="button" onClick={fecharFormularioEdicao} style={{ padding: '15px 25px', border: 'none', background: '#f5f5f5', color: '#555', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                   Cancelar
                 </button>
                 <button type="submit" style={{ padding: '15px 25px', backgroundColor: '#8e44ad', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', boxShadow: '0 4px 10px rgba(142,68,173,0.3)' }}>
@@ -508,8 +611,7 @@ function Colaboradores() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+          </dialog>
       )}
     </div>
   );

@@ -1,15 +1,26 @@
 package com.nexo.sistema_gestao.controller;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.nexo.sistema_gestao.model.Usuario;
 import com.nexo.sistema_gestao.repository.UsuarioRepository;
+import com.nexo.sistema_gestao.security.RequestValidation;
+import com.nexo.sistema_gestao.service.AcessoContaService;
+import com.nexo.sistema_gestao.service.EmailContaService;
+import com.nexo.sistema_gestao.service.RecuperacaoContaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/usuarios")
@@ -24,6 +35,54 @@ public class UsuarioController {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired private AcessoContaService acessoConta;
+    @Autowired private RecuperacaoContaService recuperacao;
+    @Autowired private EmailContaService emails;
+
+    @GetMapping("/meu-email")
+    public EstadoEmail obterMeuEmail(@AuthenticationPrincipal Usuario usuario) {
+        return estadoEmail(usuario);
+    }
+
+    @GetMapping("/{id}/email")
+    public EstadoEmail obterEmailAdministrador(@PathVariable Long id, @AuthenticationPrincipal Usuario usuarioLogado) {
+        Usuario usuario = usuarioRepository.findByIdAndEmpresaIdAndAtivoTrue(id, usuarioLogado.getEmpresa().getId())
+                .filter(u -> "ADMIN".equals(u.getPerfil()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Administrador não encontrado nesta empresa."));
+        return estadoEmail(usuario);
+    }
+
+    @PostMapping("/meu-email")
+    public ResponseEntity<?> cadastrarMeuEmail(@AuthenticationPrincipal Usuario usuario, @RequestBody NovoEmail dados) {
+        RequestValidation.loginPassword(dados.senha());
+        var resultado = acessoConta.confirmarSenha(usuario, dados.senha());
+        if (resultado.segundosBloqueio() > 0) {
+            return AutenticacaoController.loginBloqueado(resultado.segundosBloqueio());
+        }
+        if (resultado.usuario() == null) {
+            return ResponseEntity.badRequest().body(Map.of("erro", "A senha atual está incorreta."));
+        }
+        if (!recuperacao.solicitarConfirmacaoEmail(resultado.usuario(), dados.email())) {
+            return confirmarEmailAguarde();
+        }
+        return ResponseEntity.accepted().body(Map.of("mensagem", "Confira sua caixa de entrada para confirmar o e-mail."));
+    }
+
+    record EstadoEmail(String emailVerificado, String emailPendente, boolean envioDisponivel) {}
+    record NovoEmail(String email, String senha) {}
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record DadosUsuario(String nomeCompleto, String cpf, String senha, String perfil,
+                        LocalDate dataNascimento, String telefone, String endereco, String email, String senhaAtual) {}
+
+    private EstadoEmail estadoEmail(Usuario usuario) {
+        return new EstadoEmail(usuario.getEmailVerificado(), usuario.getEmailPendente(), emails.configurado());
+    }
+
+    private ResponseEntity<?> confirmarEmailAguarde() {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).header("Retry-After", "60")
+                .body(Map.of("erro", "Aguarde um minuto antes de pedir outro link."));
+    }
+
     @GetMapping
     public ResponseEntity<List<Usuario>> listarTodos() {
         var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
@@ -34,27 +93,29 @@ public class UsuarioController {
     }
 
     @PostMapping
-    public ResponseEntity<?> cadastrar(@RequestBody Usuario novoUsuario) {
-        com.nexo.sistema_gestao.security.RequestValidation.text(novoUsuario.getNomeCompleto(), 150, "Nome");
-        com.nexo.sistema_gestao.security.RequestValidation.text(novoUsuario.getCpf(), 14, "CPF");
-        com.nexo.sistema_gestao.security.RequestValidation.password(novoUsuario.getSenha());
-        novoUsuario.setId(null);
-        novoUsuario.setAtivo(true);
-        if (!java.util.Set.of("ADMIN", "COLABORADOR").contains(novoUsuario.getPerfil() == null ? "" : novoUsuario.getPerfil())) {
+    @Transactional
+    public ResponseEntity<?> cadastrar(@RequestBody DadosUsuario dados, @AuthenticationPrincipal Usuario usuarioLogado) {
+        RequestValidation.text(dados.nomeCompleto(), 150, "Nome");
+        RequestValidation.text(dados.cpf(), 14, "CPF");
+        RequestValidation.password(dados.senha());
+        if (dados.perfil() == null || !Set.of("ADMIN", "COLABORADOR").contains(dados.perfil())) {
             throw new IllegalArgumentException("Perfil inválido.");
         }
-        
-        var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        Usuario usuarioLogado = (Usuario) authentication.getPrincipal();
-        
-        // A CORREÇÃO ESTÁ AQUI: Verifica se o CPF já está na mesma empresa (CNPJ)
-        if (usuarioRepository.findByCpfAndEmpresaCnpj(novoUsuario.getCpf(), usuarioLogado.getEmpresa().getCnpj()).isPresent()) {
+
+        if (usuarioRepository.findByCpfAndEmpresaCnpj(dados.cpf(), usuarioLogado.getEmpresa().getCnpj()).isPresent()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"erro\": \"CPF já cadastrado nesta empresa.\"}");
         }
-        
+
+        Usuario novoUsuario = new Usuario();
+        novoUsuario.setCpf(dados.cpf());
+        novoUsuario.setPerfil(dados.perfil());
+        preencherPerfil(novoUsuario, dados);
         novoUsuario.setEmpresa(usuarioLogado.getEmpresa());
-        novoUsuario.setSenha(passwordEncoder.encode(novoUsuario.getSenha()));
-        
+        novoUsuario.setSenha(passwordEncoder.encode(dados.senha()));
+        if ("ADMIN".equals(dados.perfil())) {
+            recuperacao.prepararConfirmacaoEmail(novoUsuario, dados.email());
+        }
+
         usuarioRepository.save(novoUsuario);
         return ResponseEntity.status(HttpStatus.CREATED).body(novoUsuario);
     }
@@ -68,7 +129,7 @@ public class UsuarioController {
         Long empresaId = usuarioLogado.getEmpresa().getId();
         // Serializa exclusões na mesma empresa para proteger o último administrador.
         empresaRepository.bloquearPorId(empresaId).orElseThrow();
-        Optional<Usuario> usuarioOpt = usuarioRepository.findByIdAndEmpresaIdAndAtivoTrue(id, empresaId);
+        Optional<Usuario> usuarioOpt = usuarioRepository.bloquearAtivoPorIdEmpresa(id, empresaId);
         
         if (usuarioOpt.isPresent()) {
             if ("ADMIN".equals(usuarioOpt.get().getPerfil())
@@ -83,29 +144,60 @@ public class UsuarioController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> editarColaborador(@PathVariable Long id, @RequestBody Usuario dadosAtualizados) {
-        var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        Usuario usuarioLogado = (Usuario) authentication.getPrincipal();
-
-        Optional<Usuario> usuarioOpt = usuarioRepository.findByIdAndEmpresaIdAndAtivoTrue(id, usuarioLogado.getEmpresa().getId());
+    @Transactional
+    public ResponseEntity<?> editarColaborador(@PathVariable Long id, @RequestBody DadosUsuario dados,
+            @AuthenticationPrincipal Usuario usuarioLogado) {
+        Optional<Usuario> usuarioOpt = usuarioRepository.bloquearAtivoPorIdEmpresa(id, usuarioLogado.getEmpresa().getId());
 
         if (usuarioOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("{\"erro\": \"Colaborador não encontrado nesta empresa.\"}");
         }
 
         Usuario usuario = usuarioOpt.get();
-        com.nexo.sistema_gestao.security.RequestValidation.text(dadosAtualizados.getNomeCompleto(), 150, "Nome");
-        usuario.setNomeCompleto(dadosAtualizados.getNomeCompleto());
-        usuario.setDataNascimento(dadosAtualizados.getDataNascimento());
-        usuario.setTelefone(dadosAtualizados.getTelefone());
-        usuario.setEndereco(dadosAtualizados.getEndereco());
+        RequestValidation.text(dados.nomeCompleto(), 150, "Nome");
+        boolean trocaSenha = dados.senha() != null && !dados.senha().isEmpty();
+        if (trocaSenha) {
+            RequestValidation.password(dados.senha());
+        }
+        String email = dados.email() == null ? "" : dados.email().trim();
+        boolean trocaEmail = "ADMIN".equals(usuario.getPerfil()) && !email.isEmpty()
+                && !email.equalsIgnoreCase(usuario.getEmailVerificado())
+                && !email.equalsIgnoreCase(usuario.getEmailPendente());
+        if (trocaEmail) {
+            RequestValidation.email(email);
+            if (dados.senhaAtual() == null || dados.senhaAtual().isBlank()) {
+                throw new IllegalArgumentException("Informe a senha atual do administrador que está sendo editado.");
+            }
+            RequestValidation.loginPassword(dados.senhaAtual());
+            var resultado = acessoConta.confirmarSenha(usuario, dados.senhaAtual());
+            if (resultado.segundosBloqueio() > 0) {
+                return AutenticacaoController.loginBloqueado(resultado.segundosBloqueio());
+            }
+            if (resultado.usuario() == null) {
+                return ResponseEntity.badRequest().body(Map.of("erro", "A senha atual do administrador está incorreta."));
+            }
+            if (recuperacao.confirmacaoEnviadaRecentemente(usuario)) {
+                return confirmarEmailAguarde();
+            }
+        }
 
-        if (dadosAtualizados.getSenha() != null && !dadosAtualizados.getSenha().trim().isEmpty()) {
-            com.nexo.sistema_gestao.security.RequestValidation.password(dadosAtualizados.getSenha());
-            usuario.setSenha(passwordEncoder.encode(dadosAtualizados.getSenha()));
+        preencherPerfil(usuario, dados);
+        if (trocaSenha) {
+            usuario.alterarSenha(passwordEncoder.encode(dados.senha()));
+            emails.avisarSenhaAlterada(usuario);
+        }
+        if (trocaEmail) {
+            recuperacao.prepararConfirmacaoEmail(usuario, email);
         }
 
         usuarioRepository.save(usuario);
-        return ResponseEntity.ok("{\"mensagem\": \"Colaborador atualizado com sucesso!\"}");
+        return ResponseEntity.ok(Map.of("mensagem", "Dados atualizados com sucesso!"));
+    }
+
+    private void preencherPerfil(Usuario usuario, DadosUsuario dados) {
+        usuario.setNomeCompleto(dados.nomeCompleto());
+        usuario.setDataNascimento(dados.dataNascimento());
+        usuario.setTelefone(dados.telefone());
+        usuario.setEndereco(dados.endereco());
     }
 }

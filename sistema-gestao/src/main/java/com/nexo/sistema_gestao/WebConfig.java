@@ -32,6 +32,7 @@ public class WebConfig {
         config.setAllowedOrigins(origens);                                   // nada de "*"
         config.setAllowedHeaders(List.of("Origin", "Content-Type", "Accept", "Authorization"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setExposedHeaders(List.of("Retry-After"));
         config.setAllowCredentials(false);                                   // o JWT vai no header Authorization, não em cookie
         config.setMaxAge(3600L);                                             // o navegador guarda a resposta do preflight por 1h
 

@@ -218,6 +218,18 @@ input[type="file"]::file-selector-button { border: 0; border-radius: 6px; paddin
 .login-card h2 { font-size: 27px; letter-spacing: -.8px; font-weight: 600; color: var(--ink) !important; margin-bottom: 10px !important; }
 .login-card p { line-height: 1.6; color: var(--muted) !important; }
 .login-card form { margin-top: 28px; gap: 18px !important; }
+.colaborador-edicao {
+  width: min(550px, calc(100% - 32px));
+  max-height: 90dvh;
+  padding: clamp(16px, 5vw, 40px);
+  overflow: auto;
+  border: 0;
+  border-radius: 15px;
+  background: white;
+  color: var(--text);
+  box-shadow: 0 10px 25px #0002;
+}
+.colaborador-edicao::backdrop { background: #0008; }
 .login-card button[type="submit"] { background: var(--primary) !important; color: white; min-height: 48px; font-size: 14px !important; box-shadow: 0 4px 12px #8e44ad24; }
 .login-card button[type="submit"]:hover { background: var(--primary-dark) !important; }
 .login-card button:not([type="submit"])[style*="color: rgb(0, 123, 255)"] { color: var(--primary) !important; }

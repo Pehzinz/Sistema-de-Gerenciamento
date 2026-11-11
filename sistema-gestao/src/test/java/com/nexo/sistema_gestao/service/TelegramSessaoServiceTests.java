@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import java.time.*;
+import java.util.List;
 import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -27,11 +28,12 @@ class TelegramSessaoServiceTests {
             public Instant instant() { return agora; }
         };
         var encoder = new BCryptPasswordEncoder(4);
-        sessoes = new TelegramSessaoService(usuarios, encoder, clock);
+        var acessoConta = new AcessoContaService(usuarios, encoder, mock(EmailContaService.class), clock);
+        sessoes = new TelegramSessaoService(usuarios, acessoConta, clock);
         Empresa empresa = new Empresa("Loja A", cnpj); empresa.setId(10L);
         admin = new Usuario(); admin.setId(1L); admin.setEmpresa(empresa); admin.setPerfil("ADMIN");
         admin.setNomeCompleto("Ana"); admin.setSenha(encoder.encode("senha-segura-123"));
-        when(usuarios.findByCredenciaisTelegram(cpf, cnpj)).thenReturn(Optional.of(admin));
+        when(usuarios.bloquearPorDocumentos(cpf, cnpj)).thenReturn(List.of(admin));
         when(usuarios.findByIdAndEmpresaIdAndAtivoTrue(1L, 10L)).thenReturn(Optional.of(admin));
     }
 
@@ -56,7 +58,7 @@ class TelegramSessaoServiceTests {
         Empresa outra = new Empresa("Loja B", "99999999000199"); outra.setId(20L);
         Usuario conta = new Usuario(); conta.setId(2L); conta.setEmpresa(outra); conta.setPerfil("COLABORADOR");
         conta.setSenha(admin.getSenha());
-        when(usuarios.findByCredenciaisTelegram(cpf, outra.getCnpj())).thenReturn(Optional.of(conta));
+        when(usuarios.bloquearPorDocumentos(cpf, outra.getCnpj())).thenReturn(List.of(conta));
         when(usuarios.findByIdAndEmpresaIdAndAtivoTrue(2L, 20L)).thenReturn(Optional.of(conta));
         sessoes.processar("a", "/start"); sessoes.processar("a", outra.getCnpj()); sessoes.processar("a", cpf);
         sessoes.processar("a", "senha-segura-123");
@@ -83,7 +85,8 @@ class TelegramSessaoServiceTests {
     }
 
     @Test void restartingLoginDoesNotBypassAttemptLimit() {
-        for (int i = 0; i < 5; i++) assertTrue(login("a", "errada").mensagem().contains("inválidas"));
+        for (int i = 0; i < 4; i++) assertTrue(login("a", "errada").mensagem().contains("inválidas"));
+        assertTrue(login("a", "errada").mensagem().contains("Muitas tentativas"));
         assertTrue(login("a", "senha-segura-123").mensagem().contains("Muitas tentativas"));
         assertNull(sessoes.processar("a", "/estoque").empresaId());
     }

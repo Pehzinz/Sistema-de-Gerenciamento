@@ -3,6 +3,7 @@ import { LabelInput } from '../components/label-input';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import EmailSeguranca from '../components/EmailSeguranca';
 import { BASE_URL, apiFetch as fetch, readApiError } from '../services/api';
 
 function Configuracoes() {
@@ -152,6 +153,8 @@ function Configuracoes() {
               </div>
             </form>
           </div>
+
+          <EmailSeguranca />
 
           <div style={{ padding: '30px', backgroundColor: 'white', borderRadius: '15px', border: '1px solid #ffeaec', boxShadow: '0 4px 15px rgba(214,48,49,0.05)' }}>
             <h3 style={{ marginTop: 0, color: '#d63031' }}>Zona de Perigo</h3>

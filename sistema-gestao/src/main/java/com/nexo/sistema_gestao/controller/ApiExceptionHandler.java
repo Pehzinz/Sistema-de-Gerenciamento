@@ -29,4 +29,10 @@ public class ApiExceptionHandler {
     public ResponseEntity<?> invalidInput(IllegalArgumentException exception) {
         return ResponseEntity.badRequest().body(Map.of("erro", exception.getMessage()));
     }
+
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ResponseEntity<?> status(org.springframework.web.server.ResponseStatusException exception) {
+        return ResponseEntity.status(exception.getStatusCode())
+                .body(Map.of("erro", exception.getReason() == null ? "Acesso não autorizado." : exception.getReason()));
+    }
 }
