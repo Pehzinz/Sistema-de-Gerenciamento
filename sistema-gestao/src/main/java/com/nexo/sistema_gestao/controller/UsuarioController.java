@@ -45,10 +45,9 @@ public class UsuarioController {
     }
 
     @GetMapping("/{id}/email")
-    public EstadoEmail obterEmailAdministrador(@PathVariable Long id, @AuthenticationPrincipal Usuario usuarioLogado) {
+    public EstadoEmail obterEmailUsuario(@PathVariable Long id, @AuthenticationPrincipal Usuario usuarioLogado) {
         Usuario usuario = usuarioRepository.findByIdAndEmpresaIdAndAtivoTrue(id, usuarioLogado.getEmpresa().getId())
-                .filter(u -> "ADMIN".equals(u.getPerfil()))
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Administrador não encontrado nesta empresa."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado nesta empresa."));
         return estadoEmail(usuario);
     }
 
@@ -98,6 +97,7 @@ public class UsuarioController {
         RequestValidation.text(dados.nomeCompleto(), 150, "Nome");
         RequestValidation.text(dados.cpf(), 14, "CPF");
         RequestValidation.password(dados.senha());
+        String email = RequestValidation.email(dados.email());
         if (dados.perfil() == null || !Set.of("ADMIN", "COLABORADOR").contains(dados.perfil())) {
             throw new IllegalArgumentException("Perfil inválido.");
         }
@@ -112,9 +112,7 @@ public class UsuarioController {
         preencherPerfil(novoUsuario, dados);
         novoUsuario.setEmpresa(usuarioLogado.getEmpresa());
         novoUsuario.setSenha(passwordEncoder.encode(dados.senha()));
-        if ("ADMIN".equals(dados.perfil())) {
-            recuperacao.prepararConfirmacaoEmail(novoUsuario, dados.email());
-        }
+        recuperacao.prepararConfirmacaoEmail(novoUsuario, email);
 
         usuarioRepository.save(novoUsuario);
         return ResponseEntity.status(HttpStatus.CREATED).body(novoUsuario);
@@ -160,13 +158,13 @@ public class UsuarioController {
             RequestValidation.password(dados.senha());
         }
         String email = dados.email() == null ? "" : dados.email().trim();
-        boolean trocaEmail = "ADMIN".equals(usuario.getPerfil()) && !email.isEmpty()
+        boolean trocaEmail = !email.isEmpty()
                 && !email.equalsIgnoreCase(usuario.getEmailVerificado())
                 && !email.equalsIgnoreCase(usuario.getEmailPendente());
         if (trocaEmail) {
             RequestValidation.email(email);
             if (dados.senhaAtual() == null || dados.senhaAtual().isBlank()) {
-                throw new IllegalArgumentException("Informe a senha atual do administrador que está sendo editado.");
+                throw new IllegalArgumentException("Informe a senha atual da conta que está sendo editada.");
             }
             RequestValidation.loginPassword(dados.senhaAtual());
             var resultado = acessoConta.confirmarSenha(usuario, dados.senhaAtual());
@@ -174,7 +172,7 @@ public class UsuarioController {
                 return AutenticacaoController.loginBloqueado(resultado.segundosBloqueio());
             }
             if (resultado.usuario() == null) {
-                return ResponseEntity.badRequest().body(Map.of("erro", "A senha atual do administrador está incorreta."));
+                return ResponseEntity.badRequest().body(Map.of("erro", "A senha atual da conta está incorreta."));
             }
             if (recuperacao.confirmacaoEnviadaRecentemente(usuario)) {
                 return confirmarEmailAguarde();

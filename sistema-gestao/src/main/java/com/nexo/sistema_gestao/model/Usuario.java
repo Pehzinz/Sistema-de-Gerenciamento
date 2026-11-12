@@ -3,6 +3,7 @@ import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Instant;
+import java.util.Objects;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 
@@ -132,15 +133,21 @@ public class Usuario implements java.io.Serializable {
     }
 
     public void iniciarConfirmacaoEmail(String email, String hash, Instant expiraEm) {
+        if (emailVerificado == null && !Objects.equals(emailPendente, email)) {
+            iniciarRecuperacao(null, null);
+        }
         emailPendente = email;
         hashConfirmacaoEmail = hash;
         confirmacaoEmailExpiraEm = expiraEm;
     }
 
     public void confirmarEmail() {
+        boolean substituiEmail = emailVerificado != null && !Objects.equals(emailVerificado, emailPendente);
         emailVerificado = emailPendente;
         iniciarConfirmacaoEmail(null, null, null);
-        iniciarRecuperacao(null, null);
+        if (substituiEmail) {
+            iniciarRecuperacao(null, null);
+        }
     }
 
     public void iniciarRecuperacao(String hash, Instant expiraEm) {
@@ -153,6 +160,6 @@ public class Usuario implements java.io.Serializable {
         versaoCredencial = java.util.UUID.randomUUID().toString();
         limparFalhasLogin();
         iniciarRecuperacao(null, null);
-        iniciarConfirmacaoEmail(null, null, null);
+        iniciarConfirmacaoEmail(emailVerificado == null ? emailPendente : null, null, null);
     }
 }

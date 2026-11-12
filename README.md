@@ -43,9 +43,9 @@ Os testes Java usam H2 em memória e não precisam das credenciais do Supabase. 
 
 O login dura a sessão da aba e o JWT expira após duas horas. Novas senhas precisam ter pelo menos 6 caracteres e no máximo 72 bytes. A troca de senha encerra as sessões emitidas com a credencial anterior.
 
-Administradores podem cadastrar e confirmar seu e-mail de recuperação em **Configurações da Empresa → E-mail de recuperação**. Na tela de login, **Esqueci minha senha** solicita o CPF e o CNPJ para localizar a conta. O link enviado ao e-mail confirmado vale por 30 minutos e só pode ser usado uma vez. O endereço confirmado também recebe avisos de bloqueio, troca de senha e confirmação de e-mail. Em **Colaboradores → Editar**, o administrador pode definir uma nova senha para um colaborador da própria empresa.
+Administradores e colaboradores podem recuperar o acesso em **Esqueci minha senha**. Informe o CPF, o e-mail cadastrado e o CNPJ da empresa. O link vai para o endereço da conta, dura 30 minutos e pode ser usado uma vez para criar uma nova senha. Usar o link também confirma o primeiro e-mail cadastrado. O endereço confirmado recebe avisos de bloqueio e troca de senha.
 
-Os formulários de criação de empresa e cadastro de administrador pedem o e-mail da conta. Em **Colaboradores → Editar Administrador**, é possível alterar o endereço com a senha atual do administrador editado. O endereço anterior continua ativo até a confirmação do novo.
+O cadastro da equipe exige nome, CPF, senha e e-mail para os dois perfis. Data de nascimento, telefone e endereço são opcionais. Em **Colaboradores → Editar**, o administrador pode atualizar o e-mail de um usuário da própria empresa com a senha atual dessa conta. O endereço confirmado continua ativo até a confirmação do novo. O administrador também pode configurar o próprio e-mail em **Configurações da Empresa → E-mail de recuperação**.
 
 Cinco senhas incorretas bloqueiam o login da conta por 15 minutos na web e no Telegram. A API limita cada IP a 30 logins e 5 cadastros de empresa por minuto, além de aplicar limites aos endpoints de recuperação. Consulte a [configuração para publicação](docs/PUBLICACAO.md#recuperação-de-acesso-e-limites-de-login).
 

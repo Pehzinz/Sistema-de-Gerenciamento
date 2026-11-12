@@ -4,6 +4,7 @@ import com.nexo.sistema_gestao.model.Usuario;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpHeaders;
@@ -14,12 +15,15 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.client.ResourceAccessException;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -36,24 +40,49 @@ public class EmailContaService {
     private final ThreadPoolExecutor envios = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
             new ArrayBlockingQueue<>(100), Thread.ofPlatform().daemon().name("email-conta-", 0).factory());
 
+    @Autowired
     public EmailContaService(ApplicationEventPublisher eventos,
             @Value("${conta.email.api-key}") String chave,
             @Value("${conta.email.remetente}") String remetente,
             @Value("${conta.email.frontend}") String frontend) {
+        this(eventos, chave, remetente, frontend, clienteResend(chave.strip()));
+    }
+
+    EmailContaService(ApplicationEventPublisher eventos, String chave, String remetente, String frontend, RestClient cliente) {
         this.eventos = eventos;
-        this.remetente = remetente;
-        this.frontend = frontend.replaceAll("/+$", "");
-        URI origem = URI.create(this.frontend);
-        boolean origemValida = origem.getHost() != null && origem.getRawUserInfo() == null
-                && origem.getRawQuery() == null && origem.getRawFragment() == null
-                && origem.getRawPath().isEmpty()
-                && ("https".equals(origem.getScheme()) || ("http".equals(origem.getScheme())
-                    && List.of("localhost", "127.0.0.1").contains(origem.getHost())));
-        configurado = !chave.isBlank() && !remetente.isBlank() && origemValida;
+        this.remetente = remetente.strip();
+        this.frontend = frontend.strip().replaceAll("/+$", "");
+        this.cliente = cliente;
+
+        List<String> pendencias = new ArrayList<>();
+        if (chave.isBlank()) pendencias.add("RESEND_API_KEY");
+        if (this.remetente.isEmpty()) pendencias.add("SECURITY_EMAIL_FROM");
+        if (!origemValida(this.frontend)) pendencias.add("SECURITY_EMAIL_FRONTEND_URL");
+        configurado = pendencias.isEmpty();
+        if (!configurado) {
+            log.warn("Envio de e-mails de segurança desativado. Variáveis ausentes ou inválidas: {}.",
+                    String.join(", ", pendencias));
+        }
+    }
+
+    private static boolean origemValida(String frontend) {
+        try {
+            URI origem = URI.create(frontend);
+            return origem.getHost() != null && origem.getRawUserInfo() == null
+                    && origem.getRawQuery() == null && origem.getRawFragment() == null
+                    && origem.getRawPath().isEmpty()
+                    && ("https".equals(origem.getScheme()) || ("http".equals(origem.getScheme())
+                        && List.of("localhost", "127.0.0.1").contains(origem.getHost())));
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    private static RestClient clienteResend(String chave) {
         var fabrica = new JdkClientHttpRequestFactory(HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5)).build());
         fabrica.setReadTimeout(Duration.ofSeconds(8));
-        cliente = RestClient.builder().baseUrl("https://api.resend.com")
+        return RestClient.builder().baseUrl("https://api.resend.com")
                 .requestFactory(fabrica).defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + chave).build();
     }
 
@@ -94,6 +123,7 @@ public class EmailContaService {
 
     @TransactionalEventListener
     void enviarAposConfirmacao(Mensagem mensagem) {
+        if (!configurado) return;
         try {
             envios.execute(() -> enviar(mensagem));
         } catch (RejectedExecutionException e) {
@@ -102,15 +132,36 @@ public class EmailContaService {
     }
 
     private void enviar(Mensagem mensagem) {
-        try {
-            cliente.post().uri("/emails").contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("from", remetente, "to", List.of(mensagem.destinatario()),
-                            "subject", mensagem.assunto(), "text", mensagem.texto()))
-                    .retrieve().toBodilessEntity();
-        } catch (RestClientResponseException e) {
-            log.warn("O provedor recusou um e-mail de segurança (HTTP {}).", e.getStatusCode().value());
-        } catch (RestClientException e) {
-            log.warn("Falha de conexão ao enviar um e-mail de segurança.");
+        String idEnvio = UUID.randomUUID().toString();
+        for (int tentativa = 1; tentativa <= 2; tentativa++) {
+            try {
+                cliente.post().uri("/emails").contentType(MediaType.APPLICATION_JSON)
+                        .header("Idempotency-Key", idEnvio)
+                        .body(Map.of("from", remetente, "to", List.of(mensagem.destinatario()),
+                                "subject", mensagem.assunto(), "text", mensagem.texto()))
+                        .retrieve().toBodilessEntity();
+                return;
+            } catch (RestClientResponseException e) {
+                int status = e.getStatusCode().value();
+                if (tentativa == 2 || (status != 429 && !e.getStatusCode().is5xxServerError())) {
+                    log.warn("O Resend recusou um e-mail de segurança (HTTP {}).", status);
+                    return;
+                }
+            } catch (ResourceAccessException e) {
+                if (tentativa == 2) {
+                    log.warn("Falha de conexão com o Resend ao enviar um e-mail de segurança.");
+                    return;
+                }
+            } catch (RestClientException e) {
+                log.warn("Falha ao preparar o envio de um e-mail de segurança.");
+                return;
+            }
+            try {
+                TimeUnit.SECONDS.sleep(1);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
         }
     }
 
