@@ -65,9 +65,9 @@ public class AutenticacaoController {
 
     @PostMapping("/recuperar-senha")
     public ResponseEntity<?> solicitarRecuperacao(@RequestBody SolicitacaoRecuperacao dados) {
-        recuperacao.solicitarRecuperacao(dados.cpf(), dados.cnpj());
+        recuperacao.solicitarRecuperacao(dados.cpf(), dados.cnpj(), dados.email());
         return ResponseEntity.accepted().body(Map.of("mensagem",
-                "Se houver uma conta de administrador com e-mail confirmado para estes dados, enviaremos um link."));
+                "Se os dados corresponderem a uma conta, você receberá um link para criar uma nova senha. Confira a caixa de entrada e o spam."));
     }
 
     @PostMapping("/redefinir-senha")
@@ -82,7 +82,7 @@ public class AutenticacaoController {
         return ResponseEntity.noContent().build();
     }
 
-    record SolicitacaoRecuperacao(String cpf, String cnpj) {}
+    record SolicitacaoRecuperacao(String cpf, String cnpj, String email) {}
     record NovaSenha(String token, String senha) {}
     record ConfirmacaoEmail(String token) {}
 
@@ -94,6 +94,7 @@ public class AutenticacaoController {
         com.nexo.sistema_gestao.security.RequestValidation.text(dados.nomeAdmin(), 150, "Nome do administrador");
         com.nexo.sistema_gestao.security.RequestValidation.text(dados.cpfAdmin(), 14, "CPF");
         com.nexo.sistema_gestao.security.RequestValidation.password(dados.senhaAdmin());
+        String email = RequestValidation.email(dados.emailAdmin());
         
         if (empresaRepository.findByCnpj(dados.cnpj()).isPresent()
                 || (dados.cnpj().matches("[0-9./ -]+") && empresaRepository.existeCnpjNormalizado(
@@ -115,7 +116,7 @@ public class AutenticacaoController {
         novoAdmin.setPerfil("ADMIN");
         novoAdmin.setEmpresa(empresaSalva);
 
-        recuperacao.prepararConfirmacaoEmail(novoAdmin, dados.emailAdmin());
+        recuperacao.prepararConfirmacaoEmail(novoAdmin, email);
         usuarioRepository.save(novoAdmin);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(

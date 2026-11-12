@@ -394,7 +394,7 @@ class SistemaGestaoApplicationTests {
         String cpf = "login-" + empresa.getId();
         String cnpj = "login-company-" + empresa.getId();
         var body = Map.of("nomeEmpresa", "Nova empresa", "cnpj", cnpj, "nomeAdmin", "Admin",
-                "cpfAdmin", cpf, "senhaAdmin", "senha-teste-forte-123");
+                "cpfAdmin", cpf, "senhaAdmin", "senha-teste-forte-123", "emailAdmin", "admin@example.com");
         assertEquals(201, call("POST", "/api/registro", null, json.writeValueAsString(body)).statusCode());
         var login = Map.of("cpf", cpf, "cnpj", cnpj, "senha", "senha-teste-forte-123");
         var response = call("POST", "/api/login", null, json.writeValueAsString(login));

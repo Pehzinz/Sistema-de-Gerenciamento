@@ -44,10 +44,10 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     Optional<Usuario> bloquearAtivoPorIdEmpresa(Long id, Long empresaId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    Optional<Usuario> findByHashRecuperacaoAndAtivoTrueAndPerfil(String hashRecuperacao, String perfil);
+    Optional<Usuario> findByHashRecuperacaoAndAtivoTrue(String hashRecuperacao);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    Optional<Usuario> findByHashConfirmacaoEmailAndAtivoTrueAndPerfil(String hashConfirmacaoEmail, String perfil);
+    Optional<Usuario> findByHashConfirmacaoEmailAndAtivoTrue(String hashConfirmacaoEmail);
     
     // Retorna todas as contas vinculadas a este CPF em empresas diferentes
     List<Usuario> findByCpf(String cpf);

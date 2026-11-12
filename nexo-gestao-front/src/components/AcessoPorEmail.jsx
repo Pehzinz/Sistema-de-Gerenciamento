@@ -11,6 +11,7 @@ export default function AcessoPorEmail({ confirmarEmail }) {
   const solicitar = !confirmarEmail && !redefinir;
   const [cpf, setCpf] = useState(location.state?.cpf || '');
   const [cnpj, setCnpj] = useState(() => localStorage.getItem('cnpj') || '');
+  const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmacao, setConfirmacao] = useState('');
   const [erro, setErro] = useState('');
@@ -30,7 +31,7 @@ export default function AcessoPorEmail({ confirmarEmail }) {
       return;
     }
     const rota = confirmarEmail ? 'confirmar-email' : redefinir ? 'redefinir-senha' : 'recuperar-senha';
-    const dados = confirmarEmail ? { token } : redefinir ? { token, senha } : { cpf, cnpj };
+    const dados = confirmarEmail ? { token } : redefinir ? { token, senha } : { cpf, cnpj, email };
     setEnviando(true);
     try {
       const resposta = await apiFetch(BASE_URL + '/api/' + rota, {
@@ -45,9 +46,7 @@ export default function AcessoPorEmail({ confirmarEmail }) {
       if (solicitar) {
         setResultado((await resposta.json()).mensagem);
       } else if (redefinir) {
-        if (sessionStorage.getItem('perfil') === 'ADMIN') {
-          ['token', 'perfil', 'nome'].forEach(chave => sessionStorage.removeItem(chave));
-        }
+        ['token', 'perfil', 'nome'].forEach(chave => sessionStorage.removeItem(chave));
         setSenha('');
         setConfirmacao('');
         setResultado('Senha alterada. Entre com sua nova senha.');
@@ -67,9 +66,11 @@ export default function AcessoPorEmail({ confirmarEmail }) {
       {resultado ? <p role="status">{resultado}</p> : (
         <form onSubmit={enviar} style={{ display: 'grid', gap: '15px', marginBottom: '20px' }}>
           {solicitar && <>
-            <p>Informe o CPF do administrador e o CNPJ da empresa.</p>
-            <LabelInput label="CPF do administrador" autoComplete="username" inputMode="numeric"
+            <p>Informe os dados da sua conta. O CNPJ identifica a empresa em que você usa o Nexo.</p>
+            <LabelInput label="Seu CPF" autoComplete="username" inputMode="numeric"
               maxLength={14} value={cpf} onChange={e => setCpf(e.target.value)} required />
+            <LabelInput label="Seu e-mail cadastrado" type="email" autoComplete="email"
+              maxLength={254} value={email} onChange={e => setEmail(e.target.value)} required />
             <LabelInput label="CNPJ da empresa" maxLength={18}
               value={cnpj} onChange={e => setCnpj(e.target.value)} required />
           </>}
