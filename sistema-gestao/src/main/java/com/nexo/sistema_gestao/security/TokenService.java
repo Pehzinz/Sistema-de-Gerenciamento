@@ -9,10 +9,12 @@ import com.nexo.sistema_gestao.model.Usuario;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Objects;
 import org.springframework.beans.factory.annotation.Value;
 
 @Service
 public class TokenService {
+    private static final String EMISSOR_EDICAO_USUARIO = "SistemaGestao_Nexo_edicao_usuario";
 
     // Segredo injetado pelo ambiente; nenhuma chave de produção deve estar no repositório.
     @Value("${api.security.token.secret}")
@@ -50,6 +52,37 @@ public class TokenService {
                     .verify(token);
         } catch (JWTVerificationException exception) {
             return null;
+        }
+    }
+
+    public String gerarAutorizacaoEdicao(Usuario administrador, Long usuarioId) {
+        return JWT.create()
+                .withIssuer(EMISSOR_EDICAO_USUARIO)
+                .withSubject(administrador.getId().toString())
+                .withClaim("empresa_id", administrador.getEmpresa().getId())
+                .withClaim("usuario_editado_id", usuarioId)
+                .withClaim("versao_credencial", administrador.getVersaoCredencial())
+                .withExpiresAt(Instant.now().plusSeconds(900))
+                .sign(Algorithm.HMAC256(secret));
+    }
+
+    public boolean autorizacaoEdicaoValida(String token, Usuario administrador, Long usuarioId) {
+        if (token == null || token.isBlank()) {
+            return false;
+        }
+        try {
+            var autorizacao = JWT.require(Algorithm.HMAC256(secret))
+                    .withIssuer(EMISSOR_EDICAO_USUARIO)
+                    .withSubject(administrador.getId().toString())
+                    .withClaim("empresa_id", administrador.getEmpresa().getId())
+                    .withClaim("usuario_editado_id", usuarioId)
+                    .withClaimPresence("exp")
+                    .build()
+                    .verify(token);
+            return Objects.equals(autorizacao.getClaim("versao_credencial").asString(),
+                    administrador.getVersaoCredencial());
+        } catch (JWTVerificationException e) {
+            return false;
         }
     }
 
