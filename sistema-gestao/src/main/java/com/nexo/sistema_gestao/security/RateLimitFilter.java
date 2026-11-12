@@ -23,8 +23,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String path = request.getServletPath();
         int limit = switch (path) {
-            case "/api/registro", "/api/usuarios", "/api/recuperar-senha", "/api/usuarios/meu-email" -> 5;
-            case "/api/redefinir-senha", "/api/confirmar-email", "/api/uploads/assinatura" -> 10;
+            case "/api/registro", "/api/usuarios" -> 5;
+            case "/api/uploads/assinatura" -> 10;
             case "/api/login", "/api/agente/perguntar" -> 30;
             default -> 0;
         };

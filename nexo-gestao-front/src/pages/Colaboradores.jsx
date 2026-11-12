@@ -14,7 +14,6 @@ function Colaboradores() {
   const [nome, setNome] = useState('');
   const [cpf, setCpf] = useState('');
   const [senha, setSenha] = useState('');
-  const [email, setEmail] = useState('');
   const [dataNascimento, setDataNascimento] = useState('');
   const [telefone, setTelefone] = useState('');
   const [endereco, setEndereco] = useState('');
@@ -39,19 +38,10 @@ function Colaboradores() {
   const [nomeEdit, setNomeEdit] = useState('');
   const [senhaEdit, setSenhaEdit] = useState('');
   const [alterandoSenha, setAlterandoSenha] = useState(false);
-  const [emailEdit, setEmailEdit] = useState('');
-  const [estadoEmailEdit, setEstadoEmailEdit] = useState(null);
-  const [erroEmailEdit, setErroEmailEdit] = useState('');
-  const [solicitandoConfirmacao, setSolicitandoConfirmacao] = useState(false);
   const [dataNascimentoEdit, setDataNascimentoEdit] = useState('');
   const [telefoneEdit, setTelefoneEdit] = useState('');
   const [enderecoEdit, setEnderecoEdit] = useState('');
   const editandoAdmin = colaboradorEditando?.perfil === 'ADMIN';
-  const idUsuarioEditando = autorizacaoEdicao ? colaboradorEditando?.id : null;
-  const emailOriginal = estadoEmailEdit?.emailPendente || estadoEmailEdit?.emailVerificado || '';
-  const alterouEmail = Boolean(estadoEmailEdit && emailEdit.trim()
-    && emailEdit.trim().toLowerCase() !== emailOriginal.toLowerCase()
-    && emailEdit.trim().toLowerCase() !== estadoEmailEdit.emailVerificado?.toLowerCase());
 
   const buscarEquipe = useCallback(async () => {
     const token = sessionStorage.getItem('token');
@@ -91,57 +81,6 @@ function Colaboradores() {
 
   useEffect(() => () => pedidoAutorizacao.current?.abort(), []);
 
-  useEffect(() => {
-    if (idUsuarioEditando == null) return;
-    const controller = new AbortController();
-
-    async function carregarEmail() {
-      try {
-        const resposta = await fetch(`${BASE_URL}/api/usuarios/${idUsuarioEditando}/email`, {
-          headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}` },
-          signal: controller.signal,
-        });
-        if (!resposta.ok) {
-          const mensagem = await readApiError(resposta, 'Não foi possível consultar o e-mail');
-          if (!controller.signal.aborted) setErroEmailEdit(mensagem);
-          return;
-        }
-        const dados = await resposta.json();
-        if (!controller.signal.aborted) {
-          setEstadoEmailEdit({ ...dados, usuarioId: idUsuarioEditando });
-          setEmailEdit(dados.emailPendente || dados.emailVerificado || '');
-        }
-      } catch {
-        if (!controller.signal.aborted) setErroEmailEdit('Erro de conexão ao consultar o e-mail.');
-      }
-    }
-
-    void carregarEmail();
-    return () => controller.abort();
-  }, [idUsuarioEditando]);
-
-  const solicitarConfirmacaoEmail = async () => {
-    setSolicitandoConfirmacao(true);
-    try {
-      const resposta = await fetch(`${BASE_URL}/api/usuarios/${idUsuarioEditando}/email/confirmacao`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}` },
-      });
-      if (!resposta.ok) {
-        notificar(await readApiError(resposta, 'Não foi possível solicitar a confirmação'), { tipo: 'erro' });
-        return;
-      }
-      setEstadoEmailEdit(atual => atual?.usuarioId === idUsuarioEditando
-        ? { ...atual, confirmacaoSolicitada: true }
-        : atual);
-      notificar('Link de confirmação solicitado para o endereço cadastrado.', { tipo: 'sucesso' });
-    } catch {
-      notificar('Erro de conexão ao solicitar a confirmação.', { tipo: 'erro' });
-    } finally {
-      setSolicitandoConfirmacao(false);
-    }
-  };
-
   const iniciarEdicao = (usuario) => {
     setColaboradorEditando(usuario);
     setSenhaAdminEdit('');
@@ -149,9 +88,6 @@ function Colaboradores() {
     setNomeEdit(usuario.nomeCompleto || usuario.nome);
     setSenhaEdit('');
     setAlterandoSenha(false);
-    setEstadoEmailEdit(null);
-    setEmailEdit('');
-    setErroEmailEdit('');
     setDataNascimentoEdit(usuario.dataNascimento || '');
     setTelefoneEdit(usuario.telefone || '');
     setEnderecoEdit(usuario.endereco || '');
@@ -221,7 +157,6 @@ function Colaboradores() {
       endereco: enderecoEdit,
       autorizacaoEdicao,
       ...(alterandoSenha && { senha: senhaEdit }),
-      ...(alterouEmail && { email: emailEdit.trim() }),
     };
 
     try {
@@ -238,8 +173,7 @@ function Colaboradores() {
       });
 
       if (resposta.ok) {
-        let mensagem = alterandoSenha ? 'Senha alterada com sucesso!' : 'Dados atualizados com sucesso!';
-        if (alterouEmail) mensagem += ' O novo e-mail ficará pendente até ser confirmado.';
+        const mensagem = alterandoSenha ? 'Senha alterada com sucesso!' : 'Dados atualizados com sucesso!';
         notificar(mensagem, { tipo: 'sucesso' });
         fecharFormularioEdicao();
         
@@ -268,7 +202,6 @@ function Colaboradores() {
       telefone: telefone,
       endereco: endereco,
       perfil: perfilSelecionado,
-      email: email.trim(),
     };
 
     try {
@@ -282,9 +215,9 @@ function Colaboradores() {
       });
 
       if (resposta.status === 201 || resposta.ok) {
-        notificar('Usuário cadastrado. O e-mail ficará pendente até ser confirmado.', { tipo: 'sucesso' });
+        notificar('Usuário cadastrado com sucesso!', { tipo: 'sucesso' });
         // Limpa todos os campos
-        setNome(''); setCpf(''); setSenha(''); setEmail('');
+        setNome(''); setCpf(''); setSenha('');
         setDataNascimento(''); setTelefone(''); setEndereco('');
         buscarEquipe(); 
       } else {
@@ -381,7 +314,7 @@ function Colaboradores() {
             {/* Lado Esquerdo: Formulário de Cadastro Completo */}
             <div style={{ flex: 1, backgroundColor: 'white', padding: '30px', borderRadius: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
               <h3 style={{ marginTop: 0 }}>Adicionar colaborador ou Administrador</h3>
-              <p style={{ color: '#666', fontSize: '14px' }}>Preencha nome, CPF, e-mail e senha. Os demais campos são opcionais.</p>
+              <p style={{ color: '#666', fontSize: '14px' }}>Preencha nome, CPF e senha. Os demais campos são opcionais.</p>
               
               <form onSubmit={cadastrarColaborador} style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
                 
@@ -392,9 +325,6 @@ function Colaboradores() {
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <LabelInput label="CPF" type="text" placeholder="000.000.000-00" value={cpf} onChange={(e) => setCpf(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
                 </div>
-
-                <LabelInput label="E-mail" type="email" autoComplete="email" maxLength={254}
-                  value={email} onChange={e => setEmail(e.target.value)} required />
 
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <LabelInput label="Senha de Acesso" type="password" autoComplete="new-password" placeholder="Senha (mín. 6 caracteres)" minLength={SENHA_MINIMA} maxLength={SENHA_MAX_BYTES} value={senha} onChange={(e) => setSenha(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
@@ -529,25 +459,6 @@ function Colaboradores() {
                 <LabelInput ref={inputNomeEdicao} label="Nome e Sobrenome" type="text" value={nomeEdit} onChange={(e) => setNomeEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
               </div>
 
-              <div style={{ display: 'grid', gap: '8px' }}>
-                  <LabelInput label="E-mail de recuperação" type="email" autoComplete="email" maxLength={254}
-                    value={emailEdit} onChange={e => setEmailEdit(e.target.value)} disabled={!estadoEmailEdit}
-                    aria-describedby="estado-email-edicao" />
-                  {erroEmailEdit ? <small role="alert" id="estado-email-edicao">{erroEmailEdit}</small> : (
-                    <small id="estado-email-edicao">
-                      {mensagemEmailRecuperacao(estadoEmailEdit)}
-                    </small>
-                  )}
-                  {estadoEmailEdit?.envioDisponivel && estadoEmailEdit.emailPendente
-                    && emailEdit.trim() === estadoEmailEdit.emailPendente && (
-                      <button type="button" onClick={solicitarConfirmacaoEmail} disabled={solicitandoConfirmacao}
-                        style={{ justifySelf: 'start' }}>
-                        {solicitandoConfirmacao ? 'Solicitando…'
-                          : estadoEmailEdit.confirmacaoSolicitada ? 'Reenviar confirmação' : 'Enviar confirmação'}
-                      </button>
-                    )}
-              </div>
-
               <div className="responsive-row" style={{ display: 'flex', gap: '15px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                   <LabelInput label="Data de Nascimento" type="date" value={dataNascimentoEdit} onChange={(e) => setDataNascimentoEdit(e.target.value)} />
@@ -600,23 +511,6 @@ function Colaboradores() {
       )}
     </div>
   );
-}
-
-function mensagemEmailRecuperacao(estado) {
-  if (!estado) return 'Carregando e-mail…';
-  if (!estado.envioDisponivel) {
-    return estado.emailPendente
-      ? 'Endereço salvo. O envio do link de confirmação está indisponível.'
-      : 'O envio de e-mails de segurança está indisponível.';
-  }
-  if (estado.emailPendente) {
-    return estado.confirmacaoSolicitada
-      ? 'Confirmação solicitada. Confira a caixa de entrada e o spam.'
-      : 'Endereço salvo. Solicite o link para confirmar.';
-  }
-  return estado.emailVerificado
-    ? 'O endereço atual está confirmado.'
-    : 'Cadastre um endereço para habilitar a recuperação de senha.';
 }
 
 export default Colaboradores;

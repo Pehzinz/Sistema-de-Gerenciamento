@@ -6,8 +6,6 @@ import com.nexo.sistema_gestao.repository.UsuarioRepository;
 import com.nexo.sistema_gestao.security.RequestValidation;
 import com.nexo.sistema_gestao.security.TokenService;
 import com.nexo.sistema_gestao.service.AcessoContaService;
-import com.nexo.sistema_gestao.service.EmailContaService;
-import com.nexo.sistema_gestao.service.RecuperacaoContaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,62 +35,12 @@ public class UsuarioController {
     private PasswordEncoder passwordEncoder;
 
     @Autowired private AcessoContaService acessoConta;
-    @Autowired private RecuperacaoContaService recuperacao;
-    @Autowired private EmailContaService emails;
     @Autowired private TokenService tokens;
 
-    @GetMapping("/meu-email")
-    public EstadoEmail obterMeuEmail(@AuthenticationPrincipal Usuario usuario) {
-        return estadoEmail(usuario);
-    }
-
-    @GetMapping("/{id}/email")
-    public EstadoEmail obterEmailUsuario(@PathVariable Long id, @AuthenticationPrincipal Usuario usuarioLogado) {
-        Usuario usuario = usuarioRepository.findByIdAndEmpresaIdAndAtivoTrue(id, usuarioLogado.getEmpresa().getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado nesta empresa."));
-        return estadoEmail(usuario);
-    }
-
-    @PostMapping("/{id}/email/confirmacao")
-    public ResponseEntity<?> reenviarConfirmacaoEmail(@PathVariable Long id, @AuthenticationPrincipal Usuario usuarioLogado) {
-        if (!recuperacao.reenviarConfirmacaoEmail(id, usuarioLogado.getEmpresa().getId())) {
-            return confirmarEmailAguarde();
-        }
-        return ResponseEntity.accepted().body(Map.of("mensagem", "Link de confirmação solicitado para o endereço cadastrado."));
-    }
-
-    @PostMapping("/meu-email")
-    public ResponseEntity<?> cadastrarMeuEmail(@AuthenticationPrincipal Usuario usuario, @RequestBody NovoEmail dados) {
-        RequestValidation.loginPassword(dados.senha());
-        var resultado = acessoConta.confirmarSenha(usuario, dados.senha());
-        if (resultado.segundosBloqueio() > 0) {
-            return AutenticacaoController.loginBloqueado(resultado.segundosBloqueio());
-        }
-        if (resultado.usuario() == null) {
-            return ResponseEntity.badRequest().body(Map.of("erro", "A senha atual está incorreta."));
-        }
-        if (!recuperacao.solicitarConfirmacaoEmail(resultado.usuario(), dados.email())) {
-            return confirmarEmailAguarde();
-        }
-        return ResponseEntity.accepted().body(Map.of("mensagem", "Confira sua caixa de entrada para confirmar o e-mail."));
-    }
-
-    record EstadoEmail(String emailVerificado, String emailPendente, boolean envioDisponivel, boolean confirmacaoSolicitada) {}
-    record NovoEmail(String email, String senha) {}
     record AutorizacaoEdicao(String senha) {}
     @JsonIgnoreProperties(ignoreUnknown = true)
     record DadosUsuario(String nomeCompleto, String cpf, String senha, String perfil,
-                        LocalDate dataNascimento, String telefone, String endereco, String email, String autorizacaoEdicao) {}
-
-    private EstadoEmail estadoEmail(Usuario usuario) {
-        return new EstadoEmail(usuario.getEmailVerificado(), usuario.getEmailPendente(), emails.configurado(),
-                usuario.getConfirmacaoEmailExpiraEm() != null);
-    }
-
-    private ResponseEntity<?> confirmarEmailAguarde() {
-        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).header("Retry-After", "60")
-                .body(Map.of("erro", "Aguarde um minuto antes de pedir outro link."));
-    }
+                        LocalDate dataNascimento, String telefone, String endereco, String autorizacaoEdicao) {}
 
     @GetMapping
     public ResponseEntity<List<Usuario>> listarTodos() {
@@ -109,7 +57,6 @@ public class UsuarioController {
         RequestValidation.text(dados.nomeCompleto(), 150, "Nome");
         RequestValidation.text(dados.cpf(), 14, "CPF");
         RequestValidation.password(dados.senha());
-        String email = RequestValidation.email(dados.email());
         if (dados.perfil() == null || !Set.of("ADMIN", "COLABORADOR").contains(dados.perfil())) {
             throw new IllegalArgumentException("Perfil inválido.");
         }
@@ -124,7 +71,6 @@ public class UsuarioController {
         preencherPerfil(novoUsuario, dados);
         novoUsuario.setEmpresa(usuarioLogado.getEmpresa());
         novoUsuario.setSenha(passwordEncoder.encode(dados.senha()));
-        recuperacao.prepararConfirmacaoEmail(novoUsuario, email);
 
         usuarioRepository.save(novoUsuario);
         return ResponseEntity.status(HttpStatus.CREATED).body(novoUsuario);
@@ -191,24 +137,10 @@ public class UsuarioController {
         if (trocaSenha) {
             RequestValidation.password(dados.senha());
         }
-        String email = dados.email() == null ? "" : dados.email().trim();
-        boolean trocaEmail = !email.isEmpty()
-                && !email.equalsIgnoreCase(usuario.getEmailVerificado())
-                && !email.equalsIgnoreCase(usuario.getEmailPendente());
-        if (trocaEmail) {
-            RequestValidation.email(email);
-            if (recuperacao.confirmacaoEnviadaRecentemente(usuario)) {
-                return confirmarEmailAguarde();
-            }
-        }
 
         preencherPerfil(usuario, dados);
         if (trocaSenha) {
             usuario.alterarSenha(passwordEncoder.encode(dados.senha()));
-            emails.avisarSenhaAlterada(usuario);
-        }
-        if (trocaEmail) {
-            recuperacao.prepararConfirmacaoEmail(usuario, email);
         }
 
         usuarioRepository.save(usuario);

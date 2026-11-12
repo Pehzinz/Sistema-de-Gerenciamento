@@ -43,12 +43,6 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     @Query("select u from Usuario u where u.id = :id and u.empresa.id = :empresaId and u.ativo = true")
     Optional<Usuario> bloquearAtivoPorIdEmpresa(Long id, Long empresaId);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    Optional<Usuario> findByHashRecuperacaoAndAtivoTrue(String hashRecuperacao);
-
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    Optional<Usuario> findByHashConfirmacaoEmailAndAtivoTrue(String hashConfirmacaoEmail);
-    
     // Retorna todas as contas vinculadas a este CPF em empresas diferentes
     List<Usuario> findByCpf(String cpf);
 

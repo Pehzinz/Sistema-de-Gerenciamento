@@ -25,16 +25,4 @@ public final class RequestValidation {
             throw new IllegalArgumentException("A senha deve ter até 72 bytes.");
         }
     }
-
-    public static String email(String value) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("O e-mail é obrigatório.");
-        }
-        value = value.strip();
-        if (value.length() > 254
-                || !value.matches("[a-zA-Z0-9_+%'-]+(?:\\.[a-zA-Z0-9_+%'-]+)*@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)+")) {
-            throw new IllegalArgumentException("Informe um e-mail válido.");
-        }
-        return value;
-    }
 }

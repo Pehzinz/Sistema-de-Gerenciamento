@@ -28,7 +28,7 @@ class TelegramSessaoServiceTests {
             public Instant instant() { return agora; }
         };
         var encoder = new BCryptPasswordEncoder(4);
-        var acessoConta = new AcessoContaService(usuarios, encoder, mock(EmailContaService.class), clock);
+        var acessoConta = new AcessoContaService(usuarios, encoder, clock);
         sessoes = new TelegramSessaoService(usuarios, acessoConta, clock);
         Empresa empresa = new Empresa("Loja A", cnpj); empresa.setId(10L);
         admin = new Usuario(); admin.setId(1L); admin.setEmpresa(empresa); admin.setPerfil("ADMIN");

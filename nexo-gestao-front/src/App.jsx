@@ -34,8 +34,6 @@ export default function App() {
       <Suspense fallback={<div className="loading-page" role="status">Carregando…</div>}>
         <Routes>
           <Route path="/" element={<LoginRoute />} />
-          <Route path="/recuperar-senha" element={<Login key="recuperacao" acessoPorEmail="recuperar" />} />
-          <Route path="/confirmar-email" element={<Login key="confirmacao" acessoPorEmail="confirmar" />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/caixa" element={<Caixa />} />
           </Route>

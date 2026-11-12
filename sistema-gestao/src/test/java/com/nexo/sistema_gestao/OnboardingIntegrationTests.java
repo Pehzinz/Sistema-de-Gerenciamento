@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
     "spring.datasource.driver-class-name=org.h2.Driver", "spring.datasource.username=sa",
     "spring.datasource.password=", "spring.jpa.hibernate.ddl-auto=create-drop",
     "api.security.token.secret=isolated-tests-only-0123456789abcdef0123456789",
-    "telegrambots.enabled=false", "server.forward-headers-strategy=none", "conta.email.api-key="
+    "telegrambots.enabled=false", "server.forward-headers-strategy=none"
 })
 @Import(OnboardingIntegrationTests.ErrorTestConfiguration.class)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -38,8 +38,7 @@ class OnboardingIntegrationTests {
 
     String registration() throws Exception {
         return json.writeValueAsString(Map.of("nomeEmpresa", "Demonstração", "cnpj", "12.345.678/0001-99",
-                "nomeAdmin", "Administrador", "cpfAdmin", "111.222.333-44", "senhaAdmin", "senha-forte-teste-123",
-                "emailAdmin", "admin@example.com"));
+                "nomeAdmin", "Administrador", "cpfAdmin", "111.222.333-44", "senhaAdmin", "senha-forte-teste-123"));
     }
 
     HttpResponse<String> post(String path, String body) throws Exception {
@@ -51,18 +50,15 @@ class OnboardingIntegrationTests {
     @Test @Order(1) void firstCompanyCanRegisterAndLoginInAnEmptyDatabase() throws Exception {
         assertEquals(0, usuarios.count());
         assertEquals(201, post("/api/registro", registration()).statusCode());
-        var conta = usuarios.findByCpf("111.222.333-44").getFirst();
-        assertEquals("admin@example.com", conta.getEmailPendente());
         var login = post("/api/login", json.writeValueAsString(Map.of("cpf", "111.222.333-44", "senha", "senha-forte-teste-123")));
         assertEquals(200, login.statusCode());
         assertFalse(json.readTree(login.body()).path("token").asText().isBlank());
     }
 
-    @Test @Order(4) void mailConfigurationFailureIsReportedBeforeAnyDelivery() throws Exception {
-        var response = post("/api/recuperar-senha", json.writeValueAsString(Map.of(
-                "cpf", "111.222.333-44", "cnpj", "12.345.678/0001-99", "email", "admin@example.com")));
-        assertEquals(503, response.statusCode());
-        assertEquals("O envio de e-mails de segurança está indisponível.", json.readTree(response.body()).path("erro").asText());
+    @Test @Order(4) void retiredEmailEndpointsAreNoLongerPublic() throws Exception {
+        for (String rota : java.util.List.of("/api/recuperar-senha", "/api/redefinir-senha", "/api/confirmar-email")) {
+            assertEquals(401, post(rota, "{}").statusCode(), rota);
+        }
     }
 
     @Test @Order(2) void missingTableIsReportedAsDatabaseFailureInsteadOfUnauthorized() throws Exception {
