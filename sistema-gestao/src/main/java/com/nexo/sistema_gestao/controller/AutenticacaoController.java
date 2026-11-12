@@ -9,7 +9,6 @@ import com.nexo.sistema_gestao.repository.UsuarioRepository;
 import com.nexo.sistema_gestao.security.RequestValidation;
 import com.nexo.sistema_gestao.security.TokenService;
 import com.nexo.sistema_gestao.service.AcessoContaService;
-import com.nexo.sistema_gestao.service.RecuperacaoContaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -29,7 +28,6 @@ public class AutenticacaoController {
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private TokenService tokenService;
     @Autowired private AcessoContaService acessoConta;
-    @Autowired private RecuperacaoContaService recuperacao;
 
     @PostMapping("/login")
     public ResponseEntity<?> realizarLogin(@RequestBody LoginRequestDTO dadosLogin) {
@@ -63,29 +61,6 @@ public class AutenticacaoController {
                         + minutos + (minutos == 1 ? " minuto." : " minutos.")));
     }
 
-    @PostMapping("/recuperar-senha")
-    public ResponseEntity<?> solicitarRecuperacao(@RequestBody SolicitacaoRecuperacao dados) {
-        recuperacao.solicitarRecuperacao(dados.cpf(), dados.cnpj(), dados.email());
-        return ResponseEntity.accepted().body(Map.of("mensagem",
-                "Se os dados corresponderem a uma conta, você receberá um link para criar uma nova senha. Confira a caixa de entrada e o spam."));
-    }
-
-    @PostMapping("/redefinir-senha")
-    public ResponseEntity<?> redefinirSenha(@RequestBody NovaSenha dados) {
-        recuperacao.redefinirSenha(dados.token(), dados.senha());
-        return ResponseEntity.noContent().build();
-    }
-
-    @PostMapping("/confirmar-email")
-    public ResponseEntity<?> confirmarEmail(@RequestBody ConfirmacaoEmail dados) {
-        recuperacao.confirmarEmail(dados.token());
-        return ResponseEntity.noContent().build();
-    }
-
-    record SolicitacaoRecuperacao(String cpf, String cnpj, String email) {}
-    record NovaSenha(String token, String senha) {}
-    record ConfirmacaoEmail(String token) {}
-
     @PostMapping("/registro")
     @Transactional
     public ResponseEntity<?> registrarNovaEmpresa(@RequestBody RegistroSaaSRequestDTO dados) {
@@ -94,7 +69,6 @@ public class AutenticacaoController {
         com.nexo.sistema_gestao.security.RequestValidation.text(dados.nomeAdmin(), 150, "Nome do administrador");
         com.nexo.sistema_gestao.security.RequestValidation.text(dados.cpfAdmin(), 14, "CPF");
         com.nexo.sistema_gestao.security.RequestValidation.password(dados.senhaAdmin());
-        String email = RequestValidation.email(dados.emailAdmin());
         
         if (empresaRepository.findByCnpj(dados.cnpj()).isPresent()
                 || (dados.cnpj().matches("[0-9./ -]+") && empresaRepository.existeCnpjNormalizado(
@@ -116,11 +90,9 @@ public class AutenticacaoController {
         novoAdmin.setPerfil("ADMIN");
         novoAdmin.setEmpresa(empresaSalva);
 
-        recuperacao.prepararConfirmacaoEmail(novoAdmin, email);
         usuarioRepository.save(novoAdmin);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                "mensagem", "Empresa e Administrador cadastrados com sucesso!",
-                "confirmacaoEmailSolicitada", novoAdmin.getConfirmacaoEmailExpiraEm() != null));
+                "mensagem", "Empresa e Administrador cadastrados com sucesso!"));
     }
 }

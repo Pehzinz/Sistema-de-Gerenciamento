@@ -16,13 +16,11 @@ import java.util.Objects;
 public class AcessoContaService {
     private final UsuarioRepository usuarios;
     private final PasswordEncoder senhas;
-    private final EmailContaService emails;
     private final Clock clock;
 
-    public AcessoContaService(UsuarioRepository usuarios, PasswordEncoder senhas, EmailContaService emails, Clock clock) {
+    public AcessoContaService(UsuarioRepository usuarios, PasswordEncoder senhas, Clock clock) {
         this.usuarios = usuarios;
         this.senhas = senhas;
-        this.emails = emails;
         this.clock = clock;
     }
 
@@ -69,9 +67,6 @@ public class AcessoContaService {
         for (Usuario conta : contas) {
             if (!bloqueado(conta, agora)) {
                 conta.registrarFalhaLogin(agora);
-                if (bloqueado(conta, agora)) {
-                    emails.avisarBloqueio(conta);
-                }
             }
             if (bloqueado(conta, agora)) {
                 long restante = Duration.between(agora, conta.getLoginBloqueadoAte()).toMillis();

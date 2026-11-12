@@ -8,7 +8,6 @@ async function openRegistration(page) {
   await page.getByPlaceholder('CNPJ', { exact: true }).fill('12.345.678/0001-99');
   await page.getByPlaceholder('Seu Nome Completo').fill('Administrador de demonstração');
   await page.getByPlaceholder('Seu CPF', { exact: true }).fill('111.222.333-44');
-  await page.getByLabel('E-mail do administrador').fill('admin@example.com');
   await page.getByPlaceholder('Crie uma senha (mín. 6 caracteres)').fill('senha!');
 }
 
@@ -47,7 +46,7 @@ test('new company registration binds the next login to its CNPJ and clears the p
   await page.addInitScript(() => sessionStorage.setItem('token', 'old-session'));
   let loginPayload;
   await page.route('**/api/registro', route => {
-    expect(route.request().postDataJSON().emailAdmin).toBe('admin@example.com');
+    expect(route.request().postDataJSON()).not.toHaveProperty('emailAdmin');
     return route.fulfill({ status: 201, json: { mensagem: 'Cadastro concluído.' } });
   });
   await page.route('**/api/login', route => {
@@ -77,35 +76,10 @@ test('login displays a database failure instead of blaming the password', async 
   expect(messages.at(-1)).not.toContain('CPF ou senha incorretos');
 });
 
-test('a user can request a recovery link using CPF, registered email and company CNPJ', async ({ page }) => {
-  const token = 'A'.repeat(43);
-  await page.route('**/api/recuperar-senha', route => {
-    expect(route.request().postDataJSON()).toEqual({
-      cpf: '111.222.333-44', cnpj: '12.345.678/0001-99', email: 'usuario@example.com',
-    });
-    return route.fulfill({ status: 202, json: { mensagem: 'Se os dados corresponderem a uma conta, você receberá um link.' } });
-  });
-  await page.route('**/api/redefinir-senha', route => {
-    expect(route.request().postDataJSON()).toEqual({ token, senha: 'nova12' });
-    return route.fulfill({ status: 204 });
-  });
+test('login no longer offers recovery by email', async ({ page }) => {
   await page.goto('/');
-  await page.getByPlaceholder('CPF do Usuário').fill('111.222.333-44');
-  await page.getByRole('link', { name: 'Esqueci minha senha' }).click();
-  await expect(page.getByLabel('Seu CPF')).toHaveValue('111.222.333-44');
-  await page.getByLabel('Seu e-mail cadastrado').fill('usuario@example.com');
-  await page.getByLabel('CNPJ da empresa').fill('12.345.678/0001-99');
-  await page.getByRole('button', { name: 'Enviar link de recuperação' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'receberá um link' })).toBeVisible();
-
-  await page.goto('/recuperar-senha#token=' + token);
-  await page.getByLabel('Nova senha (mín. 6 caracteres)').fill('nova12');
-  await page.getByLabel('Repita a nova senha').fill('diferente');
-  await page.getByRole('button', { name: 'Salvar nova senha' }).click();
-  await expect(page.getByRole('alert').filter({ hasText: 'precisam ser iguais' })).toBeVisible();
-  await page.getByLabel('Repita a nova senha').fill('nova12');
-  await page.getByRole('button', { name: 'Salvar nova senha' }).click();
-  await expect(page.getByText('Senha alterada. Entre com sua nova senha.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Entrar no Sistema' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Esqueci minha senha' })).toHaveCount(0);
 });
 
 test('an administrator can change a collaborator password without completing missing profile data', async ({ page }) => {
@@ -125,15 +99,11 @@ test('an administrator can change a collaborator password without completing mis
     });
     return route.fulfill({ json: { mensagem: 'Colaborador atualizado com sucesso!' } });
   });
-  await page.route('**/api/usuarios/42/email', route => route.fulfill({
-    json: { emailVerificado: null, emailPendente: null, envioDisponivel: true },
-  }));
   await page.goto('/colaboradores');
   await page.getByRole('button', { name: 'Editar' }).click();
   await autorizarEdicao(page);
   const dialogo = page.getByRole('dialog', { name: 'Editar Colaborador' });
   await expect(dialogo.getByLabel('Nome e Sobrenome')).toBeFocused();
-  await expect(dialogo.getByLabel('E-mail de recuperação')).toBeEnabled();
   await page.keyboard.press('Escape');
   await expect(dialogo).toBeHidden();
   await expect(page.getByRole('button', { name: 'Editar' })).toBeFocused();
@@ -146,7 +116,7 @@ test('an administrator can change a collaborator password without completing mis
 });
 
 for (const [perfil, botaoCadastro] of [['ADMIN', '+ Administrador'], ['COLABORADOR', '+ Colaborador']]) {
-test(`team registration for ${perfil} requires only name, CPF, email and password`, async ({ page }) => {
+test(`team registration for ${perfil} requires only name, CPF and password`, async ({ page }) => {
   await page.addInitScript(() => {
     sessionStorage.setItem('token', 'admin');
     sessionStorage.setItem('perfil', 'ADMIN');
@@ -162,21 +132,17 @@ test(`team registration for ${perfil} requires only name, CPF, email and passwor
   await page.getByLabel('CPF', { exact: true }).fill('111.222.333-44');
   await page.getByLabel('Senha de Acesso').fill('senha!');
   const botao = page.getByRole('button', { name: botaoCadastro, exact: true });
-  const email = page.getByLabel('E-mail', { exact: true });
-  await botao.click();
-  await expect(email).toBeFocused();
-  expect(cadastro).toBeUndefined();
-  await email.fill('nova@example.com');
   await botao.click();
   await expect.poll(() => cadastro).toMatchObject({
-    perfil, email: 'nova@example.com', nomeCompleto: 'Novo usuário', cpf: '111.222.333-44',
+    perfil, nomeCompleto: 'Novo usuário', cpf: '111.222.333-44',
     senha: 'senha!', dataNascimento: null, telefone: '', endereco: '',
   });
-  await expect(email).toHaveValue('');
+  expect(cadastro).not.toHaveProperty('email');
+  await expect(page.getByLabel('Nome e Sobrenome')).toHaveValue('');
 });
 }
 
-test('administrator edit can change the recovery email after authorization without changing the password', async ({ page }) => {
+test('administrator can edit profile data after authorization without changing the password', async ({ page }) => {
   await page.addInitScript(() => {
     sessionStorage.setItem('token', 'admin');
     sessionStorage.setItem('perfil', 'ADMIN');
@@ -184,9 +150,6 @@ test('administrator edit can change the recovery email after authorization witho
   await mockAutorizacaoEdicao(page, 18);
   await page.route('**/api/usuarios', route => route.fulfill({
     json: [{ id: 18, nomeCompleto: 'Administradora', cpf: '111.222.333-44', perfil: 'ADMIN' }],
-  }));
-  await page.route('**/api/usuarios/18/email', route => route.fulfill({
-    json: { emailVerificado: 'atual@example.com', emailPendente: null, envioDisponivel: true },
   }));
   let edicao;
   await page.route('**/api/usuarios/18', route => {
@@ -197,49 +160,11 @@ test('administrator edit can change the recovery email after authorization witho
   await page.getByRole('button', { name: 'Editar' }).click();
   await autorizarEdicao(page);
   const dialogo = page.getByRole('dialog', { name: 'Editar Administrador' });
-  const email = dialogo.getByLabel('E-mail de recuperação');
-  await expect(email).toHaveValue('atual@example.com');
-  await email.fill('novo@example.com');
+  await dialogo.getByLabel('Nome e Sobrenome').fill('Administradora atualizada');
   await expect(dialogo.locator('input[type="password"]')).toHaveCount(0);
   await dialogo.getByRole('button', { name: 'Confirmar Edição' }).click();
   await expect(dialogo).toBeHidden();
-  expect(edicao).toMatchObject({ email: 'novo@example.com', autorizacaoEdicao: 'edicao-autorizada' });
+  expect(edicao).toMatchObject({ nomeCompleto: 'Administradora atualizada', autorizacaoEdicao: 'edicao-autorizada' });
   expect(edicao).not.toHaveProperty('senha');
   expect(edicao).not.toHaveProperty('senhaAtual');
-});
-
-test('email confirmation can be requested once sending is available', async ({ page }) => {
-  await page.addInitScript(() => {
-    sessionStorage.setItem('token', 'admin');
-    sessionStorage.setItem('perfil', 'ADMIN');
-  });
-  await page.route('**/api/usuarios', route => route.fulfill({
-    json: [{ id: 42, nomeCompleto: 'Colaborador de teste', cpf: '111.222.333-44', perfil: 'COLABORADOR' }],
-  }));
-  await mockAutorizacaoEdicao(page, 42);
-  let envioDisponivel = false;
-  await page.route('**/api/usuarios/42/email', route => route.fulfill({
-    json: { emailVerificado: null, emailPendente: 'equipe@example.com', envioDisponivel, confirmacaoSolicitada: false },
-  }));
-  await page.route('**/api/usuarios/42/email/confirmacao', route => {
-    expect(route.request().method()).toBe('POST');
-    return route.fulfill({ status: 202, json: { mensagem: 'Link solicitado.' } });
-  });
-
-  await page.goto('/colaboradores');
-  const editar = page.getByRole('button', { name: 'Editar' });
-  const dialogo = page.getByRole('dialog', { name: 'Editar Colaborador' });
-  await editar.click();
-  await autorizarEdicao(page);
-  await expect(dialogo.getByText('Endereço salvo. O envio do link de confirmação está indisponível.')).toBeVisible();
-  await expect(dialogo.getByRole('button', { name: 'Enviar confirmação', exact: true })).toHaveCount(0);
-  await page.keyboard.press('Escape');
-
-  envioDisponivel = true;
-  await editar.click();
-  await autorizarEdicao(page);
-  await expect(dialogo.getByText('Endereço salvo. Solicite o link para confirmar.')).toBeVisible();
-  await dialogo.getByRole('button', { name: 'Enviar confirmação', exact: true }).click();
-  await expect(dialogo.getByRole('button', { name: 'Reenviar confirmação', exact: true })).toBeVisible();
-  await expect(dialogo.getByText('Confirmação solicitada. Confira a caixa de entrada e o spam.')).toBeVisible();
 });
