@@ -72,6 +72,8 @@ class SegurancaContaIntegrationTests {
         var admin = cadastrar(empresa, "333.444.555-66", "ADMIN");
         var colaborador = cadastrar(empresa, "444.555.666-77", "COLABORADOR");
         var externo = cadastrar(outra, "555.666.777-88", "COLABORADOR");
+        externo.setEmail("externo@example.com");
+        usuarios.save(externo);
         String sessaoAdmin = token(login(admin.getCpf(), empresa.getCnpj(), SENHA));
         String sessaoColaborador = token(login(colaborador.getCpf(), empresa.getCnpj(), SENHA));
         String caminho = "/api/usuarios/" + colaborador.getId();
@@ -80,8 +82,10 @@ class SegurancaContaIntegrationTests {
         assertEquals(404, chamar("PUT", "/api/usuarios/" + externo.getId(), sessaoAdmin, dados).statusCode());
         assertEquals(403, chamar("POST", caminho + "/autorizar-edicao",
                 sessaoColaborador, Map.of("senha", SENHA)).statusCode());
-        assertEquals(404, chamar("POST", "/api/usuarios/" + externo.getId() + "/autorizar-edicao",
-                sessaoAdmin, Map.of("senha", SENHA)).statusCode());
+        var autorizacaoExterna = chamar("POST", "/api/usuarios/" + externo.getId() + "/autorizar-edicao",
+                sessaoAdmin, Map.of("senha", SENHA));
+        assertEquals(404, autorizacaoExterna.statusCode());
+        assertFalse(autorizacaoExterna.body().contains("externo@example.com"));
         String autorizacao = autorizarEdicao(sessaoAdmin, colaborador.getId());
         assertEquals(200, chamar("PUT", caminho, sessaoAdmin, Map.of("nomeCompleto", "Colaborador editado",
                 "autorizacaoEdicao", autorizacao)).statusCode());
@@ -99,7 +103,7 @@ class SegurancaContaIntegrationTests {
         var gestor = cadastrar(empresa, "777.888.999-00", "ADMIN");
         String sessao = token(login(gestor.getCpf(), empresa.getCnpj(), SENHA));
         var cadastro = chamar("POST", "/api/usuarios", sessao, Map.of("nomeCompleto", "Novo administrador",
-                "cpf", "999.000.111-22", "perfil", "ADMIN", "senha", "alvo12"));
+                "cpf", "999.000.111-22", "perfil", "ADMIN", "senha", "alvo12", "email", "  admin@example.com  "));
         assertEquals(201, cadastro.statusCode(), cadastro.body());
         long id = json.readTree(cadastro.body()).path("id").asLong();
         String rota = "/api/usuarios/" + id;
@@ -108,15 +112,30 @@ class SegurancaContaIntegrationTests {
                 Map.of("senha", "alvo12")).statusCode());
         var conta = usuarios.findById(id).orElseThrow();
         assertEquals("Novo administrador", conta.getNomeCompleto());
-        String autorizacao = autorizarEdicao(sessao, id);
+        assertEquals("admin@example.com", conta.getEmail());
+        assertFalse(chamar("GET", "/api/usuarios", sessao, null).body().contains("admin@example.com"));
+        var respostaAutorizacao = chamar("POST", rota + "/autorizar-edicao", sessao, Map.of("senha", SENHA));
+        assertEquals(200, respostaAutorizacao.statusCode(), respostaAutorizacao.body());
+        var dadosEdicao = json.readTree(respostaAutorizacao.body());
+        assertEquals("admin@example.com", dadosEdicao.path("email").asText());
+        String autorizacao = dadosEdicao.path("autorizacaoEdicao").asText();
         assertEquals(401, chamar("GET", "/api/usuarios", autorizacao, null).statusCode());
         assertEquals(403, chamar("PUT", "/api/usuarios/" + gestor.getId(), sessao,
                 Map.of("nomeCompleto", "Alterado", "autorizacaoEdicao", autorizacao)).statusCode());
         assertEquals(200, chamar("PUT", rota, sessao,
                 Map.of("nomeCompleto", "Alterado", "autorizacaoEdicao", autorizacao)).statusCode());
+        assertEquals("admin@example.com", usuarios.findById(id).orElseThrow().getEmail());
+        assertEquals(400, chamar("PUT", rota, sessao,
+                Map.of("nomeCompleto", "Alterado", "email", "inválido", "autorizacaoEdicao", autorizacao)).statusCode());
+        assertEquals(200, chamar("PUT", rota, sessao,
+                Map.of("nomeCompleto", "Alterado", "email", "novo@example.com", "autorizacaoEdicao", autorizacao)).statusCode());
         var editado = usuarios.findById(id).orElseThrow();
         assertEquals("Alterado", editado.getNomeCompleto());
+        assertEquals("novo@example.com", editado.getEmail());
         assertEquals(conta.getSenha(), editado.getSenha());
+        assertEquals(200, chamar("PUT", rota, sessao,
+                Map.of("nomeCompleto", "Alterado", "email", "", "autorizacaoEdicao", autorizacao)).statusCode());
+        assertNull(usuarios.findById(id).orElseThrow().getEmail());
     }
 
     private Usuario cadastrar(Empresa empresa, String cpf, String perfil) {

@@ -36,6 +36,10 @@ public class Usuario implements java.io.Serializable {
     @Column(length = 20)
     private String telefone;
 
+    @JsonIgnore
+    @Column(length = 254)
+    private String email;
+
     @Column(columnDefinition = "TEXT")
     private String endereco;
 
@@ -78,6 +82,8 @@ public class Usuario implements java.io.Serializable {
     public void setPerfil(String perfil) {this.perfil = perfil;}
     public String getTelefone() {return telefone;}
     public void setTelefone(String telefone) {this.telefone = telefone;}
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
     public String getEndereco() {return endereco;}
     public void setEndereco(String endereco) {this.endereco = endereco;}
     public LocalDate getDataNascimento() {return dataNascimento;}

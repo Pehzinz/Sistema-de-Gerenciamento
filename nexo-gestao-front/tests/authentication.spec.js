@@ -11,12 +11,12 @@ async function openRegistration(page) {
   await page.getByPlaceholder('Crie uma senha (mín. 6 caracteres)').fill('senha!');
 }
 
-async function mockAutorizacaoEdicao(page, id) {
+async function mockAutorizacaoEdicao(page, id, email = null) {
   await page.route(`**/api/usuarios/${id}/autorizar-edicao`, route => {
     expect(route.request().method()).toBe('POST');
     expect(route.request().headers().authorization).toBe('Bearer admin');
     expect(route.request().postDataJSON()).toEqual({ senha: 'senha!' });
-    return route.fulfill({ json: { autorizacaoEdicao: 'edicao-autorizada' } });
+    return route.fulfill({ json: { autorizacaoEdicao: 'edicao-autorizada', email } });
   });
 }
 
@@ -115,8 +115,11 @@ test('an administrator can change a collaborator password without completing mis
   await expect(dialogo).toBeHidden();
 });
 
-for (const [perfil, botaoCadastro] of [['ADMIN', '+ Administrador'], ['COLABORADOR', '+ Colaborador']]) {
-test(`team registration for ${perfil} requires only name, CPF and password`, async ({ page }) => {
+for (const [perfil, botaoCadastro, email] of [
+  ['ADMIN', '+ Administrador', 'admin@example.com'],
+  ['COLABORADOR', '+ Colaborador', ''],
+]) {
+test(`team registration for ${perfil} accepts an optional contact email`, async ({ page }) => {
   await page.addInitScript(() => {
     sessionStorage.setItem('token', 'admin');
     sessionStorage.setItem('perfil', 'ADMIN');
@@ -131,23 +134,27 @@ test(`team registration for ${perfil} requires only name, CPF and password`, asy
   await page.getByLabel('Nome e Sobrenome').fill('Novo usuário');
   await page.getByLabel('CPF', { exact: true }).fill('111.222.333-44');
   await page.getByLabel('Senha de Acesso').fill('senha!');
+  const campoEmail = page.getByLabel('E-mail de contato (opcional)');
+  await campoEmail.fill(email);
   const botao = page.getByRole('button', { name: botaoCadastro, exact: true });
   await botao.click();
   await expect.poll(() => cadastro).toMatchObject({
     perfil, nomeCompleto: 'Novo usuário', cpf: '111.222.333-44',
     senha: 'senha!', dataNascimento: null, telefone: '', endereco: '',
+    ...(email && { email }),
   });
-  expect(cadastro).not.toHaveProperty('email');
+  if (!email) expect(cadastro).not.toHaveProperty('email');
+  await expect(campoEmail).toHaveValue('');
   await expect(page.getByLabel('Nome e Sobrenome')).toHaveValue('');
 });
 }
 
-test('administrator can edit profile data after authorization without changing the password', async ({ page }) => {
+test('administrator can edit the contact email after authorization without changing the password', async ({ page }) => {
   await page.addInitScript(() => {
     sessionStorage.setItem('token', 'admin');
     sessionStorage.setItem('perfil', 'ADMIN');
   });
-  await mockAutorizacaoEdicao(page, 18);
+  await mockAutorizacaoEdicao(page, 18, 'anterior@example.com');
   await page.route('**/api/usuarios', route => route.fulfill({
     json: [{ id: 18, nomeCompleto: 'Administradora', cpf: '111.222.333-44', perfil: 'ADMIN' }],
   }));
@@ -160,11 +167,13 @@ test('administrator can edit profile data after authorization without changing t
   await page.getByRole('button', { name: 'Editar' }).click();
   await autorizarEdicao(page);
   const dialogo = page.getByRole('dialog', { name: 'Editar Administrador' });
-  await dialogo.getByLabel('Nome e Sobrenome').fill('Administradora atualizada');
+  const campoEmail = dialogo.getByLabel('E-mail de contato (opcional)');
+  await expect(campoEmail).toHaveValue('anterior@example.com');
+  await campoEmail.fill('novo@example.com');
   await expect(dialogo.locator('input[type="password"]')).toHaveCount(0);
   await dialogo.getByRole('button', { name: 'Confirmar Edição' }).click();
   await expect(dialogo).toBeHidden();
-  expect(edicao).toMatchObject({ nomeCompleto: 'Administradora atualizada', autorizacaoEdicao: 'edicao-autorizada' });
+  expect(edicao).toMatchObject({ nomeCompleto: 'Administradora', email: 'novo@example.com', autorizacaoEdicao: 'edicao-autorizada' });
   expect(edicao).not.toHaveProperty('senha');
   expect(edicao).not.toHaveProperty('senhaAtual');
 });
