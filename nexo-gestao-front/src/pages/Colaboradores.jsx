@@ -26,28 +26,28 @@ function Colaboradores() {
   const [dataHoje] = useState(() => new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' }));
 
   // --- ESTADOS PARA A EDIÇÃO DE COLABORADOR ---
-  const [modalAdminEditAberto, setModalAdminEditAberto] = useState(false);
-  const [modalEdicaoAberto, setModalEdicaoAberto] = useState(false);
   const [colaboradorEditando, setColaboradorEditando] = useState(null);
   const dialogoEdicao = useRef(null);
-
-  // Credenciais do Admin
-  const [cpfAdminEdit, setCpfAdminEdit] = useState('');
+  const inputNomeEdicao = useRef(null);
+  const pedidoAutorizacao = useRef(null);
+  const [autorizacaoEdicao, setAutorizacaoEdicao] = useState('');
+  const [autorizandoEdicao, setAutorizandoEdicao] = useState(false);
+  const [erroAutorizacao, setErroAutorizacao] = useState('');
   const [senhaAdminEdit, setSenhaAdminEdit] = useState('');
 
   // Campos do Formulário de Edição (Sem o CPF!)
   const [nomeEdit, setNomeEdit] = useState('');
   const [senhaEdit, setSenhaEdit] = useState('');
+  const [alterandoSenha, setAlterandoSenha] = useState(false);
   const [emailEdit, setEmailEdit] = useState('');
   const [estadoEmailEdit, setEstadoEmailEdit] = useState(null);
   const [erroEmailEdit, setErroEmailEdit] = useState('');
   const [solicitandoConfirmacao, setSolicitandoConfirmacao] = useState(false);
-  const [senhaAtualEmail, setSenhaAtualEmail] = useState('');
   const [dataNascimentoEdit, setDataNascimentoEdit] = useState('');
   const [telefoneEdit, setTelefoneEdit] = useState('');
   const [enderecoEdit, setEnderecoEdit] = useState('');
   const editandoAdmin = colaboradorEditando?.perfil === 'ADMIN';
-  const idUsuarioEditando = modalEdicaoAberto ? colaboradorEditando?.id : null;
+  const idUsuarioEditando = autorizacaoEdicao ? colaboradorEditando?.id : null;
   const emailOriginal = estadoEmailEdit?.emailPendente || estadoEmailEdit?.emailVerificado || '';
   const alterouEmail = Boolean(estadoEmailEdit && emailEdit.trim()
     && emailEdit.trim().toLowerCase() !== emailOriginal.toLowerCase()
@@ -82,8 +82,14 @@ function Colaboradores() {
 
   useEffect(() => {
     const dialogo = dialogoEdicao.current;
-    if (modalEdicaoAberto && dialogo && !dialogo.open) dialogo.showModal();
-  }, [modalEdicaoAberto]);
+    if (colaboradorEditando && dialogo && !dialogo.open) dialogo.showModal();
+  }, [colaboradorEditando]);
+
+  useEffect(() => {
+    if (autorizacaoEdicao) inputNomeEdicao.current?.focus();
+  }, [autorizacaoEdicao]);
+
+  useEffect(() => () => pedidoAutorizacao.current?.abort(), []);
 
   useEffect(() => {
     if (idUsuarioEditando == null) return;
@@ -136,77 +142,73 @@ function Colaboradores() {
     }
   };
 
-  const abrirFormularioEdicao = (usuario) => {
+  const iniciarEdicao = (usuario) => {
+    setColaboradorEditando(usuario);
+    setSenhaAdminEdit('');
+    setErroAutorizacao('');
     setNomeEdit(usuario.nomeCompleto || usuario.nome);
     setSenhaEdit('');
+    setAlterandoSenha(false);
     setEstadoEmailEdit(null);
     setEmailEdit('');
     setErroEmailEdit('');
-    setSenhaAtualEmail('');
     setDataNascimentoEdit(usuario.dataNascimento || '');
     setTelefoneEdit(usuario.telefone || '');
     setEnderecoEdit(usuario.endereco || '');
-    setModalEdicaoAberto(true);
   };
 
   const fecharFormularioEdicao = () => {
+    pedidoAutorizacao.current?.abort();
+    pedidoAutorizacao.current = null;
     dialogoEdicao.current?.close();
-    setModalEdicaoAberto(false);
     setColaboradorEditando(null);
-    setSenhaEdit('');
-    setSenhaAtualEmail('');
-  };
-
-  const iniciarEdicao = (usuario) => {
-    setColaboradorEditando(usuario);
-    if (usuario.perfil === 'COLABORADOR') {
-      abrirFormularioEdicao(usuario);
-      return;
-    }
-    setCpfAdminEdit('');
+    setAutorizacaoEdicao('');
+    setAutorizandoEdicao(false);
     setSenhaAdminEdit('');
-    setModalAdminEditAberto(true);
+    setSenhaEdit('');
   };
 
-  // 2. Valida o gerente e, se ok, abre o formulário de edição
-  const validarAdminEdit = async (e) => {
+  const autorizarEdicao = async (e) => {
     e.preventDefault();
-    
-    // Trava de 14 caracteres (formato 000.000.000-00)
-    if (cpfAdminEdit.length !== 14) {
-      notificar('O CPF do Administrador precisa estar completo (Ex: 000.000.000-00).', { tipo: 'atencao' });
-      return;
-    }
+    if (pedidoAutorizacao.current) return;
+    const controller = new AbortController();
+    pedidoAutorizacao.current = controller;
+    setAutorizandoEdicao(true);
+    setErroAutorizacao('');
 
     try {
-      // Usa a mesma rota de login para checar se a credencial é de um ADMIN
-      const resposta = await fetch(BASE_URL + '/api/login', {
+      const resposta = await fetch(`${BASE_URL}/api/usuarios/${colaboradorEditando.id}/autorizar-edicao`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cpf: cpfAdminEdit, senha: senhaAdminEdit, cnpj: localStorage.getItem('cnpj') })
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sessionStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ senha: senhaAdminEdit }),
+        signal: controller.signal,
       });
 
-      if (resposta.ok) {
-        const dados = await resposta.json();
-        if (dados.perfil === 'ADMIN') {
-          setModalAdminEditAberto(false);
-          setSenhaAdminEdit('');
-          abrirFormularioEdicao(colaboradorEditando);
-        } else {
-          notificar('Ação negada: As credenciais não pertencem a um Administrador.', { tipo: 'atencao' });
-        }
-      } else {
-        notificar(await readApiError(resposta, 'Credenciais do Administrador inválidas'), { tipo: 'atencao' });
+      if (!resposta.ok) {
+        const erro = await readApiError(resposta, 'Não foi possível autorizar a edição');
+        if (!controller.signal.aborted) setErroAutorizacao(erro);
+        return;
       }
+      const dados = await resposta.json();
+      if (!controller.signal.aborted) setAutorizacaoEdicao(dados.autorizacaoEdicao);
     } catch {
-      notificar('Erro ao validar administrador.', { tipo: 'erro' });
+      if (!controller.signal.aborted) setErroAutorizacao('Erro de conexão ao autorizar a edição.');
+    } finally {
+      if (pedidoAutorizacao.current === controller) {
+        pedidoAutorizacao.current = null;
+        setSenhaAdminEdit('');
+        setAutorizandoEdicao(false);
+      }
     }
   };
 
   // 3. Envia os dados editados para o Java
   const confirmarEdicao = async (e) => {
     e.preventDefault();
-    if (senhaEdit && !novaSenhaValida(senhaEdit)) {
+    if (alterandoSenha && !novaSenhaValida(senhaEdit)) {
       notificar(ERRO_NOVA_SENHA, { tipo: 'atencao' });
       return;
     }
@@ -217,8 +219,9 @@ function Colaboradores() {
       dataNascimento: dataNascimentoEdit || null,
       telefone: telefoneEdit,
       endereco: enderecoEdit,
-      ...(senhaEdit && { senha: senhaEdit }),
-      ...(alterouEmail && { email: emailEdit.trim(), senhaAtual: senhaAtualEmail }),
+      autorizacaoEdicao,
+      ...(alterandoSenha && { senha: senhaEdit }),
+      ...(alterouEmail && { email: emailEdit.trim() }),
     };
 
     try {
@@ -235,7 +238,7 @@ function Colaboradores() {
       });
 
       if (resposta.ok) {
-        let mensagem = senhaEdit ? 'Senha alterada com sucesso!' : 'Dados atualizados com sucesso!';
+        let mensagem = alterandoSenha ? 'Senha alterada com sucesso!' : 'Dados atualizados com sucesso!';
         if (alterouEmail) mensagem += ' O novo e-mail ficará pendente até ser confirmado.';
         notificar(mensagem, { tipo: 'sucesso' });
         fecharFormularioEdicao();
@@ -509,61 +512,10 @@ function Colaboradores() {
         </div>
       )}
 
-      {/* MODAL 1: AUTORIZAÇÃO DO ADMINISTRADOR PARA EDIÇÃO */}
-      {modalAdminEditAberto && (
-        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 15 }}>
-          <div style={{ backgroundColor: 'white', padding: '35px', borderRadius: '15px', width: '400px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
-            <h3 style={{ color: '#8e44ad', marginTop: 0, fontSize: '20px' }}>Autorização Necessária</h3>
-            <p style={{ fontSize: '14px', color: '#666', lineHeight: '1.5', marginBottom: '20px' }}>
-              Somente o Administrador pode autorizar a edição do colaborador <strong>{colaboradorEditando?.nomeCompleto}</strong>.
-            </p>
-            
-            <form onSubmit={validarAdminEdit}>
-              {/* Máscara de CPF aplicada no onChange */}
-              <LabelInput
-                type="text" 
-                maxLength="14"
-                placeholder="CPF do Administrador" 
-                value={cpfAdminEdit} 
-                onChange={(e) => {
-                  let v = e.target.value.replace(/\D/g, ''); 
-                  if (v.length > 11) v = v.substring(0, 11); 
-                  
-                  v = v.replace(/(\d{3})(\d)/, '$1.$2');
-                  v = v.replace(/(\d{3})(\d)/, '$1.$2');
-                  v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-                  
-                  setCpfAdminEdit(v);
-                }} 
-                style={{ width: '100%', padding: '12px', marginBottom: '12px', boxSizing: 'border-box', border: '1px solid #ccc', borderRadius: '8px', outline: 'none', fontSize: '14px' }} 
-                required
-              />
-              <LabelInput
-                type="password" 
-                placeholder="Senha do Administrador" 
-                value={senhaAdminEdit} 
-                onChange={(e) => setSenhaAdminEdit(e.target.value)} 
-                style={{ width: '100%', padding: '12px', marginBottom: '25px', boxSizing: 'border-box', border: '1px solid #ccc', borderRadius: '8px', outline: 'none', fontSize: '14px' }} 
-                required
-              />
-              
-              <div className="button-group" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                <button type="button" onClick={() => { setModalAdminEditAberto(false); setColaboradorEditando(null); }} style={{ padding: '12px 20px', border: 'none', background: '#f5f5f5', color: '#555', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  Cancelar
-                </button>
-                <button type="submit" style={{ padding: '12px 20px', border: 'none', background: '#8e44ad', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  Autorizar Edição
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: FORMULÁRIO DE EDIÇÃO (SEM CPF) */}
-      {modalEdicaoAberto && (
+      {colaboradorEditando && (
           <dialog ref={dialogoEdicao} className="colaborador-edicao" aria-labelledby="titulo-editar-colaborador"
             onCancel={evento => { evento.preventDefault(); fecharFormularioEdicao(); }}>
+          {autorizacaoEdicao ? <>
             <h3 id="titulo-editar-colaborador" style={{ marginTop: 0, color: '#333', fontSize: '22px' }}>
               {editandoAdmin ? 'Editar Administrador' : 'Editar Colaborador'}
             </h3>
@@ -574,7 +526,7 @@ function Colaboradores() {
             <form onSubmit={confirmarEdicao} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <LabelInput label="Nome e Sobrenome" type="text" value={nomeEdit} onChange={(e) => setNomeEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
+                <LabelInput ref={inputNomeEdicao} label="Nome e Sobrenome" type="text" value={nomeEdit} onChange={(e) => setNomeEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
               </div>
 
               <div style={{ display: 'grid', gap: '8px' }}>
@@ -594,16 +546,6 @@ function Colaboradores() {
                           : estadoEmailEdit.confirmacaoSolicitada ? 'Reenviar confirmação' : 'Enviar confirmação'}
                       </button>
                     )}
-                  {alterouEmail && <LabelInput label="Senha atual da conta editada" type="password"
-                    autoComplete="current-password" maxLength={72} value={senhaAtualEmail}
-                    onChange={e => setSenhaAtualEmail(e.target.value)} required />}
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <LabelInput label="Nova senha (opcional)" type="password" autoComplete="new-password"
-                  minLength={SENHA_MINIMA} maxLength={SENHA_MAX_BYTES} aria-describedby="ajuda-nova-senha"
-                  value={senhaEdit} onChange={(e) => setSenhaEdit(e.target.value)} />
-                <small id="ajuda-nova-senha">Preencha com pelo menos 6 caracteres para trocar a senha.</small>
               </div>
 
               <div className="responsive-row" style={{ display: 'flex', gap: '15px' }}>
@@ -618,6 +560,16 @@ function Colaboradores() {
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <LabelInput label="Endereço" type="text" value={enderecoEdit} onChange={(e) => setEnderecoEdit(e.target.value)} />
               </div>
+
+              <div style={{ display: 'grid', gap: '8px' }}>
+                <button type="button" aria-expanded={alterandoSenha} style={{ justifySelf: 'start' }}
+                  onClick={() => { setAlterandoSenha(!alterandoSenha); setSenhaEdit(''); }}>
+                  {alterandoSenha ? 'Cancelar troca de senha' : 'Alterar senha'}
+                </button>
+                {alterandoSenha && <LabelInput label="Nova senha" type="password" autoComplete="new-password"
+                  minLength={SENHA_MINIMA} maxLength={SENHA_MAX_BYTES} value={senhaEdit}
+                  onChange={e => setSenhaEdit(e.target.value)} required />}
+              </div>
               
               <div className="button-group" style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px', marginTop: '20px' }}>
                 <button type="button" onClick={fecharFormularioEdicao} style={{ padding: '15px 25px', border: 'none', background: '#f5f5f5', color: '#555', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
@@ -628,6 +580,22 @@ function Colaboradores() {
                 </button>
               </div>
             </form>
+          </> : <>
+            <h3 id="titulo-editar-colaborador" style={{ marginTop: 0, color: '#333', fontSize: '22px' }}>Autorizar edição</h3>
+            <p>Confirme sua senha de administrador para editar <strong>{colaboradorEditando.nomeCompleto}</strong>.</p>
+            <form onSubmit={autorizarEdicao} style={{ display: 'grid', gap: '15px' }}>
+              <LabelInput type="password" label="Sua senha de administrador" autoComplete="current-password"
+                maxLength={72} value={senhaAdminEdit} onChange={e => setSenhaAdminEdit(e.target.value)}
+                disabled={autorizandoEdicao} required />
+              {erroAutorizacao && <p role="alert">{erroAutorizacao}</p>}
+              <div className="button-group" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                <button type="button" onClick={fecharFormularioEdicao}>Cancelar</button>
+                <button type="submit" disabled={autorizandoEdicao} style={{ background: '#8e44ad', color: 'white' }}>
+                  {autorizandoEdicao ? 'Autorizando…' : 'Autorizar edição'}
+                </button>
+              </div>
+            </form>
+          </>}
           </dialog>
       )}
     </div>

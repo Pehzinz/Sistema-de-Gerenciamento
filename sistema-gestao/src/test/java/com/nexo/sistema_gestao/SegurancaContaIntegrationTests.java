@@ -131,7 +131,20 @@ class SegurancaContaIntegrationTests {
         var dados = Map.of("nomeCompleto", colaborador.getNomeCompleto(), "senha", "nova12");
         assertEquals(403, chamar("PUT", caminho, sessaoColaborador, dados).statusCode());
         assertEquals(404, chamar("PUT", "/api/usuarios/" + externo.getId(), sessaoAdmin, dados).statusCode());
-        assertEquals(200, chamar("PUT", caminho, sessaoAdmin, dados).statusCode());
+        assertEquals(403, chamar("POST", caminho + "/autorizar-edicao",
+                sessaoColaborador, Map.of("senha", SENHA)).statusCode());
+        assertEquals(404, chamar("POST", "/api/usuarios/" + externo.getId() + "/autorizar-edicao",
+                sessaoAdmin, Map.of("senha", SENHA)).statusCode());
+        String autorizacao = autorizarEdicao(sessaoAdmin, colaborador.getId());
+        String email = "colaborador-editado@example.com";
+        assertEquals(200, chamar("PUT", caminho, sessaoAdmin, Map.of("nomeCompleto", "Colaborador editado",
+                "email", email, "autorizacaoEdicao", autorizacao)).statusCode());
+        var editado = usuarios.findById(colaborador.getId()).orElseThrow();
+        assertEquals("Colaborador editado", editado.getNomeCompleto());
+        assertEquals(email, editado.getEmailPendente());
+        assertEquals(colaborador.getSenha(), editado.getSenha());
+        assertEquals(200, chamar("PUT", caminho, sessaoAdmin, Map.of("nomeCompleto", editado.getNomeCompleto(),
+                "senha", "nova12", "autorizacaoEdicao", autorizacao)).statusCode());
         assertEquals(401, chamar("GET", "/api/empresas/minha-empresa", sessaoColaborador, null).statusCode());
         assertEquals(200, login(colaborador.getCpf(), empresa.getCnpj(), "nova12").statusCode());
     }
@@ -178,15 +191,20 @@ class SegurancaContaIntegrationTests {
                 Map.of("token", link(primeiroEmail, "/confirmar-email"))).statusCode());
 
         String novoEmail = "novo@example.com";
-        assertEquals(400, chamar("PUT", rota, sessao,
+        assertEquals(403, chamar("PUT", rota, sessao,
                 Map.of("nomeCompleto", "Alterado", "email", novoEmail)).statusCode());
-        assertEquals(400, chamar("PUT", rota, sessao,
-                Map.of("nomeCompleto", "Alterado", "email", novoEmail, "senhaAtual", SENHA)).statusCode());
+        assertEquals(400, chamar("POST", rota + "/autorizar-edicao", sessao,
+                Map.of("senha", "alvo12")).statusCode());
         var conta = usuarios.findById(id).orElseThrow();
         assertEquals("Novo administrador", conta.getNomeCompleto());
         assertNull(conta.getEmailPendente());
+        String autorizacao = autorizarEdicao(sessao, id);
+        assertEquals(401, chamar("GET", "/api/usuarios", autorizacao, null).statusCode());
+        assertEquals(403, chamar("PUT", "/api/usuarios/" + gestor.getId(), sessao,
+                Map.of("nomeCompleto", "Alterado", "autorizacaoEdicao", autorizacao)).statusCode());
         assertEquals(200, chamar("PUT", rota, sessao,
-                Map.of("nomeCompleto", "Alterado", "email", novoEmail, "senhaAtual", "alvo12")).statusCode());
+                Map.of("nomeCompleto", "Alterado", "email", novoEmail, "autorizacaoEdicao", autorizacao)).statusCode());
+        assertEquals(conta.getSenha(), usuarios.findById(id).orElseThrow().getSenha());
         var emConfirmacao = json.readTree(chamar("GET", rota + "/email", sessao, null).body());
         assertEquals(primeiroEmail, emConfirmacao.path("emailVerificado").asText());
         assertEquals(novoEmail, emConfirmacao.path("emailPendente").asText());
@@ -287,6 +305,13 @@ class SegurancaContaIntegrationTests {
 
     private HttpResponse<String> login(String cpf, String cnpj, String senha) throws Exception {
         return chamar("POST", "/api/login", null, Map.of("cpf", cpf, "cnpj", cnpj, "senha", senha));
+    }
+
+    private String autorizarEdicao(String sessao, long usuarioId) throws Exception {
+        var resposta = chamar("POST", "/api/usuarios/" + usuarioId + "/autorizar-edicao", sessao,
+                Map.of("senha", SENHA));
+        assertEquals(200, resposta.statusCode(), resposta.body());
+        return json.readTree(resposta.body()).path("autorizacaoEdicao").asText();
     }
 
     private HttpResponse<String> chamar(String metodo, String rota, String token, Map<String, String> dados) throws Exception {

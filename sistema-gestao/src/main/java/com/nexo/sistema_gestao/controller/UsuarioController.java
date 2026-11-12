@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.nexo.sistema_gestao.model.Usuario;
 import com.nexo.sistema_gestao.repository.UsuarioRepository;
 import com.nexo.sistema_gestao.security.RequestValidation;
+import com.nexo.sistema_gestao.security.TokenService;
 import com.nexo.sistema_gestao.service.AcessoContaService;
 import com.nexo.sistema_gestao.service.EmailContaService;
 import com.nexo.sistema_gestao.service.RecuperacaoContaService;
@@ -38,6 +39,7 @@ public class UsuarioController {
     @Autowired private AcessoContaService acessoConta;
     @Autowired private RecuperacaoContaService recuperacao;
     @Autowired private EmailContaService emails;
+    @Autowired private TokenService tokens;
 
     @GetMapping("/meu-email")
     public EstadoEmail obterMeuEmail(@AuthenticationPrincipal Usuario usuario) {
@@ -77,9 +79,10 @@ public class UsuarioController {
 
     record EstadoEmail(String emailVerificado, String emailPendente, boolean envioDisponivel, boolean confirmacaoSolicitada) {}
     record NovoEmail(String email, String senha) {}
+    record AutorizacaoEdicao(String senha) {}
     @JsonIgnoreProperties(ignoreUnknown = true)
     record DadosUsuario(String nomeCompleto, String cpf, String senha, String perfil,
-                        LocalDate dataNascimento, String telefone, String endereco, String email, String senhaAtual) {}
+                        LocalDate dataNascimento, String telefone, String endereco, String email, String autorizacaoEdicao) {}
 
     private EstadoEmail estadoEmail(Usuario usuario) {
         return new EstadoEmail(usuario.getEmailVerificado(), usuario.getEmailPendente(), emails.configurado(),
@@ -150,6 +153,24 @@ public class UsuarioController {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
     }
 
+    @PostMapping("/{id}/autorizar-edicao")
+    public ResponseEntity<?> autorizarEdicao(@PathVariable Long id, @RequestBody AutorizacaoEdicao dados,
+            @AuthenticationPrincipal Usuario administrador) {
+        if (usuarioRepository.findByIdAndEmpresaIdAndAtivoTrue(id, administrador.getEmpresa().getId()).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado nesta empresa.");
+        }
+
+        RequestValidation.loginPassword(dados.senha());
+        var resultado = acessoConta.confirmarSenha(administrador, dados.senha());
+        if (resultado.segundosBloqueio() > 0) {
+            return AutenticacaoController.loginBloqueado(resultado.segundosBloqueio());
+        }
+        if (resultado.usuario() == null) {
+            return ResponseEntity.badRequest().body(Map.of("erro", "A senha do administrador conectado está incorreta."));
+        }
+        return ResponseEntity.ok(Map.of("autorizacaoEdicao", tokens.gerarAutorizacaoEdicao(resultado.usuario(), id)));
+    }
+
     @PutMapping("/{id}")
     @Transactional
     public ResponseEntity<?> editarColaborador(@PathVariable Long id, @RequestBody DadosUsuario dados,
@@ -158,6 +179,10 @@ public class UsuarioController {
 
         if (usuarioOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("{\"erro\": \"Colaborador não encontrado nesta empresa.\"}");
+        }
+        if (!tokens.autorizacaoEdicaoValida(dados.autorizacaoEdicao(), usuarioLogado, id)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("erro", "Autorize a edição deste usuário novamente antes de salvar."));
         }
 
         Usuario usuario = usuarioOpt.get();
@@ -172,17 +197,6 @@ public class UsuarioController {
                 && !email.equalsIgnoreCase(usuario.getEmailPendente());
         if (trocaEmail) {
             RequestValidation.email(email);
-            if (dados.senhaAtual() == null || dados.senhaAtual().isBlank()) {
-                throw new IllegalArgumentException("Informe a senha atual da conta que está sendo editada.");
-            }
-            RequestValidation.loginPassword(dados.senhaAtual());
-            var resultado = acessoConta.confirmarSenha(usuario, dados.senhaAtual());
-            if (resultado.segundosBloqueio() > 0) {
-                return AutenticacaoController.loginBloqueado(resultado.segundosBloqueio());
-            }
-            if (resultado.usuario() == null) {
-                return ResponseEntity.badRequest().body(Map.of("erro", "A senha atual da conta está incorreta."));
-            }
             if (recuperacao.confirmacaoEnviadaRecentemente(usuario)) {
                 return confirmarEmailAguarde();
             }

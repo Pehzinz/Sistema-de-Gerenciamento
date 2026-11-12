@@ -12,6 +12,21 @@ async function openRegistration(page) {
   await page.getByPlaceholder('Crie uma senha (mín. 6 caracteres)').fill('senha!');
 }
 
+async function mockAutorizacaoEdicao(page, id) {
+  await page.route(`**/api/usuarios/${id}/autorizar-edicao`, route => {
+    expect(route.request().method()).toBe('POST');
+    expect(route.request().headers().authorization).toBe('Bearer admin');
+    expect(route.request().postDataJSON()).toEqual({ senha: 'senha!' });
+    return route.fulfill({ json: { autorizacaoEdicao: 'edicao-autorizada' } });
+  });
+}
+
+async function autorizarEdicao(page) {
+  const dialogo = page.getByRole('dialog', { name: 'Autorizar edição' });
+  await dialogo.getByLabel('Sua senha de administrador').fill('senha!');
+  await dialogo.getByRole('button', { name: 'Autorizar edição' }).click();
+}
+
 for (const scenario of [
   { status: 503, contentType: 'application/json', body: JSON.stringify({ erro: 'Não foi possível acessar o banco de dados.' }), expected: 'banco de dados' },
   { status: 401, contentType: 'text/plain', body: '', expected: 'HTTP 401' },
@@ -101,10 +116,13 @@ test('an administrator can change a collaborator password without completing mis
   await page.route('**/api/usuarios', route => route.fulfill({
     json: [{ id: 42, nomeCompleto: 'Colaborador de teste', cpf: '111.222.333-44', perfil: 'COLABORADOR' }],
   }));
+  await mockAutorizacaoEdicao(page, 42);
   await page.route('**/api/usuarios/42', route => {
     expect(route.request().method()).toBe('PUT');
     expect(route.request().headers().authorization).toBe('Bearer admin');
-    expect(route.request().postDataJSON()).toMatchObject({ nomeCompleto: 'Colaborador de teste', senha: 'nova12', dataNascimento: null });
+    expect(route.request().postDataJSON()).toMatchObject({
+      nomeCompleto: 'Colaborador de teste', senha: 'nova12', dataNascimento: null, autorizacaoEdicao: 'edicao-autorizada',
+    });
     return route.fulfill({ json: { mensagem: 'Colaborador atualizado com sucesso!' } });
   });
   await page.route('**/api/usuarios/42/email', route => route.fulfill({
@@ -112,6 +130,7 @@ test('an administrator can change a collaborator password without completing mis
   }));
   await page.goto('/colaboradores');
   await page.getByRole('button', { name: 'Editar' }).click();
+  await autorizarEdicao(page);
   const dialogo = page.getByRole('dialog', { name: 'Editar Colaborador' });
   await expect(dialogo.getByLabel('Nome e Sobrenome')).toBeFocused();
   await expect(dialogo.getByLabel('E-mail de recuperação')).toBeEnabled();
@@ -119,7 +138,9 @@ test('an administrator can change a collaborator password without completing mis
   await expect(dialogo).toBeHidden();
   await expect(page.getByRole('button', { name: 'Editar' })).toBeFocused();
   await page.getByRole('button', { name: 'Editar' }).press('Enter');
-  await dialogo.getByLabel('Nova senha (opcional)').fill('nova12');
+  await autorizarEdicao(page);
+  await dialogo.getByRole('button', { name: 'Alterar senha' }).click();
+  await dialogo.getByLabel('Nova senha').fill('nova12');
   await dialogo.getByRole('button', { name: 'Confirmar Edição' }).click();
   await expect(dialogo).toBeHidden();
 });
@@ -155,12 +176,12 @@ test(`team registration for ${perfil} requires only name, CPF, email and passwor
 });
 }
 
-test('administrator edit displays the recovery email and sends the target account password when changing it', async ({ page }) => {
+test('administrator edit can change the recovery email after authorization without changing the password', async ({ page }) => {
   await page.addInitScript(() => {
     sessionStorage.setItem('token', 'admin');
     sessionStorage.setItem('perfil', 'ADMIN');
   });
-  await page.route('**/api/login', route => route.fulfill({ json: { perfil: 'ADMIN' } }));
+  await mockAutorizacaoEdicao(page, 18);
   await page.route('**/api/usuarios', route => route.fulfill({
     json: [{ id: 18, nomeCompleto: 'Administradora', cpf: '111.222.333-44', perfil: 'ADMIN' }],
   }));
@@ -174,17 +195,17 @@ test('administrator edit displays the recovery email and sends the target accoun
   });
   await page.goto('/colaboradores');
   await page.getByRole('button', { name: 'Editar' }).click();
-  await page.getByPlaceholder('CPF do Administrador').fill('11122233344');
-  await page.getByPlaceholder('Senha do Administrador').fill('senha!');
-  await page.getByRole('button', { name: 'Autorizar Edição' }).click();
+  await autorizarEdicao(page);
   const dialogo = page.getByRole('dialog', { name: 'Editar Administrador' });
   const email = dialogo.getByLabel('E-mail de recuperação');
   await expect(email).toHaveValue('atual@example.com');
   await email.fill('novo@example.com');
-  await dialogo.getByLabel('Senha atual da conta editada').fill('alvo12');
+  await expect(dialogo.locator('input[type="password"]')).toHaveCount(0);
   await dialogo.getByRole('button', { name: 'Confirmar Edição' }).click();
   await expect(dialogo).toBeHidden();
-  expect(edicao).toMatchObject({ email: 'novo@example.com', senhaAtual: 'alvo12' });
+  expect(edicao).toMatchObject({ email: 'novo@example.com', autorizacaoEdicao: 'edicao-autorizada' });
+  expect(edicao).not.toHaveProperty('senha');
+  expect(edicao).not.toHaveProperty('senhaAtual');
 });
 
 test('email confirmation can be requested once sending is available', async ({ page }) => {
@@ -195,6 +216,7 @@ test('email confirmation can be requested once sending is available', async ({ p
   await page.route('**/api/usuarios', route => route.fulfill({
     json: [{ id: 42, nomeCompleto: 'Colaborador de teste', cpf: '111.222.333-44', perfil: 'COLABORADOR' }],
   }));
+  await mockAutorizacaoEdicao(page, 42);
   let envioDisponivel = false;
   await page.route('**/api/usuarios/42/email', route => route.fulfill({
     json: { emailVerificado: null, emailPendente: 'equipe@example.com', envioDisponivel, confirmacaoSolicitada: false },
@@ -208,12 +230,14 @@ test('email confirmation can be requested once sending is available', async ({ p
   const editar = page.getByRole('button', { name: 'Editar' });
   const dialogo = page.getByRole('dialog', { name: 'Editar Colaborador' });
   await editar.click();
+  await autorizarEdicao(page);
   await expect(dialogo.getByText('Endereço salvo. O envio do link de confirmação está indisponível.')).toBeVisible();
   await expect(dialogo.getByRole('button', { name: 'Enviar confirmação', exact: true })).toHaveCount(0);
   await page.keyboard.press('Escape');
 
   envioDisponivel = true;
   await editar.click();
+  await autorizarEdicao(page);
   await expect(dialogo.getByText('Endereço salvo. Solicite o link para confirmar.')).toBeVisible();
   await dialogo.getByRole('button', { name: 'Enviar confirmação', exact: true }).click();
   await expect(dialogo.getByRole('button', { name: 'Reenviar confirmação', exact: true })).toBeVisible();

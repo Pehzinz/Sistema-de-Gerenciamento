@@ -45,7 +45,7 @@ O login dura a sessão da aba e o JWT expira após duas horas. Novas senhas prec
 
 Administradores e colaboradores podem recuperar o acesso em **Esqueci minha senha**. Informe o CPF, o e-mail cadastrado e o CNPJ da empresa. O link vai para o endereço da conta, dura 30 minutos e pode ser usado uma vez para criar uma nova senha. Usar o link também confirma o primeiro e-mail cadastrado. O endereço confirmado recebe avisos de bloqueio e troca de senha.
 
-O cadastro da equipe exige nome, CPF, senha e e-mail para os dois perfis. Data de nascimento, telefone e endereço são opcionais. Em **Colaboradores → Editar**, o administrador pode atualizar o e-mail de um usuário da própria empresa com a senha atual dessa conta. O endereço confirmado continua ativo até a confirmação do novo. O administrador também pode configurar o próprio e-mail em **Configurações da Empresa → E-mail de recuperação**.
+O cadastro da equipe exige nome, CPF, senha e e-mail para os dois perfis. Data de nascimento, telefone e endereço são opcionais. Em **Colaboradores → Editar**, o administrador autoriza a abertura do formulário com a própria senha. Depois pode salvar os dados, inclusive o e-mail, e usar **Alterar senha** se quiser definir uma nova senha para o usuário. O endereço confirmado continua ativo até a confirmação do novo. O administrador também pode configurar o próprio e-mail em **Configurações da Empresa → E-mail de recuperação**.
 
 Cinco senhas incorretas bloqueiam o login da conta por 15 minutos na web e no Telegram. A API limita cada IP a 30 logins e 5 cadastros de empresa por minuto, além de aplicar limites aos endpoints de recuperação. Consulte a [configuração para publicação](docs/PUBLICACAO.md#recuperação-de-acesso-e-limites-de-login).
 
