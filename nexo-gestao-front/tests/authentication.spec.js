@@ -186,3 +186,36 @@ test('administrator edit displays the recovery email and sends the target accoun
   await expect(dialogo).toBeHidden();
   expect(edicao).toMatchObject({ email: 'novo@example.com', senhaAtual: 'alvo12' });
 });
+
+test('email confirmation can be requested once sending is available', async ({ page }) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem('token', 'admin');
+    sessionStorage.setItem('perfil', 'ADMIN');
+  });
+  await page.route('**/api/usuarios', route => route.fulfill({
+    json: [{ id: 42, nomeCompleto: 'Colaborador de teste', cpf: '111.222.333-44', perfil: 'COLABORADOR' }],
+  }));
+  let envioDisponivel = false;
+  await page.route('**/api/usuarios/42/email', route => route.fulfill({
+    json: { emailVerificado: null, emailPendente: 'equipe@example.com', envioDisponivel, confirmacaoSolicitada: false },
+  }));
+  await page.route('**/api/usuarios/42/email/confirmacao', route => {
+    expect(route.request().method()).toBe('POST');
+    return route.fulfill({ status: 202, json: { mensagem: 'Link solicitado.' } });
+  });
+
+  await page.goto('/colaboradores');
+  const editar = page.getByRole('button', { name: 'Editar' });
+  const dialogo = page.getByRole('dialog', { name: 'Editar Colaborador' });
+  await editar.click();
+  await expect(dialogo.getByText('Endereço salvo. O envio do link de confirmação está indisponível.')).toBeVisible();
+  await expect(dialogo.getByRole('button', { name: 'Enviar confirmação', exact: true })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  envioDisponivel = true;
+  await editar.click();
+  await expect(dialogo.getByText('Endereço salvo. Solicite o link para confirmar.')).toBeVisible();
+  await dialogo.getByRole('button', { name: 'Enviar confirmação', exact: true }).click();
+  await expect(dialogo.getByRole('button', { name: 'Reenviar confirmação', exact: true })).toBeVisible();
+  await expect(dialogo.getByText('Confirmação solicitada. Confira a caixa de entrada e o spam.')).toBeVisible();
+});

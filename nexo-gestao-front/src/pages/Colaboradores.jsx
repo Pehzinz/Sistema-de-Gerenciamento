@@ -41,6 +41,7 @@ function Colaboradores() {
   const [emailEdit, setEmailEdit] = useState('');
   const [estadoEmailEdit, setEstadoEmailEdit] = useState(null);
   const [erroEmailEdit, setErroEmailEdit] = useState('');
+  const [solicitandoConfirmacao, setSolicitandoConfirmacao] = useState(false);
   const [senhaAtualEmail, setSenhaAtualEmail] = useState('');
   const [dataNascimentoEdit, setDataNascimentoEdit] = useState('');
   const [telefoneEdit, setTelefoneEdit] = useState('');
@@ -101,7 +102,7 @@ function Colaboradores() {
         }
         const dados = await resposta.json();
         if (!controller.signal.aborted) {
-          setEstadoEmailEdit(dados);
+          setEstadoEmailEdit({ ...dados, usuarioId: idUsuarioEditando });
           setEmailEdit(dados.emailPendente || dados.emailVerificado || '');
         }
       } catch {
@@ -112,6 +113,28 @@ function Colaboradores() {
     void carregarEmail();
     return () => controller.abort();
   }, [idUsuarioEditando]);
+
+  const solicitarConfirmacaoEmail = async () => {
+    setSolicitandoConfirmacao(true);
+    try {
+      const resposta = await fetch(`${BASE_URL}/api/usuarios/${idUsuarioEditando}/email/confirmacao`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}` },
+      });
+      if (!resposta.ok) {
+        notificar(await readApiError(resposta, 'Não foi possível solicitar a confirmação'), { tipo: 'erro' });
+        return;
+      }
+      setEstadoEmailEdit(atual => atual?.usuarioId === idUsuarioEditando
+        ? { ...atual, confirmacaoSolicitada: true }
+        : atual);
+      notificar('Link de confirmação solicitado para o endereço cadastrado.', { tipo: 'sucesso' });
+    } catch {
+      notificar('Erro de conexão ao solicitar a confirmação.', { tipo: 'erro' });
+    } finally {
+      setSolicitandoConfirmacao(false);
+    }
+  };
 
   const abrirFormularioEdicao = (usuario) => {
     setNomeEdit(usuario.nomeCompleto || usuario.nome);
@@ -560,11 +583,17 @@ function Colaboradores() {
                     aria-describedby="estado-email-edicao" />
                   {erroEmailEdit ? <small role="alert" id="estado-email-edicao">{erroEmailEdit}</small> : (
                     <small id="estado-email-edicao">
-                      {!estadoEmailEdit ? 'Carregando e-mail…' : estadoEmailEdit.emailPendente
-                        ? 'Aguardando confirmação do endereço cadastrado.'
-                        : estadoEmailEdit.emailVerificado ? 'O endereço atual está confirmado.' : 'Cadastre um endereço para habilitar a recuperação de senha.'}
+                      {mensagemEmailRecuperacao(estadoEmailEdit)}
                     </small>
                   )}
+                  {estadoEmailEdit?.envioDisponivel && estadoEmailEdit.emailPendente
+                    && emailEdit.trim() === estadoEmailEdit.emailPendente && (
+                      <button type="button" onClick={solicitarConfirmacaoEmail} disabled={solicitandoConfirmacao}
+                        style={{ justifySelf: 'start' }}>
+                        {solicitandoConfirmacao ? 'Solicitando…'
+                          : estadoEmailEdit.confirmacaoSolicitada ? 'Reenviar confirmação' : 'Enviar confirmação'}
+                      </button>
+                    )}
                   {alterouEmail && <LabelInput label="Senha atual da conta editada" type="password"
                     autoComplete="current-password" maxLength={72} value={senhaAtualEmail}
                     onChange={e => setSenhaAtualEmail(e.target.value)} required />}
@@ -603,6 +632,23 @@ function Colaboradores() {
       )}
     </div>
   );
+}
+
+function mensagemEmailRecuperacao(estado) {
+  if (!estado) return 'Carregando e-mail…';
+  if (!estado.envioDisponivel) {
+    return estado.emailPendente
+      ? 'Endereço salvo. O envio do link de confirmação está indisponível.'
+      : 'O envio de e-mails de segurança está indisponível.';
+  }
+  if (estado.emailPendente) {
+    return estado.confirmacaoSolicitada
+      ? 'Confirmação solicitada. Confira a caixa de entrada e o spam.'
+      : 'Endereço salvo. Solicite o link para confirmar.';
+  }
+  return estado.emailVerificado
+    ? 'O endereço atual está confirmado.'
+    : 'Cadastre um endereço para habilitar a recuperação de senha.';
 }
 
 export default Colaboradores;

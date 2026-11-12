@@ -51,6 +51,14 @@ public class UsuarioController {
         return estadoEmail(usuario);
     }
 
+    @PostMapping("/{id}/email/confirmacao")
+    public ResponseEntity<?> reenviarConfirmacaoEmail(@PathVariable Long id, @AuthenticationPrincipal Usuario usuarioLogado) {
+        if (!recuperacao.reenviarConfirmacaoEmail(id, usuarioLogado.getEmpresa().getId())) {
+            return confirmarEmailAguarde();
+        }
+        return ResponseEntity.accepted().body(Map.of("mensagem", "Link de confirmação solicitado para o endereço cadastrado."));
+    }
+
     @PostMapping("/meu-email")
     public ResponseEntity<?> cadastrarMeuEmail(@AuthenticationPrincipal Usuario usuario, @RequestBody NovoEmail dados) {
         RequestValidation.loginPassword(dados.senha());
@@ -67,14 +75,15 @@ public class UsuarioController {
         return ResponseEntity.accepted().body(Map.of("mensagem", "Confira sua caixa de entrada para confirmar o e-mail."));
     }
 
-    record EstadoEmail(String emailVerificado, String emailPendente, boolean envioDisponivel) {}
+    record EstadoEmail(String emailVerificado, String emailPendente, boolean envioDisponivel, boolean confirmacaoSolicitada) {}
     record NovoEmail(String email, String senha) {}
     @JsonIgnoreProperties(ignoreUnknown = true)
     record DadosUsuario(String nomeCompleto, String cpf, String senha, String perfil,
                         LocalDate dataNascimento, String telefone, String endereco, String email, String senhaAtual) {}
 
     private EstadoEmail estadoEmail(Usuario usuario) {
-        return new EstadoEmail(usuario.getEmailVerificado(), usuario.getEmailPendente(), emails.configurado());
+        return new EstadoEmail(usuario.getEmailVerificado(), usuario.getEmailPendente(), emails.configurado(),
+                usuario.getConfirmacaoEmailExpiraEm() != null);
     }
 
     private ResponseEntity<?> confirmarEmailAguarde() {

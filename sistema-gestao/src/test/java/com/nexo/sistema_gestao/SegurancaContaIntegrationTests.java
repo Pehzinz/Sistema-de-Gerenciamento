@@ -226,6 +226,40 @@ class SegurancaContaIntegrationTests {
         assertEquals("COLABORADOR", json.readTree(login(cpf, empresa.getCnpj(), "nova12").body()).path("perfil").asText());
     }
 
+    @Test void adminPodeSolicitarConfirmacaoPendenteDepoisDeAtivarOEnvio() throws Exception {
+        var empresa = empresas.save(new Empresa("Equipe", "12.345.678/0001-66"));
+        var outraEmpresa = empresas.save(new Empresa("Outra equipe", "12.345.678/0001-67"));
+        var admin = cadastrar(empresa, "100.200.300-70", "ADMIN", null);
+        var externo = cadastrar(outraEmpresa, "100.200.300-71", "ADMIN", null);
+        var colaborador = cadastrar(empresa, "100.200.300-72", "COLABORADOR", null);
+        String email = "equipe@example.com";
+        colaborador.iniciarConfirmacaoEmail(email, null, null);
+        usuarios.save(colaborador);
+        String sessaoAdmin = token(login(admin.getCpf(), empresa.getCnpj(), SENHA));
+        String sessaoExterno = token(login(externo.getCpf(), outraEmpresa.getCnpj(), SENHA));
+        String sessaoColaborador = token(login(colaborador.getCpf(), empresa.getCnpj(), SENHA));
+        String rota = "/api/usuarios/" + colaborador.getId() + "/email";
+
+        when(emails.configurado()).thenReturn(false);
+        var estado = json.readTree(chamar("GET", rota, sessaoAdmin, null).body());
+        assertEquals(email, estado.path("emailPendente").asText());
+        assertFalse(estado.path("envioDisponivel").asBoolean());
+        assertFalse(estado.path("confirmacaoSolicitada").asBoolean());
+        assertEquals(503, chamar("POST", rota + "/confirmacao", sessaoAdmin, null).statusCode());
+        verify(emails, never()).enviarLink(any(), anyString(), anyString(), anyString(), anyString(), anyString());
+
+        when(emails.configurado()).thenReturn(true);
+        assertEquals(403, chamar("POST", rota + "/confirmacao", sessaoColaborador, null).statusCode());
+        assertEquals(404, chamar("POST", rota + "/confirmacao", sessaoExterno, null).statusCode());
+        assertEquals(202, chamar("POST", rota + "/confirmacao", sessaoAdmin, null).statusCode());
+        assertEquals(429, chamar("POST", rota + "/confirmacao", sessaoAdmin, null).statusCode());
+        assertTrue(json.readTree(chamar("GET", rota, sessaoAdmin, null).body()).path("confirmacaoSolicitada").asBoolean());
+        assertEquals(204, chamar("POST", "/api/confirmar-email", null,
+                Map.of("token", link(email, "/confirmar-email"))).statusCode());
+        assertEquals(email, usuarios.findById(colaborador.getId()).orElseThrow().getEmailVerificado());
+        assertEquals(409, chamar("POST", rota + "/confirmacao", sessaoAdmin, null).statusCode());
+    }
+
     private Usuario cadastrar(Empresa empresa, String cpf, String perfil, String email) {
         Usuario usuario = new Usuario();
         usuario.setEmpresa(empresa);
