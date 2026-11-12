@@ -38,9 +38,11 @@ public class UsuarioController {
     @Autowired private TokenService tokens;
 
     record AutorizacaoEdicao(String senha) {}
+    record EdicaoAutorizada(String autorizacaoEdicao, String email) {}
     @JsonIgnoreProperties(ignoreUnknown = true)
     record DadosUsuario(String nomeCompleto, String cpf, String senha, String perfil,
-                        LocalDate dataNascimento, String telefone, String endereco, String autorizacaoEdicao) {}
+                        LocalDate dataNascimento, String telefone, String endereco, String email,
+                        String autorizacaoEdicao) {}
 
     @GetMapping
     public ResponseEntity<List<Usuario>> listarTodos() {
@@ -102,9 +104,8 @@ public class UsuarioController {
     @PostMapping("/{id}/autorizar-edicao")
     public ResponseEntity<?> autorizarEdicao(@PathVariable Long id, @RequestBody AutorizacaoEdicao dados,
             @AuthenticationPrincipal Usuario administrador) {
-        if (usuarioRepository.findByIdAndEmpresaIdAndAtivoTrue(id, administrador.getEmpresa().getId()).isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado nesta empresa.");
-        }
+        Usuario usuarioEditado = usuarioRepository.findByIdAndEmpresaIdAndAtivoTrue(id, administrador.getEmpresa().getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado nesta empresa."));
 
         RequestValidation.loginPassword(dados.senha());
         var resultado = acessoConta.confirmarSenha(administrador, dados.senha());
@@ -114,7 +115,8 @@ public class UsuarioController {
         if (resultado.usuario() == null) {
             return ResponseEntity.badRequest().body(Map.of("erro", "A senha do administrador conectado está incorreta."));
         }
-        return ResponseEntity.ok(Map.of("autorizacaoEdicao", tokens.gerarAutorizacaoEdicao(resultado.usuario(), id)));
+        return ResponseEntity.ok(new EdicaoAutorizada(
+                tokens.gerarAutorizacaoEdicao(resultado.usuario(), id), usuarioEditado.getEmail()));
     }
 
     @PutMapping("/{id}")
@@ -152,5 +154,8 @@ public class UsuarioController {
         usuario.setDataNascimento(dados.dataNascimento());
         usuario.setTelefone(dados.telefone());
         usuario.setEndereco(dados.endereco());
+        if (dados.email() != null) {
+            usuario.setEmail(RequestValidation.emailOpcional(dados.email()));
+        }
     }
 }

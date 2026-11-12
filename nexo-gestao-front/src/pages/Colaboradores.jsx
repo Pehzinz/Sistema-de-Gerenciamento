@@ -13,6 +13,7 @@ function Colaboradores() {
   // Novos Estados para o Formulário Completo
   const [nome, setNome] = useState('');
   const [cpf, setCpf] = useState('');
+  const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [dataNascimento, setDataNascimento] = useState('');
   const [telefone, setTelefone] = useState('');
@@ -36,6 +37,8 @@ function Colaboradores() {
 
   // Campos do Formulário de Edição (Sem o CPF!)
   const [nomeEdit, setNomeEdit] = useState('');
+  const [emailEdit, setEmailEdit] = useState('');
+  const [emailOriginal, setEmailOriginal] = useState('');
   const [senhaEdit, setSenhaEdit] = useState('');
   const [alterandoSenha, setAlterandoSenha] = useState(false);
   const [dataNascimentoEdit, setDataNascimentoEdit] = useState('');
@@ -102,6 +105,8 @@ function Colaboradores() {
     setAutorizandoEdicao(false);
     setSenhaAdminEdit('');
     setSenhaEdit('');
+    setEmailEdit('');
+    setEmailOriginal('');
   };
 
   const autorizarEdicao = async (e) => {
@@ -129,7 +134,12 @@ function Colaboradores() {
         return;
       }
       const dados = await resposta.json();
-      if (!controller.signal.aborted) setAutorizacaoEdicao(dados.autorizacaoEdicao);
+      if (!controller.signal.aborted) {
+        const emailSalvo = dados.email ?? '';
+        setEmailEdit(emailSalvo);
+        setEmailOriginal(emailSalvo);
+        setAutorizacaoEdicao(dados.autorizacaoEdicao);
+      }
     } catch {
       if (!controller.signal.aborted) setErroAutorizacao('Erro de conexão ao autorizar a edição.');
     } finally {
@@ -156,6 +166,7 @@ function Colaboradores() {
       telefone: telefoneEdit,
       endereco: enderecoEdit,
       autorizacaoEdicao,
+      ...(emailEdit !== emailOriginal && { email: emailEdit }),
       ...(alterandoSenha && { senha: senhaEdit }),
     };
 
@@ -202,6 +213,7 @@ function Colaboradores() {
       telefone: telefone,
       endereco: endereco,
       perfil: perfilSelecionado,
+      ...(email && { email }),
     };
 
     try {
@@ -217,7 +229,7 @@ function Colaboradores() {
       if (resposta.status === 201 || resposta.ok) {
         notificar('Usuário cadastrado com sucesso!', { tipo: 'sucesso' });
         // Limpa todos os campos
-        setNome(''); setCpf(''); setSenha('');
+        setNome(''); setCpf(''); setSenha(''); setEmail('');
         setDataNascimento(''); setTelefone(''); setEndereco('');
         buscarEquipe(); 
       } else {
@@ -325,6 +337,9 @@ function Colaboradores() {
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <LabelInput label="CPF" type="text" placeholder="000.000.000-00" value={cpf} onChange={(e) => setCpf(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
                 </div>
+
+                <LabelInput label="E-mail de contato (opcional)" type="email" maxLength={254}
+                  value={email} onChange={e => setEmail(e.target.value)} />
 
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <LabelInput label="Senha de Acesso" type="password" autoComplete="new-password" placeholder="Senha (mín. 6 caracteres)" minLength={SENHA_MINIMA} maxLength={SENHA_MAX_BYTES} value={senha} onChange={(e) => setSenha(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
@@ -458,6 +473,9 @@ function Colaboradores() {
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <LabelInput ref={inputNomeEdicao} label="Nome e Sobrenome" type="text" value={nomeEdit} onChange={(e) => setNomeEdit(e.target.value)} style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }} required />
               </div>
+
+              <LabelInput label="E-mail de contato (opcional)" type="email" maxLength={254}
+                value={emailEdit} onChange={e => setEmailEdit(e.target.value)} />
 
               <div className="responsive-row" style={{ display: 'flex', gap: '15px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
