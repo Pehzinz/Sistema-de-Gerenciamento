@@ -55,6 +55,22 @@ public class RecuperacaoContaService {
         if (endereco.equalsIgnoreCase(usuario.getEmailVerificado())) {
             throw new IllegalArgumentException("Este e-mail já está confirmado.");
         }
+        return agendarConfirmacaoEmail(usuario, endereco);
+    }
+
+    @Transactional
+    public boolean reenviarConfirmacaoEmail(Long usuarioId, Long empresaId) {
+        exigirEnvioDisponivel();
+        Usuario usuario = usuarios.bloquearAtivoPorIdEmpresa(usuarioId, empresaId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado nesta empresa."));
+        String endereco = usuario.getEmailPendente();
+        if (endereco == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta conta não tem um endereço aguardando confirmação.");
+        }
+        return agendarConfirmacaoEmail(usuario, endereco);
+    }
+
+    private boolean agendarConfirmacaoEmail(Usuario usuario, String endereco) {
         if (confirmacaoEnviadaRecentemente(usuario)) {
             return false;
         }

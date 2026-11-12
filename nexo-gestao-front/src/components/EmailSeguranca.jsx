@@ -51,7 +51,7 @@ export default function EmailSeguranca() {
         setErro(await readApiError(resposta, 'Não foi possível solicitar a confirmação do e-mail'));
         return;
       }
-      setEstado(atual => ({ ...atual, emailPendente: email.trim() }));
+      setEstado(atual => ({ ...atual, emailPendente: email.trim(), confirmacaoSolicitada: true }));
       setResultado((await resposta.json()).mensagem);
     } catch {
       setErro('Erro de conexão ao enviar a confirmação.');
@@ -67,7 +67,10 @@ export default function EmailSeguranca() {
       <p>Use o e-mail da sua conta de administrador para recuperar a senha e receber avisos de segurança.</p>
       {estado && <>
         {estado.emailVerificado && <p>E-mail confirmado <strong>{estado.emailVerificado}</strong></p>}
-        {estado.emailPendente && <p>Aguardando confirmação de <strong>{estado.emailPendente}</strong></p>}
+        {estado.emailPendente && <p>
+          {estado.envioDisponivel && estado.confirmacaoSolicitada ? 'Confirmação solicitada para ' : 'Endereço salvo para confirmação '}
+          <strong>{estado.emailPendente}</strong>
+        </p>}
         {!estado.envioDisponivel && <p>O envio de e-mails de segurança está indisponível.</p>}
         {estado.envioDisponivel && (
           <form onSubmit={salvar} style={{ display: 'grid', gap: '15px' }}>
