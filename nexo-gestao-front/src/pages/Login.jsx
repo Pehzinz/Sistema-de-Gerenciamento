@@ -122,18 +122,12 @@ function Login() {
         
         {!isRegistering ? (
           <>
-            {empresaLembrada ? (
-              <div style={{ marginBottom: '20px' }}>
-                <h2 style={{ color: '#007bff', margin: '0 0 5px 0' }}>Nexo Gestão</h2>
-                <p style={{ color: '#333', fontSize: '16px', fontWeight: 'bold', margin: '5px 0' }}>{empresaLembrada}</p>
-                <p style={{ color: '#666', fontSize: '14px', margin: 0 }}>Terminal de Acesso</p>
-              </div>
-            ) : (
-              <div style={{ marginBottom: '20px' }}>
-                <h2 style={{ color: '#007bff', margin: '0 0 5px 0' }}>Nexo Gestão</h2>
-                <p style={{ color: '#666', fontSize: '14px', margin: 0 }}>Acesse sua conta corporativa</p>
-              </div>
-            )}
+            <div style={{ marginBottom: '20px' }}>
+              <h2 style={{ margin: '0 0 5px 0', overflowWrap: 'anywhere' }}>{empresaLembrada || 'Nexo Gestão'}</h2>
+              <p style={{ color: '#666', fontSize: '14px', margin: 0 }}>
+                {empresaLembrada ? 'Terminal de Acesso' : 'Acesse sua conta corporativa'}
+              </p>
+            </div>
 
             <form onSubmit={fazerLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <LabelInput autoComplete="username" inputMode="numeric" type="text" placeholder="CPF do Usuário" value={cpf} onChange={(e) => setCpf(e.target.value)} required style={inputStyle} />
