@@ -1,6 +1,8 @@
 import { useNotificacoes } from '../hooks/useNotificacoes';
+import useDiaSaoPaulo from '../hooks/useDiaSaoPaulo';
 import { LabelInput } from '../components/label-input';
 import { filtrarVendasPeriodo, descricaoPeriodo, dataHoraGeracao, formatarDataVenda } from '../utils/relatorioVendas';
+import { promocaoAtiva } from '../utils/promocoes';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
@@ -36,7 +38,7 @@ function Dashboard() {
   const [vendas, setVendas] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erroDados, setErroDados] = useState('');
-  const [hoje, setHoje] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }));
+  const hoje = useDiaSaoPaulo();
   const [gerandoPdf, setGerandoPdf] = useState(false);
   const [dataInicioRelatorio, setDataInicioRelatorio] = useState('');
   const [dataFimRelatorio, setDataFimRelatorio] = useState('');
@@ -61,7 +63,6 @@ function Dashboard() {
       setProdutos(dadosProdutos);
       setVendas(dadosVendas);
       setErroDados('');
-      setHoje(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }));
     } catch (erro) {
       setErroDados(erro.message || 'Erro de conexão ao carregar o Dashboard.');
     } finally {
@@ -192,10 +193,7 @@ function Dashboard() {
     }
   };
 
-  const ofertasAtivas = produtos.filter(p => 
-    p.precoPromocional && p.dataInicioPromocao && p.dataFimPromocao && 
-    hoje >= p.dataInicioPromocao && hoje <= p.dataFimPromocao
-  ).length;
+  const ofertasAtivas = produtos.filter(produto => promocaoAtiva(produto, hoje)).length;
 
   const totalProdutosCadastrados = produtos.length;
   const valorTotalEstoque = produtos.reduce((acc, p) => acc + (p.preco * p.estoque), 0);
