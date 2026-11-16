@@ -86,3 +86,53 @@ test('calendário deriva validade do produto e remove o evento ao esgotar, vence
   await page.clock.runFor(6000);
   await expect(page.getByText(/Validade: Cookies/)).toHaveCount(0);
 });
+
+test.describe('vigência das promoções', () => {
+  test.use({ timezoneId: 'UTC' });
+
+  test.beforeEach(async ({ page }) => {
+    await page.clock.install({ time: new Date('2026-11-07T02:59:00Z') });
+    await sessao(page);
+    const produto = { preco: 20, precoPromocional: 15, estoque: 10 };
+    await page.route('**/api/produtos', route => route.fulfill({
+      json: [
+        { ...produto, id: '1000000001', nome: 'Café', dataInicioPromocao: '2026-11-06', dataFimPromocao: '2026-11-06' },
+        { ...produto, id: '1000000002', nome: 'Chá', dataInicioPromocao: '2026-11-04', dataFimPromocao: '2026-11-05' },
+        { ...produto, id: '1000000003', nome: 'Suco', dataInicioPromocao: '2026-11-07', dataFimPromocao: '2026-11-08' },
+      ],
+    }));
+  });
+
+  test('estoque troca os preços na virada do dia em São Paulo', async ({ page }) => {
+    await page.goto('/admin');
+    const precoDe = nome => page.getByRole('row').filter({ hasText: nome }).getByRole('cell').last();
+    await expect(precoDe('Café').getByText('R$ 20,00', { exact: true })).toHaveCSS('text-decoration-line', 'line-through');
+    await expect(precoDe('Café').getByText('R$ 15,00', { exact: true })).toBeVisible();
+    await expect(precoDe('Chá')).toHaveText('R$ 20,00');
+    await expect(precoDe('Suco')).toHaveText('R$ 20,00');
+
+    await page.clock.fastForward(61000);
+    await expect(precoDe('Café')).toHaveText('R$ 20,00');
+    await expect(precoDe('Café').getByText('R$ 20,00', { exact: true })).toHaveCSS('text-decoration-line', 'none');
+    await expect(precoDe('Suco').getByText('R$ 15,00', { exact: true })).toBeVisible();
+  });
+
+  test('calendário remove a oferta encerrada da grade, da agenda e das próximas atividades', async ({ page }) => {
+    await page.route('https://brasilapi.com.br/**', route => route.fulfill({ json: [] }));
+    await page.goto('/calendario');
+    const ultimoDia = page.getByRole('button', { name: 'Selecionar dia 6/11/2026' });
+    await ultimoDia.click();
+    await expect(ultimoDia.getByText('🏷️ Promo: Café')).toBeVisible();
+    await expect(page.getByText('Oferta: Café', { exact: true })).toBeVisible();
+    await expect(page.getByText('Fim da Promo: Café', { exact: true })).toBeVisible();
+    await expect(page.getByText('🏷️ Promo: Chá')).toHaveCount(0);
+    const inicioFuturo = page.getByRole('button', { name: 'Selecionar dia 7/11/2026' });
+    await expect(inicioFuturo.getByText('🏷️ Promo: Suco')).toBeVisible();
+
+    await page.clock.fastForward(61000);
+    await expect(ultimoDia.getByText('🏷️ Promo: Café')).toHaveCount(0);
+    await expect(page.getByText('Oferta: Café', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Fim da Promo: Café', { exact: true })).toHaveCount(0);
+    await expect(inicioFuturo.getByText('🏷️ Promo: Suco')).toBeVisible();
+  });
+});

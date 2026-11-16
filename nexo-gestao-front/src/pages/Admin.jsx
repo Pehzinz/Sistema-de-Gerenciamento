@@ -1,5 +1,7 @@
 import useAtualizacaoCotas from '../hooks/useAtualizacaoCotas';
+import useDiaSaoPaulo from '../hooks/useDiaSaoPaulo';
 import { indicadorEstoque } from '../utils/controleEstoque';
+import { diaEmSaoPaulo, promocaoAtiva } from '../utils/promocoes';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
@@ -10,6 +12,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';       
 
 function Admin() {
+  const hoje = useDiaSaoPaulo();
   const [produtos, setProdutos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [erroDados, setErroDados] = useState('');
@@ -83,14 +86,16 @@ function Admin() {
     // Data e Hora de geração
     doc.setFontSize(11);
     doc.setTextColor(100, 100, 100);
-    const dataAtual = new Date().toLocaleString('pt-BR');
+    const agora = new Date();
+    const dataAtual = agora.toLocaleString('pt-BR');
+    const diaDoRelatorio = diaEmSaoPaulo(agora);
     doc.text(`Gerado em: ${dataAtual} | Total de itens: ${produtosFiltrados.length}`, 14, 30);
 
     // Montando as colunas e linhas da tabela
     const colunas = ['Código', 'Produto', 'Marca', 'Categoria', 'Estoque', 'Preço (R$)'];
     
     const linhas = produtosFiltrados.map(p => {
-      const precoFinal = p.precoPromocional 
+      const precoFinal = promocaoAtiva(p, diaDoRelatorio)
         ? `Promo: ${p.precoPromocional.toFixed(2).replace('.', ',')}` 
         : p.preco.toFixed(2).replace('.', ',');
         
@@ -279,7 +284,7 @@ function Admin() {
 
                     {/* CÉLULA DE PREÇO COM VALIDAÇÃO DE PROMOÇÃO */}
                     <td style={{ padding: '15px 20px', color: '#555' }}>
-                      {produto.precoPromocional ? (
+                      {promocaoAtiva(produto, hoje) ? (
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                           <span style={{ textDecoration: 'line-through', color: '#aaa', fontSize: '12px' }}>
                             R$ {produto.preco.toFixed(2).replace('.', ',')}

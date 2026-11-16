@@ -3,6 +3,7 @@ import { LabelInput } from '../components/label-input';
 import { useState, useEffect, useCallback } from 'react';
 import Navbar from '../components/Navbar';
 import { BASE_URL, apiFetch as fetch } from '../services/api';
+import { diaEmSaoPaulo, periodoPromocao } from '../utils/promocoes';
 
 function Calendario() {
   const { notificar } = useNotificacoes();
@@ -35,8 +36,10 @@ function Calendario() {
       });
       if (!resposta.ok) return;
       const produtos = await resposta.json();
-      setProdutosPromo(produtos.filter(p => p.precoPromocional && p.dataInicioPromocao && p.dataFimPromocao)
-        .map(p => ({ ...p, inicioLimpo: String(p.dataInicioPromocao).split('T')[0], fimLimpo: String(p.dataFimPromocao).split('T')[0] })));
+      setProdutosPromo(produtos.flatMap(produto => {
+        const periodo = periodoPromocao(produto);
+        return periodo ? [{ id: produto.id, nome: produto.nome, ...periodo }] : [];
+      }));
       setProdutosValidade(produtos.filter(p => p.tipoEstoque === 'VALIDADE' && p.ativo !== false && p.estoque > 0 && p.validadeComercial));
     } catch (erro) {
       console.error('Erro ao buscar produtos do calendário', erro);
@@ -215,12 +218,16 @@ function Calendario() {
     }
   };
 
+  const hojePromocoes = diaEmSaoPaulo(agora);
+  const promocoesNoCalendario = produtosPromo.filter(p => p.fim >= hojePromocoes);
+  const promocoesEm = dia => promocoesNoCalendario.filter(p => p.inicio <= dia && dia <= p.fim);
+
   // --- UNIFICAÇÃO PARA A LISTAGEM DO DIA SELECIONADO ---
   const feriadosDoDia = feriados.filter(f => f.date === diaSelecionado).map((f, i) => ({
     id: `feriado-${i}`, tipo: 'feriado', hora: 'Dia Todo', titulo: `Feriado: ${f.name}`, descricao: 'Feriado Nacional', corPrimaria: '#e74c3c', corSecundaria: '#ffecec'
   }));
-  const promocoesDoDia = produtosPromo.filter(p => diaSelecionado >= p.inicioLimpo && diaSelecionado <= p.fimLimpo).map(p => ({
-    id: `promo-${p.id}`, tipo: 'promo', hora: 'Promoção', titulo: `Oferta: ${p.nome}`, descricao: `Válida até ${p.fimLimpo.split('-').reverse().join('/')}`, corPrimaria: '#117a65', corSecundaria: '#e8f8f5'
+  const promocoesDoDia = promocoesEm(diaSelecionado).map(p => ({
+    id: `promo-${p.id}`, tipo: 'promo', hora: 'Promoção', titulo: `Oferta: ${p.nome}`, descricao: `Válida até ${p.fim.split('-').reverse().join('/')}`, corPrimaria: '#117a65', corSecundaria: '#e8f8f5'
   }));
   const manuaisDoDia = eventos.filter(ev => ev.data === diaSelecionado).map(ev => ({
     ...ev, tipo: 'manual', corPrimaria: '#8e44ad', corSecundaria: '#fcf9ff'
@@ -231,8 +238,8 @@ function Calendario() {
   const proximosFeriados = feriados.filter(f => f.date >= hojeStr).map((f, i) => ({
     id: `prox-feriado-${i}`, tipo: 'feriado', data: f.date, hora: 'Dia Todo', titulo: `Feriado: ${f.name}`, descricao: 'Feriado Nacional', corPrimaria: '#e74c3c'
   }));
-  const proximasPromocoes = produtosPromo.filter(p => p.fimLimpo >= hojeStr).map(p => ({
-    id: `prox-promo-${p.id}`, tipo: 'promo', data: p.fimLimpo, hora: 'Encerramento', titulo: `Fim da Promo: ${p.nome}`, descricao: 'Data limite da oferta.', corPrimaria: '#117a65'
+  const proximasPromocoes = promocoesNoCalendario.map(p => ({
+    id: `prox-promo-${p.id}`, tipo: 'promo', data: p.fim, hora: 'Encerramento', titulo: `Fim da Promo: ${p.nome}`, descricao: 'Data limite da oferta.', corPrimaria: '#117a65'
   }));
   const proximosManuais = eventos.filter(ev => ev.data >= hojeStr).map(ev => ({
     ...ev, tipo: 'manual', corPrimaria: '#8e44ad'
@@ -277,7 +284,7 @@ function Calendario() {
                 const validadesDoDia = validades.filter(v => v.data === dataString);
                 const eventosDoDia = eventos.filter(ev => ev.data === dataString);
                 const feriadoDoDia = feriados.find(f => f.date === dataString);
-                const promocoesDoDia = produtosPromo.filter(p => dataString >= p.inicioLimpo && dataString <= p.fimLimpo);
+                const promocoesDoDia = promocoesEm(dataString);
                 
                 const isSelecionado = diaSelecionado === dataString;
                 const isHoje = hojeStr === dataString;

@@ -3,6 +3,7 @@ import { LabelInput } from '../components/label-input';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Navbar from '../components/Navbar';
 import { BASE_URL, apiFetch as fetch, readApiError } from '../services/api';
+import { promocaoAtiva } from '../utils/promocoes';
 import { useNavigate } from 'react-router-dom';
 
 function Caixa() {
@@ -133,16 +134,8 @@ function Caixa() {
           return;
         }
 
-        let precoFinal = produto.preco;
-        let isPromocaoValida = false;
-        const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
-
-        if (produto.precoPromocional && produto.dataInicioPromocao && produto.dataFimPromocao) {
-          if (hoje >= produto.dataInicioPromocao && hoje <= produto.dataFimPromocao) {
-            precoFinal = produto.precoPromocional;
-            isPromocaoValida = true;
-          }
-        }
+        const isPromocaoValida = promocaoAtiva(produto);
+        const precoFinal = isPromocaoValida ? produto.precoPromocional : produto.preco;
         
         const carrinhoAtual = carrinhoRef.current;
         const itemExistente = carrinhoAtual.find(item => item.produtoId === produto.id);
