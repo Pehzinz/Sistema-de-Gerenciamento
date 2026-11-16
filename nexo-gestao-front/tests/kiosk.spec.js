@@ -46,6 +46,40 @@ test('administrator keeps the navbar and normal PDV without fullscreen requests'
   expect(await page.evaluate(() => window.fullscreenRequests)).toBe(0);
 });
 
+test('cart and sale summary show the last scanned product first', async ({ page }) => {
+  await seed(page);
+  const products = {
+    '1234567890': 'Café',
+    '1234567891': 'Chá',
+    '1234567892': 'Suco',
+  };
+  await page.route('**/api/produtos/catalogo/*', route => {
+    const id = new URL(route.request().url()).pathname.split('/').at(-1);
+    return route.fulfill({ json: { id, nome: products[id], preco: 10, estoque: 5 } });
+  });
+  await page.goto('/caixa');
+
+  const input = page.getByPlaceholder(/Digite o código de barras/);
+  const addProduct = async (code) => {
+    await input.fill(code);
+    await input.press('Enter');
+    await expect(input).toHaveValue('');
+  };
+
+  await addProduct('1234567890');
+  await addProduct('1234567891');
+  await addProduct('1234567892');
+  const cartProducts = page.locator('tbody .pdv-product-name');
+  const summary = page.locator('.pdv-summary-items');
+  await expect(cartProducts).toHaveText(['Suco', 'Chá', 'Café']);
+  await expect(summary.getByRole('listitem')).toContainText(['1x Suco', '1x Chá', '1x Café']);
+
+  await addProduct('1234567890');
+  await expect(cartProducts).toHaveText(['Café', 'Suco', 'Chá']);
+  await expect(summary.getByRole('listitem')).toContainText(['2x Café', '1x Suco', '1x Chá']);
+  await expect(page.locator('.pdv-total')).toContainText('R$ 40,00');
+});
+
 test('receipt form stays centered after completing a self-service sale', async ({ page }) => {
   await seed(page);
   await page.route('**/api/produtos/catalogo/*', route => route.fulfill({ json: { id: '1234567890', nome: 'Produto do totem', preco: 10, estoque: 5 } }));

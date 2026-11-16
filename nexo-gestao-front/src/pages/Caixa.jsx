@@ -1,6 +1,6 @@
 import { useNotificacoes } from '../hooks/useNotificacoes';
 import { LabelInput } from '../components/label-input';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Navbar from '../components/Navbar';
 import { BASE_URL, apiFetch as fetch, readApiError } from '../services/api';
 import { useNavigate } from 'react-router-dom';
@@ -14,6 +14,11 @@ function Caixa() {
   const [erroAutorizacao, setErroAutorizacao] = useState('');
   const [codigoProduto, setCodigoProduto] = useState('');
   const [carrinho, setCarrinho] = useState([]);
+  const carrinhoRef = useRef(carrinho);
+  const atualizarCarrinho = useCallback((itens) => {
+    carrinhoRef.current = itens;
+    setCarrinho(itens);
+  }, []);
   
   const [etapa, setEtapa] = useState(1); 
   const [formaPagamento, setFormaPagamento] = useState('');
@@ -80,7 +85,7 @@ function Caixa() {
         autorizacaoRef.current?.abort(); autorizacaoRef.current = null;
         setValidandoAdmin(false); setModalAberto(false); setAcaoPendente(null);
         setCpfAdmin(''); setSenhaAdmin(''); setErroAutorizacao('');
-        setCarrinho([]); setEtapa(1); setFormaPagamento(''); setCodigoProduto(''); setModalNotaAberta(false);
+        atualizarCarrinho([]); setEtapa(1); setFormaPagamento(''); setCodigoProduto(''); setModalNotaAberta(false);
         ultimaAtividadeRef.current = Date.now();
       }
       setTempoRestante(decorrido < 10000 || decorrido >= 130000 ? 120 : Math.ceil((130000 - decorrido) / 1000));
@@ -89,7 +94,7 @@ function Caixa() {
       clearInterval(interval);
       eventos.forEach(evento => window.removeEventListener(evento, registrarAtividade));
     };
-  }, []);
+  }, [atualizarCarrinho]);
 
   const minutos = Math.floor(tempoRestante / 60);
   const segundos = tempoRestante % 60;
@@ -139,20 +144,24 @@ function Caixa() {
           }
         }
         
-        const indexExistente = carrinho.findIndex(item => item.produtoId === produto.id);
+        const carrinhoAtual = carrinhoRef.current;
+        const itemExistente = carrinhoAtual.find(item => item.produtoId === produto.id);
 
-        if (indexExistente !== -1) {
-          if (carrinho[indexExistente].quantidade >= produto.estoque) {
-            notificar(`Atenção: Stock insuficiente! O limite máximo para "${produto.nome}" é de ${produto.estoque} unidade(s).`, { tipo: 'atencao' });
+        if (itemExistente) {
+          if (itemExistente.quantidade >= disponibilidade) {
+            notificar(`Atenção: Stock insuficiente! O limite máximo para "${produto.nome}" é de ${disponibilidade} unidade(s).`, { tipo: 'atencao' });
             setCodigoProduto('');
             return;
           }
 
-          const novoCarrinho = [...carrinho];
-          novoCarrinho[indexExistente].estoque = disponibilidade;
-          novoCarrinho[indexExistente].quantidade += 1;
-          novoCarrinho[indexExistente].subtotal = novoCarrinho[indexExistente].quantidade * novoCarrinho[indexExistente].precoUnitario;
-          setCarrinho(novoCarrinho);
+          const quantidade = itemExistente.quantidade + 1;
+          const itemAtualizado = {
+            ...itemExistente,
+            estoque: disponibilidade,
+            quantidade,
+            subtotal: quantidade * itemExistente.precoUnitario,
+          };
+          atualizarCarrinho([itemAtualizado, ...carrinhoAtual.filter(item => item.produtoId !== produto.id)]);
         } else {
           const novoItem = {
             produtoId: produto.id,
@@ -167,7 +176,7 @@ function Caixa() {
             imagemUrl: produto.imagemUrl,
             emPromocao: isPromocaoValida
           };
-          setCarrinho([...carrinho, novoItem]);
+          atualizarCarrinho([novoItem, ...carrinhoAtual]);
         }
         
         setCodigoProduto(''); 
@@ -181,10 +190,8 @@ function Caixa() {
     }
   };
 
-  const tentarAlterarQuantidade = async (index, novaQtd) => {
+  const tentarAlterarQuantidade = async (itemAtual, novaQtd) => {
     if (novaQtd < 1) return; 
-
-    const itemAtual = carrinho[index];
 
     if (novaQtd > itemAtual.quantidade) {
       let disponivel = itemAtual.estoque;
@@ -208,16 +215,16 @@ function Caixa() {
         return;
       }
 
-      setCarrinho(atual => atual.map(item => item.produtoId === itemAtual.produtoId
+      atualizarCarrinho(carrinhoRef.current.map(item => item.produtoId === itemAtual.produtoId
         ? { ...item, estoque: disponivel, quantidade: novaQtd, subtotal: novaQtd * item.precoUnitario }
         : item));
     } else if (novaQtd < itemAtual.quantidade) {
-      solicitarAutorizacao({ tipo: 'DIMINUIR', index: index, novaQtd: novaQtd });
+      solicitarAutorizacao({ tipo: 'DIMINUIR', produtoId: itemAtual.produtoId, novaQtd });
     }
   };
 
-  const tentarRemover = (index) => {
-    solicitarAutorizacao({ tipo: 'EXCLUIR', index: index });
+  const tentarRemover = (produtoId) => {
+    solicitarAutorizacao({ tipo: 'EXCLUIR', produtoId });
   };
 
   const autorizarAcao = async (evento) => {
@@ -257,16 +264,14 @@ function Caixa() {
             navigate('/', { replace: true });
             return;
           }
-          const novoCarrinho = [...carrinho];
-          
           if (acaoPendente.tipo === 'EXCLUIR') {
-            novoCarrinho.splice(acaoPendente.index, 1);
+            atualizarCarrinho(carrinhoRef.current.filter(item => item.produtoId !== acaoPendente.produtoId));
           } else if (acaoPendente.tipo === 'DIMINUIR') {
-            novoCarrinho[acaoPendente.index].quantidade = acaoPendente.novaQtd;
-            novoCarrinho[acaoPendente.index].subtotal = acaoPendente.novaQtd * novoCarrinho[acaoPendente.index].precoUnitario;
+            const { produtoId, novaQtd } = acaoPendente;
+            atualizarCarrinho(carrinhoRef.current.map(item => item.produtoId === produtoId
+              ? { ...item, quantidade: novaQtd, subtotal: novaQtd * item.precoUnitario }
+              : item));
           }
-          
-          setCarrinho(novoCarrinho);
           cancelarAutorizacao();
         } else {
           setErroAutorizacao('Acesso negado: este usuário não é administrador.');
@@ -338,7 +343,7 @@ function Caixa() {
   // Função centralizada para limpar o caixa após a escolha na Nota Fiscal
   const resetarCaixaPosVenda = () => {
     setModalNotaAberta(false);
-    setCarrinho([]); 
+    atualizarCarrinho([]);
     setEtapa(1);
     setFormaPagamento('');
   };
@@ -432,8 +437,8 @@ function Caixa() {
                         </tr>
                       </thead>
                       <tbody>
-                        {carrinho.length > 0 ? carrinho.map((item, index) => (
-                          <tr key={index} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                        {carrinho.length > 0 ? carrinho.map((item) => (
+                          <tr key={item.produtoId} style={{ borderBottom: '1px solid #f0f0f0' }}>
                             <td style={{ padding: '15px 0' }}>
                               <div className="responsive-row" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                 
@@ -459,13 +464,13 @@ function Caixa() {
                             
                             <td style={{ padding: '15px 0' }}>
                               <div className="button-group button-group--stepper" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <button type="button" onClick={() => tentarAlterarQuantidade(index, item.quantidade - 1)} style={{ width: '30px', height: '30px', borderRadius: '6px', border: '1px solid #e0e0e0', background: 'white', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', color: '#333' }}>-</button>
+                                <button type="button" onClick={() => tentarAlterarQuantidade(item, item.quantidade - 1)} style={{ width: '30px', height: '30px', borderRadius: '6px', border: '1px solid #e0e0e0', background: 'white', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', color: '#333' }}>-</button>
                                 
                                 <div style={{ padding: '5px 12px', backgroundColor: '#f3e8ff', color: '#8e44ad', borderRadius: '6px', fontWeight: 'bold', fontSize: '14px' }}>
                                   {item.quantidade}
                                 </div>
                                 
-                                <button type="button" onClick={() => tentarAlterarQuantidade(index, item.quantidade + 1)} style={{ width: '30px', height: '30px', borderRadius: '6px', border: '1px solid #e0e0e0', background: 'white', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', color: '#333' }}>+</button>
+                                <button type="button" onClick={() => tentarAlterarQuantidade(item, item.quantidade + 1)} style={{ width: '30px', height: '30px', borderRadius: '6px', border: '1px solid #e0e0e0', background: 'white', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', color: '#333' }}>+</button>
                               </div>
                             </td>
                             
@@ -486,7 +491,7 @@ function Caixa() {
 
                             <td style={{ fontWeight: 'bold', color: '#333', fontSize: '15px' }}>R$ {item.subtotal.toFixed(2).replace('.', ',')}</td>
                             <td style={{ padding: '15px 0', textAlign: 'center' }}>
-                              <button type="button" aria-label={`Remover ${item.nome}`} onClick={() => tentarRemover(index)} style={{ padding: '6px 10px', backgroundColor: '#fff0f0', color: '#e74c3c', border: '1px solid #ffccd5', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
+                              <button type="button" aria-label={`Remover ${item.nome}`} onClick={() => tentarRemover(item.produtoId)} style={{ padding: '6px 10px', backgroundColor: '#fff0f0', color: '#e74c3c', border: '1px solid #ffccd5', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
                                 ✕
                               </button>
                             </td>
@@ -525,8 +530,8 @@ function Caixa() {
               <h3 style={{ marginTop: 0, color: '#333', fontSize: '18px' }}>Resumo da venda</h3>
               
               <ul className="pdv-summary-items" style={{ listStyle: 'none', padding: 0, margin: '20px 0', maxHeight: '250px', overflowY: 'auto' }}>
-                {carrinho.length > 0 ? carrinho.map((item, index) => (
-                  <li key={index} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', color: '#555', fontSize: '14px', borderBottom: '1px dashed #f0f0f0', paddingBottom: '8px' }}>
+                {carrinho.length > 0 ? carrinho.map((item) => (
+                  <li key={item.produtoId} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', color: '#555', fontSize: '14px', borderBottom: '1px dashed #f0f0f0', paddingBottom: '8px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                       <span>{item.quantidade}x {item.nome}</span>
                       {item.emPromocao && (
